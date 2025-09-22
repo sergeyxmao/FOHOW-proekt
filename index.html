@@ -28,14 +28,18 @@
       <input type="file" id="load-project-input" accept="application/json" style="display:none">
 
     </div>
-
-    <!-- Палитра цвета линий -->
-    <div id="color-palette" class="color-palette">
-        <label for="line-color-picker" class="color-picker-label">Цвет линии</label>
-        <input type="color" id="line-color-picker" value="#3d85c6" title="Выбрать цвет линии">
+	
+	<!-- Фон -->
+    <div id="gradient-selector" class="gradient-selector">
+      <div class="gradient-title">Фон</div>
+      <button class="grad-btn" data-gradient="#ffffff" title="Белый">⬜</button>
+	  <button class="grad-btn" data-gradient="linear-gradient(135deg, #8c8c8c, #c2c2c2)">⬜</button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#f6d365,#fda085)">🌅</button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#a1c4fd,#c2e9fb)">❄️</button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#f093fb,#f5576c)">🌸</button>
     </div>
 
-    <!-- Толщина новой/выбранной линии -->
+        <!-- Толщина новой/выбранной линии -->
     <div class="thickness-slider-container">
       <label for="thickness-slider">Толщина линии: <span id="thickness-value">5</span> px</label>
       <input type="range" id="thickness-slider" class="thickness-slider" min="5" max="15" value="5" step="5"/>
@@ -47,15 +51,13 @@
       <input type="range" id="global-thickness-slider" class="thickness-slider" min="5" max="15" value="5" step="5"/>
     </div>
 
-    <!-- Фон -->
-    <div id="gradient-selector" class="gradient-selector">
-      <div class="gradient-title">Фон</div>
-      <button class="grad-btn" data-gradient="#ffffff" title="Белый">⬜</button>
-	  <button class="grad-btn" data-gradient="linear-gradient(135deg, #8c8c8c, #c2c2c2)">⬜</button>
-      <button class="grad-btn" data-gradient="linear-gradient(135deg,#f6d365,#fda085)">🌅</button>
-      <button class="grad-btn" data-gradient="linear-gradient(135deg,#a1c4fd,#c2e9fb)">❄️</button>
-      <button class="grad-btn" data-gradient="linear-gradient(135deg,#f093fb,#f5576c)">🌸</button>
+<!-- Палитра цвета линий -->
+    <div id="color-palette" class="color-palette">
+        <label for="line-color-picker" class="color-picker-label">Цвет линии</label>
+        <input type="color" id="line-color-picker" value="#3d85c6" title="Выбрать цвет линии">
     </div>
+
+    
   </div>
 
   <div id="canvas">
