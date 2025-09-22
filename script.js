@@ -2,13 +2,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('canvas');
   const svgLayer = document.getElementById('svg-layer');
   const addCardBtn = document.getElementById('add-card-btn');
-  const colorPalette = document.getElementById('color-palette');
+  const addTemplateBtn = document.getElementById('add-template-btn');
+  const lineColorPicker = document.getElementById('line-color-picker');
   const thicknessSlider = document.getElementById('thickness-slider');
   const thicknessValue = document.getElementById('thickness-value');
   const gradientSelector = document.getElementById('gradient-selector');
   const undoBtn = document.getElementById('undo-btn');
   const redoBtn = document.getElementById('redo-btn');
-  const screenshotBtn = document.getElementById('screenshot-btn');
+  const loadProjectBtn = document.getElementById('load-project-btn');
+  const loadProjectInput = document.getElementById('load-project-input');
+
+  // Новые элементы UI
+  const selectionModeBtn = document.getElementById('selection-mode-btn');
+  const globalThicknessSlider = document.getElementById('global-thickness-slider');
+  const globalThicknessValue = document.getElementById('global-thickness-value');
+  const saveProjectBtn = document.getElementById('save-project-btn');
+  const exportHtmlBtn = document.getElementById('export-html-btn');
 
   const GRID_SIZE = 70;
   const MARKER_OFFSET = 12;
@@ -17,49 +26,71 @@ document.addEventListener('DOMContentLoaded', () => {
   let canvasState = { x: 0, y: 0, scale: 1, isPanning: false, lastMouseX: 0, lastMouseY: 0 };
   let activeState = {
     currentColor: '#3d85c6',
-    currentThickness: 3,
+    currentThickness: 5,
     selectedLine: null,
     selectedCards: new Set(),
     isDrawingLine: false,
-    isSelecting: false,
+    isSelecting: false, 
+    isSelectionMode: false,
     lineStart: null,
     previewLine: null
   };
   let cards = [];
   let lines = [];
-  const cardColors = ['#3d85c6', '#6aa84f', '#888888', '#ffd700'];
+  const cardColors = ['#5D8BF4', '#38A3A5', '#E87A5D', '#595959'];
 
-  // История действий
   let undoStack = [];
   let redoStack = [];
-  let clipboard = null; // для Ctrl+C / Ctrl+V
+  let clipboard = null;
 
-  addCardBtn.addEventListener('click', () => { createCard(); saveState(); });
+  if (!canvas || !svgLayer) {
+    console.error('Required containers not found (canvas/svg-layer). Check IDs in HTML.');
+    return;
+  }
+
+  if (addCardBtn) addCardBtn.addEventListener('click', () => { createCard(); saveState(); });
+  if (addTemplateBtn) addTemplateBtn.addEventListener('click', loadTemplate);
+
   setupPalette();
   setupThicknessSlider();
   setupGlobalEventListeners();
   setupGradientSelector();
   setupHistoryButtons();
-  setupScreenshot();
+  setupSelectionMode();
+  setupGlobalThicknessSlider();
+  setupSaveButtons();
 
   // ==== Global listeners ====
   function setupGlobalEventListeners() {
     window.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.ui-panel')) return;
+      if (e.target.closest('.ui-panel') || e.target.closest('.note-window')) return;
 
-      if (e.target === canvas || e.target === svgLayer) {
-        if (activeState.selectedLine) {
-          activeState.selectedLine.element.classList.remove('selected');
-          activeState.selectedLine = null;
-        }
-        if (e.button === 0) startMarqueeSelection(e);
-      }
-      if (e.button === 1) { // middle mouse — panning
+      if (e.button === 1) { 
         e.preventDefault();
         canvasState.isPanning = true;
         canvasState.lastMouseX = e.clientX;
         canvasState.lastMouseY = e.clientY;
         document.body.style.cursor = 'move';
+        return; 
+      }
+
+      if (e.button === 0) {
+        if (e.target.closest('.card')) {
+          if (activeState.selectedLine) {
+            activeState.selectedLine.element.classList.remove('selected');
+            activeState.selectedLine = null;
+          }
+          return;
+        }
+
+        if (activeState.selectedLine) {
+          activeState.selectedLine.element.classList.remove('selected');
+          activeState.selectedLine = null;
+        }
+        
+        if (activeState.isSelectionMode) {
+          startMarqueeSelection(e);
+        }
       }
     });
 
@@ -103,19 +134,71 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: false });
 
     window.addEventListener('keydown', (e) => {
-      // отмена отрисовки линии
-      if (e.key === 'Escape' && activeState.isDrawingLine) cancelDrawing();
+      if (e.target.isContentEditable || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+        
+      if (e.key === 'Escape') {
+        if (activeState.isDrawingLine) cancelDrawing();
+        if (activeState.isSelectionMode) {
+          activeState.isSelectionMode = false;
+          if (selectionModeBtn) selectionModeBtn.classList.remove('active');
+          document.body.style.cursor = 'default';
+        }
+      }
 
-      // Undo / Redo
+      if (e.key === 'Delete') deleteSelection();
+
       if (e.ctrlKey && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') || (e.ctrlKey && e.key.toLowerCase() === 'y')) {
         e.preventDefault(); redo();
       }
 
-      // Copy / Paste
       if (e.ctrlKey && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); }
       if (e.ctrlKey && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteSelection(); }
     });
+  }
+  
+  // ==== Режим выделения ====
+  function setupSelectionMode() {
+    if (!selectionModeBtn) return;
+    selectionModeBtn.addEventListener('click', () => {
+      activeState.isSelectionMode = !activeState.isSelectionMode;
+      selectionModeBtn.classList.toggle('active', activeState.isSelectionMode);
+      document.body.style.cursor = activeState.isSelectionMode ? 'crosshair' : 'default';
+    });
+  }
+
+  // ==== Слайдер общей толщины ====
+  function setupGlobalThicknessSlider() {
+    if (!globalThicknessSlider || !globalThicknessValue) return;
+
+    const updateTrack = (val, slider) => {
+      const min = Number(slider.min || 0);
+      const max = Number(slider.max || 100);
+      const percent = Math.round(((val - min) / (max - min)) * 100);
+      slider.style.background = `linear-gradient(90deg,#42e695 0%, #3bb2b8 ${percent}%, #e0e0e0 ${percent}%)`;
+    };
+
+    globalThicknessValue.textContent = globalThicknessSlider.value;
+    updateTrack(globalThicknessSlider.value, globalThicknessSlider);
+
+    globalThicknessSlider.addEventListener('input', (e) => {
+      const newThickness = Number(e.target.value);
+      globalThicknessValue.textContent = String(newThickness);
+      updateTrack(newThickness, globalThicknessSlider);
+      
+      lines.forEach(line => {
+        line.thickness = newThickness;
+        line.element.setAttribute('stroke-width', newThickness);
+      });
+
+      if (activeState.selectedLine) activeState.selectedLine.thickness = newThickness;
+      activeState.currentThickness = newThickness;
+      if (thicknessSlider) thicknessSlider.value = newThickness;
+      if (thicknessValue) thicknessValue.textContent = newThickness;
+      if (thicknessSlider) updateTrack(newThickness, thicknessSlider);
+    });
+
+    globalThicknessSlider.addEventListener('change', saveState);
   }
 
   function updateCanvasTransform() {
@@ -128,14 +211,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = document.createElement('div');
     card.className = 'card'; card.id = cardId;
 
-    const initialX = opts.x != null
-      ? opts.x
-      : (window.innerWidth / 2 - 140) / canvasState.scale - (canvasState.x / canvasState.scale);
-    const initialY = opts.y != null
-      ? opts.y
-      : (window.innerHeight / 2 - 150) / canvasState.scale - (canvasState.y / canvasState.scale);
-    card.style.left = `${Math.round(initialX / GRID_SIZE) * GRID_SIZE}px`;
-    card.style.top  = `${Math.round(initialY / GRID_SIZE) * GRID_SIZE}px`;
+    if (opts.isDarkMode) card.classList.add('dark-mode');
+    
+    const CARD_WIDTH = 380;
+    const CARD_HEIGHT = 280;
+    const PADDING = 50;
+
+    let initialX, initialY;
+
+    if (opts.x != null) {
+      initialX = opts.x;
+      initialY = opts.y;
+    } else {
+      const canvasViewLeft = -canvasState.x / canvasState.scale;
+      const canvasViewTop = -canvasState.y / canvasState.scale;
+      const canvasViewRight = (window.innerWidth - canvasState.x) / canvasState.scale;
+      const canvasViewBottom = (window.innerHeight - canvasState.y) / canvasState.scale;
+      
+      const desiredX = canvasViewRight - CARD_WIDTH - PADDING;
+      const desiredY = canvasViewBottom - CARD_HEIGHT - PADDING;
+
+      initialX = Math.max(canvasViewLeft + PADDING, desiredX);
+      initialY = Math.max(canvasViewTop + PADDING, desiredY);
+    }
+    
+    if (opts.isTemplate) {
+      card.style.left = `${initialX}px`;
+      card.style.top  = `${initialY}px`;
+    } else {
+      card.style.left = `${Math.round(initialX / GRID_SIZE) * GRID_SIZE}px`;
+      card.style.top  = `${Math.round(initialY / GRID_SIZE) * GRID_SIZE}px`;
+    }
 
     const titleText = opts.title ?? 'RUY1234567890';
     const bodyHTML = opts.bodyHTML ?? `
@@ -145,34 +251,37 @@ document.addEventListener('DOMContentLoaded', () => {
           </svg>
           <span class="value" contenteditable="true">330/330pv</span>
         </div>
-        <div class="card-row"><span class="label">Статус VIP:</span><span class="value" contenteditable="true">НЕТ</span></div>
-        <div class="card-row"><span class="label">Лево/Право</span></div>
-        <div class="card-row"><span class="label">Баланс:</span><span class="value" contenteditable="true">1 / 1</span></div>
+        <div class="card-row"><span class="label">Баланс:</span><span class="value" contenteditable="true">0 / 0</span></div>
         <div class="card-row"><span class="label">Актив-заказы PV:</span><span class="value" contenteditable="true">0 / 0</span></div>
         <div class="card-row"><span class="label">Цикл:</span><span class="value" contenteditable="true">0</span></div>
     `;
 
     card.innerHTML = `
       <div class="card-header" style="${opts.headerBg ? `background:${opts.headerBg}` : ''}">
-        <span class="lock-btn" title="Заблокировать / Разблокировать">🔓</span>
+        <span class="lock-btn" title="Заблокировать">🔓</span>
+        <button class="header-color-picker-btn" title="Выбрать цвет заголовка"></button>
         <span class="card-title" contenteditable="true">${titleText}</span>
         <span class="close-btn" title="Удалить">×</span>
       </div>
-      <div class="card-body">${bodyHTML}</div>
+      <div class="card-body ${opts.bodyClass || ''}">${bodyHTML}</div>
       <div class="connection-point top" data-side="top"></div>
       <div class="connection-point right" data-side="right"></div>
       <div class="connection-point bottom" data-side="bottom"></div>
       <div class="connection-point left" data-side="left"></div>
-      <div class="color-changer" data-color-index="${opts.colorIndex ?? 0}"></div>
+      
+      <button class="card-control-btn body-color-changer" title="Сменить фон">🖌️</button>
+      <div class="card-controls">
+        <button class="card-control-btn note-btn" title="Заметка">📝</button>
+        <div class="card-control-btn color-changer" data-color-index="${opts.colorIndex ?? 0}"></div>
+      </div>
     `;
 
     canvas.appendChild(card);
-    const cardData = { id: cardId, element: card, locked: !!opts.locked };
+    const cardData = { id: cardId, element: card, locked: !!opts.locked, note: opts.note || null };
     if (cardData.locked) card.classList.add('locked');
 
     cards.push(cardData);
 
-    // click/close/drag
     card.addEventListener('mousedown', (e) => {
       if (e.ctrlKey) { e.stopPropagation(); toggleCardSelection(cardData); }
     });
@@ -181,7 +290,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     makeDraggable(card, cardData);
 
-    // lock toggle
     const lockBtn = card.querySelector('.lock-btn');
     lockBtn.textContent = cardData.locked ? '🔒' : '🔓';
     lockBtn.addEventListener('click', (e) => {
@@ -194,8 +302,28 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       saveState();
     });
+    
+    const headerColorBtn = card.querySelector('.header-color-picker-btn');
+    const header = card.querySelector('.card-header');
 
-    // coin click
+    headerColorBtn.style.background = getComputedStyle(header).background;
+
+    const hiddenColorInput = document.createElement('input');
+    hiddenColorInput.type = 'color';
+    hiddenColorInput.style.display = 'none';
+    card.appendChild(hiddenColorInput);
+    
+    headerColorBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hiddenColorInput.click();
+    });
+    hiddenColorInput.addEventListener('input', (e) => {
+      const newColor = e.target.value;
+      header.style.background = newColor;
+      headerColorBtn.style.background = newColor;
+      saveState();
+    });
+
     const coin = card.querySelector('.coin-icon circle');
     if (coin) {
       coin.addEventListener('click', () => {
@@ -204,12 +332,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // color changer — меняем background заголовка
     const colorChanger = card.querySelector('.color-changer');
     const setHeaderColorByIndex = (idx) => {
       const newColor = cardColors[idx % cardColors.length];
       colorChanger.style.backgroundColor = newColor;
-      card.querySelector('.card-header').style.background = newColor;
+      header.style.background = newColor;
     };
     const startIndex = parseInt(colorChanger.dataset.colorIndex || '0', 10);
     setHeaderColorByIndex(startIndex);
@@ -220,13 +347,30 @@ document.addEventListener('DOMContentLoaded', () => {
       setHeaderColorByIndex(nextIndex);
       saveState();
     });
+    
+    const bodyColorChanger = card.querySelector('.body-color-changer');
+    bodyColorChanger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      card.classList.toggle('dark-mode');
+      saveState();
+    });
+    const noteBtn = card.querySelector('.note-btn');
+    if (cardData.note && cardData.note.text) {
+      noteBtn.classList.add('has-text');
+      noteBtn.textContent = '❗';
+    }
+    noteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleNote(cardData);
+    });
+    if (cardData.note && cardData.note.visible) {
+      createNoteWindow(cardData);
+    }
 
-    // content changes -> history (по blur, чтобы не спамить)
     card.querySelectorAll('[contenteditable="true"]').forEach(el => {
       el.addEventListener('blur', () => saveState());
     });
 
-    // connection points
     card.querySelectorAll('.connection-point').forEach(point => {
       point.addEventListener('mousedown', (e) => {
         e.stopPropagation();
@@ -242,12 +386,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return cardData;
   }
-
+  
   // ==== Dragging ====
   function makeDraggable(element, cardData) {
     const header = element.querySelector('.card-header');
     header.addEventListener('mousedown', (e) => {
-      if (e.button !== 0 || e.ctrlKey) return;
+      if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
       if (cardData.locked) return;
       e.stopPropagation();
 
@@ -260,6 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
       activeState.selectedCards.forEach(selectedCard => {
         if (selectedCard.locked) return;
         draggedCards.push({
+          card: selectedCard,
           element: selectedCard.element,
           startX: parseFloat(selectedCard.element.style.left),
           startY: parseFloat(selectedCard.element.style.top)
@@ -275,11 +420,22 @@ document.addEventListener('DOMContentLoaded', () => {
         draggedCards.forEach(dragged => {
           const newX = dragged.startX + dx;
           const newY = dragged.startY + dy;
+          
           const snappedX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
           const snappedY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
           dragged.element.style.left = `${snappedX}px`;
           dragged.element.style.top = `${snappedY}px`;
+
           updateLinesForCard(dragged.element.id);
+
+          if (dragged.card.note && dragged.card.note.window) {
+            const noteDx = (snappedX - dragged.startX);
+            const noteDy = (snappedY - dragged.startY);
+            dragged.card.note.x += noteDx;
+            dragged.card.note.y += noteDy;
+            dragged.card.note.window.style.left = `${dragged.card.note.x}px`;
+            dragged.card.note.window.style.top = `${dragged.card.note.y}px`;
+          }
         });
       }
 
@@ -304,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeState.previewLine.setAttribute('stroke-width', activeState.currentThickness);
     activeState.previewLine.style.setProperty('--line-color', activeState.currentColor);
     activeState.previewLine.setAttribute('marker-start', 'url(#marker-dot)');
-    activeState.previewLine.setAttribute('marker-end', 'url(#marker-dot)'); // кружок в конце
+    activeState.previewLine.setAttribute('marker-end', 'url(#marker-dot)'); 
     svgLayer.appendChild(activeState.previewLine);
   }
 
@@ -321,6 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
       endCard: card,
       endSide: side,
       color: activeState.currentColor,
+      thickness: activeState.currentThickness,
       element: lineElement
     };
     lines.push(lineData);
@@ -339,7 +496,6 @@ document.addEventListener('DOMContentLoaded', () => {
     activeState.previewLine = null;
   }
 
-  // маршрутизация линии
   function updateLinePath(pathElement, p1, p2, side1, side2) {
     let finalP2 = { ...p2 };
     let midP1 = { ...p1 };
@@ -356,50 +512,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ==== Slider ====
   function setupThicknessSlider() {
-    const updateTrack = (val) => {
-      const min = Number(thicknessSlider.min);
-      const max = Number(thicknessSlider.max);
+    if (!thicknessSlider || !thicknessValue) return;
+
+    const updateTrack = (val, slider) => {
+      const min = Number(slider.min || 0);
+      const max = Number(slider.max || 100);
       const percent = Math.round(((val - min) / (max - min)) * 100);
-      thicknessSlider.style.background = `linear-gradient(90deg,#42e695 0%, #3bb2b8 ${percent}%, #e0e0e0 ${percent}%)`;
+      slider.style.background = `linear-gradient(90deg,#42e695 0%, #3bb2b8 ${percent}%, #e0e0e0 ${percent}%)`;
     };
 
     thicknessValue.textContent = thicknessSlider.value;
-    updateTrack(thicknessSlider.value);
+    updateTrack(thicknessSlider.value, thicknessSlider);
 
     thicknessSlider.addEventListener('input', (e) => {
       const newThickness = Number(e.target.value);
       activeState.currentThickness = newThickness;
       thicknessValue.textContent = String(newThickness);
-      updateTrack(newThickness);
+      updateTrack(newThickness, thicknessSlider);
 
-      lines.forEach(line => line.element.setAttribute('stroke-width', newThickness));
-      if (activeState.previewLine) {
-        activeState.previewLine.setAttribute('stroke-width', newThickness);
+      if (activeState.selectedLine) {
+        activeState.selectedLine.thickness = newThickness;
+        activeState.selectedLine.element.setAttribute('stroke-width', newThickness);
+        saveState();
       }
-      saveState();
     });
   }
 
   // ==== Palette ====
   function setupPalette() {
-    colorPalette.querySelectorAll('.color-option').forEach(option => {
-      option.addEventListener('click', () => {
-        const prev = colorPalette.querySelector('.active');
-        if (prev) prev.classList.remove('active');
-        option.classList.add('active');
-        activeState.currentColor = option.dataset.color;
-        if (activeState.selectedLine) {
-          activeState.selectedLine.color = activeState.currentColor;
-          activeState.selectedLine.element.setAttribute('stroke', activeState.currentColor);
-          activeState.selectedLine.element.style.setProperty('--line-color', activeState.currentColor);
-          saveState();
-        }
-      });
+    if (!lineColorPicker) return;
+    lineColorPicker.addEventListener('input', (e) => {
+      activeState.currentColor = e.target.value;
+      if (activeState.selectedLine) {
+        activeState.selectedLine.color = activeState.currentColor;
+        activeState.selectedLine.element.setAttribute('stroke', activeState.currentColor);
+        activeState.selectedLine.element.style.setProperty('--line-color', activeState.currentColor);
+        saveState();
+      }
     });
   }
 
   // ==== Gradient background ====
   function setupGradientSelector() {
+    if (!gradientSelector) return;
     gradientSelector.querySelectorAll('.grad-btn').forEach(btn => {
       if (btn.dataset.gradient && btn.dataset.gradient !== '#ffffff') {
         btn.style.background = btn.dataset.gradient;
@@ -408,10 +563,133 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.style.border = '1px solid #ddd';
       }
       btn.addEventListener('click', () => {
-        const g = btn.dataset.gradient;
-        if (g === '#ffffff') document.body.style.background = '#ffffff';
-        else document.body.style.background = g;
+        document.body.style.background = btn.dataset.gradient;
       });
+    });
+  }
+
+  // ==== Notes ====
+  function toggleNote(cardData) {
+    if (cardData.note && cardData.note.window) {
+      cardData.note.window.remove();
+      cardData.note.window = null;
+      cardData.note.visible = false;
+    } else {
+      if (!cardData.note) {
+        const cardRect = cardData.element.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        cardData.note = {
+          text: '',
+          x: (cardRect.right - canvasRect.left) / canvasState.scale + 20,
+          y: (cardRect.top - canvasRect.top) / canvasState.scale,
+          width: 220,
+          height: 150,
+          visible: false,
+          window: null
+        };
+      }
+      cardData.note.visible = true;
+      createNoteWindow(cardData);
+    }
+    saveState();
+  }
+
+  function createNoteWindow(cardData) {
+    const note = cardData.note;
+    const noteWindow = document.createElement('div');
+    noteWindow.className = 'note-window';
+    noteWindow.style.left = `${note.x}px`;
+    noteWindow.style.top = `${note.y}px`;
+    noteWindow.style.width = `${note.width}px`;
+    noteWindow.style.height = `${note.height}px`;
+
+    noteWindow.innerHTML = `
+        <div class="note-header">
+            <span class="note-close-btn">×</span>
+        </div>
+        <textarea class="note-textarea" placeholder="Введите текст..."></textarea>
+        <div class="note-resize-handle"></div>
+    `;
+    canvas.appendChild(noteWindow);
+    note.window = noteWindow;
+
+    const textarea = noteWindow.querySelector('.note-textarea');
+    textarea.value = note.text;
+    const noteBtn = cardData.element.querySelector('.note-btn');
+
+    textarea.addEventListener('input', () => {
+      note.text = textarea.value;
+      if (note.text) {
+        noteBtn.classList.add('has-text');
+        noteBtn.textContent = '❗';
+      } else {
+        noteBtn.classList.remove('has-text');
+        noteBtn.textContent = '📝';
+      }
+    });
+    textarea.addEventListener('blur', saveState);
+
+    noteWindow.querySelector('.note-close-btn').addEventListener('click', () => {
+      note.visible = false;
+      noteWindow.remove();
+      note.window = null;
+      saveState();
+    });
+
+    makeMovable(noteWindow, note);
+    makeResizable(noteWindow, note);
+    return noteWindow;
+  }
+  
+  function makeMovable(element, data) {
+    const header = element.querySelector('.note-header');
+    header.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      
+      function onMove(e2) {
+        const dx = (e2.clientX - startX) / canvasState.scale;
+        const dy = (e2.clientY - startY) / canvasState.scale;
+        data.x += dx;
+        data.y += dy;
+        element.style.left = `${data.x}px`;
+        element.style.top = `${data.y}px`;
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        saveState();
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  function makeResizable(element, data) {
+    const handle = element.querySelector('.note-resize-handle');
+    handle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = data.width;
+      const startH = data.height;
+
+      function onMove(e2) {
+        const dw = (e2.clientX - startX) / canvasState.scale;
+        const dh = (e2.clientY - startY) / canvasState.scale;
+        data.width = Math.max(150, startW + dw);
+        data.height = Math.max(100, startH + dh);
+        element.style.width = `${data.width}px`;
+        element.style.height = `${data.height}px`;
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        saveState();
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
     });
   }
 
@@ -423,9 +701,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return true;
     });
+    if (cardData.note && cardData.note.window) cardData.note.window.remove();
     cardData.element.remove();
     cards = cards.filter(c => c.id !== cardData.id);
     activeState.selectedCards.delete(cardData);
+  }
+
+  function deleteLine(lineData) {
+    lineData.element.remove();
+    lines = lines.filter(l => l.id !== lineData.id);
+    if (activeState.selectedLine && activeState.selectedLine.id === lineData.id) {
+      activeState.selectedLine = null;
+    }
+  }
+
+  function deleteSelection() {
+    let changed = false;
+    if (activeState.selectedCards.size > 0) {
+      activeState.selectedCards.forEach(cardData => deleteCard(cardData));
+      changed = true;
+    }
+    if (activeState.selectedLine) {
+      deleteLine(activeState.selectedLine);
+      changed = true;
+    }
+    if (changed) saveState();
   }
 
   function updateLinesForCard(cardId) {
@@ -456,8 +756,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function selectLine(lineData) {
     if (activeState.selectedLine) activeState.selectedLine.element.classList.remove('selected');
+    clearSelection();
     activeState.selectedLine = lineData;
     lineData.element.classList.add('selected');
+    if (lineColorPicker) lineColorPicker.value = lineData.color;
+    if (thicknessSlider) thicknessSlider.value = lineData.thickness;
+    if (thicknessValue) thicknessValue.textContent = lineData.thickness;
   }
 
   function toggleCardSelection(cardData) {
@@ -465,16 +769,18 @@ document.addEventListener('DOMContentLoaded', () => {
       activeState.selectedCards.delete(cardData);
       cardData.element.classList.remove('selected');
     } else {
+      if (activeState.selectedLine) {
+        activeState.selectedLine.element.classList.remove('selected');
+        activeState.selectedLine = null;
+      }
       activeState.selectedCards.add(cardData);
       cardData.element.classList.add('selected');
     }
   }
 
   function setSelectionSet(newSet) {
-    // снимаем выделение со всех
     activeState.selectedCards.forEach(card => card.element.classList.remove('selected'));
     activeState.selectedCards.clear();
-    // ставим новое
     newSet.forEach(cd => {
       activeState.selectedCards.add(cd);
       cd.element.classList.add('selected');
@@ -486,10 +792,10 @@ document.addEventListener('DOMContentLoaded', () => {
     activeState.selectedCards.clear();
   }
 
-  // ==== Marquee selection (исправлено) ====
+  // ==== Marquee selection ====
   let selectionBox = null;
   let marqueeStart = { x: 0, y: 0 };
-  let baseSelection = null; // для добавления при Ctrl
+  let baseSelection = null; 
 
   function startMarqueeSelection(e) {
     if (!e.ctrlKey) clearSelection();
@@ -506,6 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectionBox.style.top = `${marqueeStart.y}px`;
     selectionBox.style.width = '0px';
     selectionBox.style.height = '0px';
+    selectionBox.style.display = 'block';
   }
 
   function updateMarqueeSelection(e) {
@@ -533,6 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function endMarqueeSelection() {
     activeState.isSelecting = false;
     if (selectionBox) {
+      selectionBox.style.display = 'none';
       selectionBox.style.width = '0px';
       selectionBox.style.height = '0px';
     }
@@ -544,11 +852,120 @@ document.addEventListener('DOMContentLoaded', () => {
       y: (clientY - canvasState.y) / canvasState.scale
     };
   }
+  
+  // ==== Загрузка шаблона ====
+  function loadTemplate() {
+    const templateCards = [
+      { key: 'lena', x: 1050, y: -140, title: 'ЛЕНА', pv: '330/330pv', coinFill: '#ffd700' },
+      { key: 'a', x: 630, y: 210, title: 'A', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'b', x: 1470, y: 210, title: 'B', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'c', x: 420, y: 560, title: 'C', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'd', x: 840, y: 560, title: 'D', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'e', x: 1260, y: 560, title: 'E', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'f', x: 1680, y: 560, title: 'F', pv: '30/30pv', coinFill: '#3d85c6' },
+    ];
+
+    const templateLines = [
+      { startKey: 'lena', startSide: 'left', endKey: 'a', endSide: 'top', thickness: 5 },
+      { startKey: 'lena', startSide: 'right', endKey: 'b', endSide: 'top', thickness: 5 },
+      { startKey: 'a', startSide: 'left', endKey: 'c', endSide: 'top', thickness: 3 },
+      { startKey: 'a', startSide: 'right', endKey: 'd', endSide: 'top', thickness: 3 },
+      { startKey: 'b', startSide: 'left', endKey: 'e', endSide: 'top', thickness: 3 },
+      { startKey: 'b', startSide: 'right', endKey: 'f', endSide: 'top', thickness: 3 },
+    ];
+      
+    const CARD_WIDTH = 380;
+    const CARD_HEIGHT = 280;
+    const PADDING = 50;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    templateCards.forEach(c => {
+      minX = Math.min(minX, c.x);
+      minY = Math.min(minY, c.y);
+      maxX = Math.max(maxX, c.x + CARD_WIDTH);
+      maxY = Math.max(maxY, c.y + CARD_HEIGHT);
+    });
+    const templateWidth = maxX - minX;
+    const templateHeight = maxY - minY;
+
+    const canvasViewLeft = -canvasState.x / canvasState.scale;
+    const canvasViewTop = -canvasState.y / canvasState.scale;
+    const canvasViewRight = (window.innerWidth - canvasState.x) / canvasState.scale;
+    const canvasViewBottom = (window.innerHeight - canvasState.y) / canvasState.scale;
+
+    const desiredTargetX = canvasViewRight - templateWidth - PADDING;
+    const desiredTargetY = canvasViewBottom - templateHeight - PADDING;
+
+    const targetX = Math.max(canvasViewLeft + PADDING, desiredTargetX);
+    const targetY = Math.max(canvasViewTop + PADDING, desiredTargetY);
+
+    const offsetX = targetX - minX;
+    const offsetY = targetY - minY;
+
+    const createdCardsMap = new Map();
+
+    templateCards.forEach(cardDef => {
+      const bodyHTML = `
+        <div class="card-row">
+          <svg class="coin-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="45" fill="${cardDef.coinFill}" stroke="#DAA520" stroke-width="5"/>
+          </svg>
+          <span class="value" contenteditable="true">${cardDef.pv}</span>
+        </div>
+        <div class="card-row"><span class="label">Баланс:</span><span class="value" contenteditable="true">0 / 0</span></div>
+        <div class="card-row"><span class="label">Актив-заказы PV:</span><span class="value" contenteditable="true">0 / 0</span></div>
+        <div class="card-row"><span class="label">Цикл:</span><span class="value" contenteditable="true">0</span></div>
+      `;
+      const cardData = createCard({
+        x: cardDef.x + offsetX,
+        y: cardDef.y + offsetY,
+        title: cardDef.title,
+        bodyHTML: bodyHTML,
+        headerBg: 'rgb(93, 139, 244)',
+        colorIndex: 0,
+        isTemplate: true
+      });
+      createdCardsMap.set(cardDef.key, cardData);
+    });
+
+    templateLines.forEach(lineDef => {
+      const startCard = createdCardsMap.get(lineDef.startKey);
+      const endCard = createdCardsMap.get(lineDef.endKey);
+      if (!startCard || !endCard) return;
+
+      const lineElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      lineElement.setAttribute('class', 'line');
+      const color = '#3d85c6';
+      const thickness = lineDef.thickness;
+      lineElement.setAttribute('stroke', color);
+      lineElement.setAttribute('stroke-width', thickness);
+      lineElement.style.setProperty('--line-color', color);
+      lineElement.setAttribute('marker-start', 'url(#marker-dot)');
+      lineElement.setAttribute('marker-end', 'url(#marker-dot)');
+      svgLayer.appendChild(lineElement);
+
+      const lineData = {
+        id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        startCard: startCard,
+        startSide: lineDef.startSide,
+        endCard: endCard,
+        endSide: lineDef.endSide,
+        color: color,
+        thickness: thickness,
+        element: lineElement
+      };
+      lines.push(lineData);
+      lineElement.addEventListener('click', (e) => { e.stopPropagation(); selectLine(lineData); });
+    });
+
+    updateAllLines();
+    saveState();
+  }
 
   // ==== История (Undo/Redo) ====
   function setupHistoryButtons() {
-    undoBtn.addEventListener('click', undo);
-    redoBtn.addEventListener('click', redo);
+    if (undoBtn) undoBtn.addEventListener('click', undo);
+    if (redoBtn) redoBtn.addEventListener('click', redo);
   }
 
   function serializeState() {
@@ -560,42 +977,47 @@ document.addEventListener('DOMContentLoaded', () => {
         locked: c.locked,
         title: c.element.querySelector('.card-title')?.innerText ?? '',
         bodyHTML: c.element.querySelector('.card-body')?.innerHTML ?? '',
+        isDarkMode: c.element.classList.contains('dark-mode'),
+        bodyClass: c.element.querySelector('.card-body')?.className.replace('card-body', '').trim() ?? '',
         headerBg: c.element.querySelector('.card-header')?.style.background ?? '',
-        colorIndex: parseInt(c.element.querySelector('.color-changer')?.dataset.colorIndex || '0', 10)
+        colorIndex: parseInt(c.element.querySelector('.color-changer')?.dataset.colorIndex || '0', 10),
+        note: c.note ? { ...c.note, window: null } : null
       })),
       lines: lines.map(l => ({
         startId: l.startCard.id,
         startSide: l.startSide,
         endId: l.endCard.id,
         endSide: l.endSide,
-        color: l.color
-      })),
-      thickness: activeState.currentThickness
+        color: l.color,
+        thickness: l.thickness
+      }))
     };
   }
 
   function loadState(state, pushHistory = false) {
-    // очистка
     lines.forEach(l => l.element.remove());
     lines = [];
-    cards.forEach(c => c.element.remove());
+    cards.forEach(c => {
+      if (c.note && c.note.window) c.note.window.remove();
+      c.element.remove();
+    });
     cards = [];
     activeState.selectedCards.clear();
     activeState.selectedLine = null;
 
-    // восстановление карточек
-    const idMap = new Map(); // oldId -> newCardData
+    const idMap = new Map();
     state.cards.forEach(cd => {
       const cardData = createCard({
         x: cd.x, y: cd.y, locked: cd.locked,
         title: cd.title, bodyHTML: cd.bodyHTML,
-        headerBg: cd.headerBg, colorIndex: cd.colorIndex
+        headerBg: cd.headerBg, colorIndex: cd.colorIndex,
+        bodyClass: cd.bodyClass, note: cd.note,
+        isDarkMode: cd.isDarkMode,
+        isTemplate: true
       });
-      // сохранить оригинальный id для ссылок линий
       idMap.set(cd.id, cardData);
     });
 
-    // восстановление линий
     state.lines.forEach(ld => {
       const startCard = idMap.get(ld.startId);
       const endCard = idMap.get(ld.endId);
@@ -603,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('class', 'line');
       path.setAttribute('stroke', ld.color);
-      path.setAttribute('stroke-width', state.thickness ?? activeState.currentThickness);
+      path.setAttribute('stroke-width', ld.thickness);
       path.style.setProperty('--line-color', ld.color);
       path.setAttribute('marker-start', 'url(#marker-dot)');
       path.setAttribute('marker-end', 'url(#marker-dot)');
@@ -613,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
         id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
         startCard, startSide: ld.startSide,
         endCard,   endSide: ld.endSide,
-        color: ld.color, element: path
+        color: ld.color, thickness: ld.thickness, element: path
       };
       lines.push(lineData);
       path.addEventListener('click', (e) => { e.stopPropagation(); selectLine(lineData); });
@@ -622,26 +1044,19 @@ document.addEventListener('DOMContentLoaded', () => {
       updateLinePath(path, p1, p2, ld.startSide, ld.endSide);
     });
 
-    // толщина
-    if (state.thickness != null) {
-      activeState.currentThickness = state.thickness;
-      thicknessSlider.value = state.thickness;
-      thicknessValue.textContent = String(state.thickness);
-      lines.forEach(l => l.element.setAttribute('stroke-width', state.thickness));
-    }
-
     if (pushHistory) saveState();
   }
 
   function saveState() {
     const snapshot = serializeState();
+    if (undoStack.length === 0 && cards.length === 0 && lines.length === 0) return;
     undoStack.push(JSON.stringify(snapshot));
     if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
     redoStack = [];
   }
 
-    function undo() {
-    if (undoStack.length < 2) return; // текущий + нечего откатывать
+  function undo() {
+    if (undoStack.length < 2) return;
     const current = undoStack.pop();
     redoStack.push(current);
     const prev = JSON.parse(undoStack[undoStack.length - 1]);
@@ -651,9 +1066,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function redo() {
     if (redoStack.length === 0) return;
     const snapshot = redoStack.pop();
-    // Текущий в undo
-    const current = JSON.stringify(serializeState());
-    undoStack.push(current);
+    undoStack.push(snapshot);
     loadState(JSON.parse(snapshot), false);
   }
 
@@ -664,31 +1077,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const copiedCards = [];
     activeState.selectedCards.forEach(cd => {
-      copiedCards.push({
-        id: cd.id,
-        x: parseFloat(cd.element.style.left),
-        y: parseFloat(cd.element.style.top),
-        locked: cd.locked,
-        title: cd.element.querySelector('.card-title')?.innerText ?? '',
-        bodyHTML: cd.element.querySelector('.card-body')?.innerHTML ?? '',
-        headerBg: cd.element.querySelector('.card-header')?.style.background ?? '',
-        colorIndex: parseInt(cd.element.querySelector('.color-changer')?.dataset.colorIndex || '0', 10),
-      });
+      const state = serializeState().cards.find(c => c.id === cd.id);
+      if (state) copiedCards.push(state);
     });
 
     const copiedLines = [];
     lines.forEach(l => {
       if (selectedIds.has(l.startCard.id) && selectedIds.has(l.endCard.id)) {
         copiedLines.push({
-          startId: l.startCard.id,
-          startSide: l.startSide,
-          endId: l.endCard.id,
-          endSide: l.endSide,
-          color: l.color
+          startId: l.startCard.id, startSide: l.startSide,
+          endId: l.endCard.id, endSide: l.endSide,
+          color: l.color, thickness: l.thickness
         });
       }
     });
-
     clipboard = { cards: copiedCards, lines: copiedLines };
   }
 
@@ -696,238 +1098,222 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!clipboard || !clipboard.cards || clipboard.cards.length === 0) return;
 
     const OFFSET = 40;
-    const idMap = new Map(); // oldId -> newCardData
+    const idMap = new Map();
     const newSelection = new Set();
-
-    // создаём карточки со смещением
+    
     clipboard.cards.forEach(cd => {
       const newCard = createCard({
+        ...cd,
         x: cd.x + OFFSET,
         y: cd.y + OFFSET,
-        locked: cd.locked,
-        title: cd.title,
-        bodyHTML: cd.bodyHTML,
-        headerBg: cd.headerBg,
-        colorIndex: cd.colorIndex
+        note: cd.note ? { ...cd.note, x: cd.note.x + OFFSET, y: cd.note.y + OFFSET, visible: false } : null,
       });
       idMap.set(cd.id, newCard);
       newSelection.add(newCard);
     });
-
-    // выделяем вставленную группу для дальнейшего перемещения
     setSelectionSet(newSelection);
 
-    // ИСПРАВЛЕНИЕ: Даем браузеру время на рендеринг перед созданием линий
     setTimeout(() => {
-        // создаём линии между новыми карточками
-        clipboard.lines.forEach(ld => {
-            const startCard = idMap.get(ld.startId);
-            const endCard = idMap.get(ld.endId);
-            if (!startCard || !endCard) return;
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('class', 'line');
-            path.setAttribute('stroke', ld.color);
-            path.setAttribute('stroke-width', activeState.currentThickness);
-            path.style.setProperty('--line-color', ld.color);
-            path.setAttribute('marker-start', 'url(#marker-dot)');
-            path.setAttribute('marker-end', 'url(#marker-dot)');
-            svgLayer.appendChild(path);
+      clipboard.lines.forEach(ld => {
+        const startCard = idMap.get(ld.startId);
+        const endCard = idMap.get(ld.endId);
+        if (!startCard || !endCard) return;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('class', 'line');
+        path.setAttribute('stroke', ld.color);
+        path.setAttribute('stroke-width', ld.thickness);
+        path.style.setProperty('--line-color', ld.color);
+        path.setAttribute('marker-start', 'url(#marker-dot)');
+        path.setAttribute('marker-end', 'url(#marker-dot)');
+        svgLayer.appendChild(path);
 
-            const lineData = {
-                id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
-                startCard, startSide: ld.startSide,
-                endCard,   endSide: ld.endSide,
-                color: ld.color, element: path
-            };
-            lines.push(lineData);
-            path.addEventListener('click', (e) => { e.stopPropagation(); selectLine(lineData); });
-            const p1 = getPointCoords(startCard, ld.startSide);
-            const p2 = getPointCoords(endCard, ld.endSide);
-            updateLinePath(path, p1, p2, ld.startSide, ld.endSide);
-        });
-        
-        // Сохраняем состояние ПОСЛЕ того, как линии были добавлены
-        saveState();
+        const lineData = {
+          id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+          startCard, startSide: ld.startSide,
+          endCard,   endSide: ld.endSide,
+          color: ld.color, thickness: ld.thickness, element: path
+        };
+        lines.push(lineData);
+        path.addEventListener('click', (e) => { e.stopPropagation(); selectLine(lineData); });
+        const p1 = getPointCoords(startCard, ld.startSide);
+        const p2 = getPointCoords(endCard, ld.endSide);
+        updateLinePath(path, p1, p2, ld.startSide, ld.endSide);
+      });
+      saveState();
     }, 0);
   }
-
-  // ==== Скриншот всей схемы (включая невидимое) ====
-  function setupScreenshot() {
-    screenshotBtn.addEventListener('click', async () => {
-      try {
-        const bbox = computeFullBoundingBox();
-        if (!bbox) return;
-
-        const { minX, minY, maxX, maxY } = bbox;
-        const padding = 40;
-        const width = Math.ceil(maxX - minX + padding * 2);
-        const height = Math.ceil(maxY - minY + padding * 2);
-
-        // Клонируем canvas и убираем лишнее (точки соединения, кнопки, ховеры)
-        const clone = canvas.cloneNode(true);
-        // Скрыть элементы, которые не нужны на скриншоте
-        clone.querySelectorAll('.connection-point, .color-changer, .close-btn, .lock-btn').forEach(el => el.remove());
-
-        // Сдвигаем контент так, чтобы минимальная точка оказалась в (padding, padding)
-        clone.style.transform = `translate(${-minX + padding}px, ${-minY + padding}px) scale(1)`;
-        clone.style.transformOrigin = '0 0';
-        clone.style.width = `${width}px`;
-        clone.style.height = `${height}px`;
-
-        // ИСПРАВЛЕНИЕ: Динамически собираем все стили со страницы для полной точности
-        const styles = Array.from(document.styleSheets)
-          .map(sheet => {
-              try {
-                  return Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
-              } catch (e) {
-                  // Игнорируем ошибки для внешних стилей (CORS)
-                  console.warn('Could not read stylesheet rules:', e);
-                  return '';
-              }
-          })
-          .join(' ');
-        const embeddedCSS = `<style>${styles}</style>`;
-
-        // Создаём новый внешней SVG со foreignObject
-        const svgNS = 'http://www.w3.org/2000/svg';
-        const xhtmlNS = 'http://www.w3.org/1999/xhtml';
-
-        const bigSvg = document.createElementNS(svgNS, 'svg');
-        bigSvg.setAttribute('xmlns', svgNS);
-        bigSvg.setAttribute('width', String(width));
-        bigSvg.setAttribute('height', String(height));
-        bigSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-
-        // Фон (пытаемся угадать фоновый цвет)
-        const bodyBg = getComputedStyle(document.body).backgroundImage === 'none'
-          ? getComputedStyle(document.body).backgroundColor || '#ffffff'
-          : '#ffffff'; // если градиент — ставим белый фон
-        const bgRect = document.createElementNS(svgNS, 'rect');
-        bgRect.setAttribute('x', '0'); bgRect.setAttribute('y', '0');
-        bgRect.setAttribute('width', String(width)); bgRect.setAttribute('height', String(height));
-        bgRect.setAttribute('fill', bodyBg || '#ffffff');
-        bigSvg.appendChild(bgRect);
-
-        // Пересобираем <defs> с маркером-кружком для линий
-        const defs = document.createElementNS(svgNS, 'defs');
-        const marker = document.createElementNS(svgNS, 'marker');
-        marker.setAttribute('id', 'marker-dot');
-        marker.setAttribute('viewBox', '0 0 10 10');
-        marker.setAttribute('refX', '5');
-        marker.setAttribute('refY', '5');
-        marker.setAttribute('markerWidth', '6');
-        marker.setAttribute('markerHeight', '6');
-        const dot = document.createElementNS(svgNS, 'circle');
-        dot.setAttribute('cx', '5'); dot.setAttribute('cy', '5'); dot.setAttribute('r', '4');
-        dot.setAttribute('fill', 'currentColor');
-        marker.appendChild(dot);
-        defs.appendChild(marker);
-        bigSvg.appendChild(defs);
-
-        // foreignObject с HTML-контентом
-        const fo = document.createElementNS(svgNS, 'foreignObject');
-        fo.setAttribute('x', '0'); fo.setAttribute('y', '0');
-        fo.setAttribute('width', String(width)); fo.setAttribute('height', String(height));
-
-        const wrapper = document.createElementNS(xhtmlNS, 'div');
-        wrapper.setAttribute('xmlns', xhtmlNS);
-        wrapper.style.fontFamily = getComputedStyle(document.body).fontFamily; // Наследуем шрифт
-        wrapper.style.width = `${width}px`;
-        wrapper.style.height = `${height}px`;
-        wrapper.innerHTML = embeddedCSS + clone.outerHTML;
-
-        fo.appendChild(wrapper);
-        bigSvg.appendChild(fo);
-
-        // ВАЖНО: переместим svg линии наружу (поверх) и сдвинем их, чтобы совпали координаты
-        // Берём оригинальные path и копируем с учетом смещения и текущей толщины/цвета
-        const overlaySVG = document.createElementNS(svgNS, 'g');
-        lines.forEach(l => {
-          const src = l.element;
-          const path = document.createElementNS(svgNS, 'path');
-          path.setAttribute('class', 'line');
-          path.setAttribute('d', translatePathD(src.getAttribute('d'), -minX + padding, -minY + padding));
-          path.setAttribute('stroke', src.getAttribute('stroke') || l.color || '#000');
-          path.setAttribute('stroke-width', src.getAttribute('stroke-width') || String(activeState.currentThickness));
-          path.setAttribute('fill', 'none');
-          path.setAttribute('marker-start', 'url(#marker-dot)');
-          path.setAttribute('marker-end', 'url(#marker-dot)');
-          overlaySVG.appendChild(path);
-        });
-        bigSvg.appendChild(overlaySVG);
-
-        // Сериализуем в PNG
-        const svgData = new XMLSerializer().serializeToString(bigSvg);
-        const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+  
+  // ==== Сохранение и Экспорт ====
+  function setupSaveButtons() {
+    if (saveProjectBtn) {
+      saveProjectBtn.addEventListener('click', () => {
+        const data = serializeState();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `project-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
 
-        const img = new Image();
-        img.onload = () => {
-          const canvasEl = document.createElement('canvas');
-          canvasEl.width = width;
-          canvasEl.height = height;
-          const ctx = canvasEl.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          canvasEl.toBlob((pngBlob) => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(pngBlob);
-            a.download = `board-screenshot-${Date.now()}.png`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-          });
-        };
-        img.src = url;
-      } catch (err) {
-        console.error('Screenshot error:', err);
-      }
-    });
+    // Загрузка JSON
+    if (loadProjectBtn && loadProjectInput) {
+      loadProjectBtn.addEventListener('click', () => loadProjectInput.click());
+      loadProjectInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const state = JSON.parse(text);
+          loadState(state, true);
+        } catch (err) {
+          console.error('Не удалось загрузить JSON:', err);
+          alert('Файл повреждён или имеет неверный формат JSON.');
+        } finally {
+          loadProjectInput.value = '';
+        }
+      });
+    }
+
+    // Экспорт HTML с fallback
+if (exportHtmlBtn) {
+  exportHtmlBtn.addEventListener('click', () => {
+    const bodyStyle = getComputedStyle(document.body);
+
+    const viewOnlyScript = `
+      <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('canvas');
+        let isPanning=false,lastMouseX=0,lastMouseY=0;
+        let x=${canvasState.x},y=${canvasState.y},scale=${canvasState.scale};
+        function updateTransform(){canvas.style.transform=\`translate(\${x}px,\${y}px) scale(\${scale})\`;}
+        window.addEventListener('mousedown',e=>{if(e.button===1){isPanning=true;lastMouseX=e.clientX;lastMouseY=e.clientY;document.body.style.cursor='move';}});
+        window.addEventListener('mousemove',e=>{if(isPanning){const dx=e.clientX-lastMouseX,dy=e.clientY-lastMouseY;x+=dx;y+=dy;lastMouseX=e.clientX;lastMouseY=e.clientY;updateTransform();}});
+        window.addEventListener('mouseup',e=>{if(e.button===1){isPanning=false;document.body.style.cursor='default';}});
+        window.addEventListener('wheel',e=>{e.preventDefault();const s=-e.deltaY*0.001;const ns=Math.max(0.1,Math.min(5,scale+s));const mx=e.clientX,my=e.clientY;x=mx-(mx-x)*(ns/scale);y=my-(my-y)*(ns/scale);scale=ns;updateTransform();},{passive:false});
+        updateTransform();
+      });
+      <\/script>
+    `;
+
+    const canvasClone = canvas.cloneNode(true);
+
+    // 1) НЕ удаляем элементы шапки/низов, иначе ломается сетка.
+    // Удаляем только элементы окна заметок:
+    // удаляем ТОЛЬКО элементы окна заметок
+canvasClone.querySelectorAll('.note-resize-handle, .note-close-btn').forEach(el => el.remove());
+
+// отключаем клики у UI-элементов (чтобы сохранить верстку, но сделать «только просмотр»)
+canvasClone
+  .querySelectorAll('[contenteditable], .card-controls, .close-btn, .lock-btn, .header-color-picker-btn, .body-color-changer, .connection-point')
+  .forEach(el => {
+    if (el.hasAttribute('contenteditable')) el.setAttribute('contenteditable','false');
+    el.style.pointerEvents = 'none';
+  });
+
+
+    // 2) Отключаем взаимодействие с UI-элементами в просмотре:
+    canvasClone.querySelectorAll('[contenteditable]').forEach(el => el.setAttribute('contenteditable','false'));
+    canvasClone
+      .querySelectorAll('.card-controls, .close-btn, .lock-btn, .header-color-picker-btn, .body-color-changer, .connection-point')
+      .forEach(el => { el.style.pointerEvents = 'none'; });
+
+    const buildAndDownload = (cssText) => {
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="ru">
+        <head>
+          <meta charset="UTF-8">
+          <title>Просмотр Схемы</title>
+          <style>
+            ${cssText}
+            body{overflow:hidden}
+            .card:hover{transform:none;box-shadow:0 8px 20px rgba(0,0,0,.15)}
+            .card.selected{box-shadow:0 8px 20px rgba(0,0,0,.15)}
+          </style>
+        </head>
+        <body style="background:${bodyStyle.background};">
+          ${canvasClone.outerHTML}
+          ${viewOnlyScript}
+        </body>
+        </html>`;
+      const blob = new Blob([htmlContent], {type:'text/html'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `scheme-${Date.now()}.html`; a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Пробуем подтянуть реальный style.css. Если не вышло (file://) — включаем fallback.
+    fetch('style.css')
+      .then(r => r.ok ? r.text() : Promise.reject())
+      .then(cssText => buildAndDownload(cssText))
+      .catch(() => {
+        const minimalCss = `
+  /* База */
+  html,body{margin:0;height:100%}
+  body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}
+  #canvas{position:relative;width:100%;height:100%;transform-origin:0 0}
+  #svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}
+
+  /* Линии */
+  .line{fill:none;pointer-events:auto;cursor:pointer;color:var(--line-color,#3d85c6);
+        stroke:currentColor;stroke-linecap:round}
+
+  /* Карточка */
+  .card{position:absolute;width:380px;background:#fff;border-radius:20px;
+        box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}
+  .card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;
+               display:grid;grid-template-columns:28px 28px 1fr 28px 28px;
+               align-items:center;gap:6px;border-radius:20px 20px 0 0}
+  .card-title{
+    grid-column:3/4;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  }
+  .card-body{padding:14px 16px;background:#fff;border-radius:0 0 20px 20px}
+
+  /* Ряды */
+  .card-row{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .label{color:#6b7280;font-weight:600;margin-right:6px}
+  .value{color:#111827;display:inline-flex;align-items:center;line-height:1.2}
+
+  /* Монетка (можешь уменьшить до 72px при желании) */
+  .coin-icon{width:80px;height:80px;flex:0 0 auto;display:block}
+  .coin-icon circle{vector-effect:non-scaling-stroke}
+
+  /* Кнопки — вид сохраняем, клики отключили выше */
+  .header-color-picker-btn{width:20px;height:20px;border:none;border-radius:6px;
+                           box-shadow:inset 0 0 0 2px rgba(255,255,255,.65)}
+  .lock-btn,.close-btn{font-size:16px;line-height:1;text-align:center}
+  .card-controls{position:absolute;right:10px;bottom:10px;display:flex;gap:8px}
+  .card-control-btn{width:26px;height:26px;border-radius:10px;border:none;
+                    box-shadow:0 2px 6px rgba(0,0,0,.15);display:inline-flex;
+                    align-items:center;justify-content:center}
+
+  /* Точки соединения — «как в приложении», меньше и с белой обводкой */
+  .connection-point{
+    position:absolute;width:12px;height:12px;          /* было 16px */
+    background:#000;border-radius:50%;
+    border:2px solid #fff;                             /* было 3px */
+    transform:translate(-50%,-50%);
+    box-shadow:0 2px 6px rgba(0,0,0,.25)
+  }
+  .connection-point.top{left:50%;top:0}
+  .connection-point.bottom{left:50%;top:100%}
+  .connection-point.left{left:0;top:50%}
+  .connection-point.right{left:100%;top:50%}
+`;
+
+
+        buildAndDownload(minimalCss);
+      });
+  });
+}
+
   }
 
-  // Вспомогательная: смещение path d на dx,dy (работает для простых M/L абсолютных путей)
-  function translatePathD(d, dx, dy) {
-    if (!d) return '';
-    // Простейший парсер для "M x y L x y L x y"
-    return d.replace(/([ML])\s*([\-0-9.]+)\s*([\-0-9.]+)/gi, (m, cmd, x, y) => {
-      const nx = parseFloat(x) + dx;
-      const ny = parseFloat(y) + dy;
-      return `${cmd} ${nx} ${ny}`;
-    });
-  }
-
-  // Границы всей схемы
-  function computeFullBoundingBox() {
-    if (cards.length === 0 && lines.length === 0) return null;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    // карточки
-    cards.forEach(c => {
-      const el = c.element;
-      const left = parseFloat(el.style.left);
-      const top = parseFloat(el.style.top);
-      const w = el.offsetWidth;
-      const h = el.offsetHeight;
-      minX = Math.min(minX, left);
-      minY = Math.min(minY, top);
-      maxX = Math.max(maxX, left + w);
-      maxY = Math.max(maxY, top + h);
-    });
-
-    // линии
-    lines.forEach(l => {
-      const bb = l.element.getBBox();
-      minX = Math.min(minX, bb.x);
-      minY = Math.min(minY, bb.y);
-      maxX = Math.max(maxX, bb.x + bb.width);
-      maxY = Math.max(maxY, bb.y + bb.height);
-    });
-
-    return { minX, minY, maxX, maxY };
-  }
-
-  // ===== Инициируем стартовое состояние =====
-  if (cards.length === 0) {
-    createCard({ x: 0, y: 0, title: 'RUY1234567890' });
-    saveState();
-  }
+  saveState();
 });
