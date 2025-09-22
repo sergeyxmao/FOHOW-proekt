@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target.closest('.ui-panel')) return;
       e.preventDefault();
       const scaleAmount = -e.deltaY * 0.001;
-      const newScale = Math.max(0.2, Math.min(3, canvasState.scale + scaleAmount));
+      const newScale = Math.max(0.1, Math.min(3, canvasState.scale + scaleAmount));
       const mouseX = e.clientX;
       const mouseY = e.clientY;
       canvasState.x = mouseX - (mouseX - canvasState.x) * (newScale / canvasState.scale);
