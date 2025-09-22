@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Интерактивная доска</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="ui-panel">
+    <div class="row">
+      <button id="add-card-btn" class="add-btn" title="Добавить карточку">+</button>
+      <button id="undo-btn" class="ui-btn" title="Отменить (Ctrl+Z)">↶</button>
+      <button id="redo-btn" class="ui-btn" title="Повторить (Ctrl+Shift+Z)">↷</button>
+      <button id="screenshot-btn" class="ui-btn" title="Скриншот всей схемы">📸</button>
+    </div>
+
+    <!-- Палитра цвета линий -->
+    <div id="color-palette" class="color-palette">
+      <div class="color-option active" data-color="#3d85c6">
+        <div class="color-circle" style="background-color:#3d85c6;"></div>
+        <span class="color-label" contenteditable="true">Синий</span>
+      </div>
+      <div class="color-option" data-color="#6aa84f">
+        <div class="color-circle" style="background-color:#6aa84f;"></div>
+        <span class="color-label" contenteditable="true">Зелёный</span>
+      </div>
+      <div class="color-option" data-color="#888888">
+        <div class="color-circle" style="background-color:#888;"></div>
+        <span class="color-label" contenteditable="true">Серый</span>
+      </div>
+      <div class="color-option" data-color="#ffd700">
+        <div class="color-circle" style="background-color:#ffd700;"></div>
+        <span class="color-label" contenteditable="true">Жёлтый</span>
+      </div>
+    </div>
+
+    <!-- Толщина линии -->
+    <div class="thickness-slider-container">
+      <label for="thickness-slider">Толщина: <span id="thickness-value">3</span> px</label>
+      <input type="range" id="thickness-slider" class="thickness-slider" min="3" max="30" value="3" step="1"/>
+    </div>
+
+    <!-- Фон -->
+    <div id="gradient-selector" class="gradient-selector">
+      <div class="gradient-title">Фон</div>
+      <button class="grad-btn" data-gradient="#ffffff" title="Белый">⬜</button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#f6d365,#fda085)">🌅</button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#a1c4fd,#c2e9fb)">❄️</button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#f093fb,#f5576c)">🌸</button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#84fab0,#8fd3f4)">🌿</button>
+    </div>
+  </div>
+
+  <div id="canvas">
+    <svg id="svg-layer">
+      <defs>
+        <!-- Кружок для начала и конца линии -->
+        <marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
+          <circle cx="5" cy="5" r="4" fill="currentColor"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
