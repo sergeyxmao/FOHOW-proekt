@@ -5,20 +5,22 @@
   <meta name="viewport" content="width=1024">
   <title>Интерактивная доска</title>
 
-  <!-- При необходимости оставьте ваш auth.js -->
   <script src="auth.js"></script>
-
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-  <!-- Панель слева -->
+  <!-- Левая панель -->
   <div class="ui-panel-left">
     <button id="selection-mode-btn" class="ui-btn" title="Режим выделения (Esc)">⬚</button>
     <button id="undo-btn" class="ui-btn" title="Отменить (Ctrl+Z)">↶</button>
     <button id="redo-btn" class="ui-btn" title="Повторить (Ctrl+Shift+Z)">↷</button>
+
     <button id="save-project-btn" class="ui-btn" title="Сохранить проект (JSON)">💾</button>
     <button id="export-html-btn" class="ui-btn" title="Экспорт в HTML (просмотр)">📄</button>
     <button id="load-project-btn" class="ui-btn" title="Загрузить проект из JSON">📂</button>
+
+    <!-- Новая кнопка "Заметки" -->
+    <button id="notes-list-btn" class="ui-btn" title="Список заметок" disabled>🗒️</button>
 
     <a id="help-btn" class="ui-btn" title="Открыть инструкцию (DOCX)"
        href="Описание.docx" download="Инструкция по проекту.docx">📘</a>
@@ -26,7 +28,7 @@
     <input type="file" id="load-project-input" accept=".json,application/json" style="display:none">
   </div>
 
-  <!-- Панель справа -->
+  <!-- Правая панель -->
   <div class="ui-panel-right">
     <div id="gradient-selector" class="gradient-selector">
       <div class="gradient-title">Фон</div>
@@ -54,7 +56,7 @@
 
     <div class="row">
       <button id="add-card-btn" class="add-btn" title="Добавить карточку">+</button>
-      <button id="add-template-btn" class="ui-btn" title="Добавить шаблон">▶</button>
+      <button id="add-template-btn" class="add-btn add-btn--triangle" title="Добавить шаблон">▶</button>
     </div>
   </div>
 
