@@ -54,34 +54,41 @@ html,body{
 }
 .add-btn:hover{ transform:translateY(-1px); box-shadow:0 10px 22px rgba(0,0,0,.14); border-color:#cfe0ff; }
 .add-btn--triangle{ color:#111; font-size:24px; }
+.add-btn--large{ font-size: 32px; font-weight: 500; line-height: 1; padding-bottom: 4px; }
 
-/* Палитра линий */
-.color-palette{
-  display:flex; flex-direction:column; gap:8px;
-  background:#fff; padding:12px; border-radius:12px; box-shadow: var(--shadow); align-items:center;
+/* Обновленная панель управления линиями */
+.line-controls-panel{
+  display:flex; gap:12px; align-items:center;
+  background:#fff; padding:10px 14px; border-radius:12px; box-shadow: var(--shadow);
+  min-width:240px;
 }
-.color-picker-label{ font-size:13px; font-weight:700; color:#374151; }
-#line-color-picker{
-  appearance:none; width:52px; height:32px; background:transparent; border:none; cursor:pointer;
+.line-color-trigger{
+  width:28px; height:28px; border-radius:50%;
+  border:2px solid #9ca3af; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,.1);
+  transition: transform .15s;
 }
-#line-color-picker::-webkit-color-swatch{ border-radius:8px; border:1px solid #cbd5e1; }
-#line-color-picker::-moz-color-swatch{ border-radius:8px; border:1px solid #cbd5e1; }
+.line-color-trigger:hover{ transform: scale(1.1); }
+.line-controls-col{ text-align:center; }
+.line-controls-col label{ font-size:13px; font-weight:700; margin-bottom:8px; display:block; color:#374151; }
+.apply-all-btn{
+  width:32px; height:32px; padding:0; border-radius:8px;
+  background:#fff; border:1px solid #d1d5db; color: #6b7280;
+  cursor:pointer; display:grid; place-items:center; transition: .2s;
+}
+.apply-all-btn:hover{ border-color: #9ca3af; background: #f9fafb; }
+.apply-all-btn.active{ background: #eaf1ff; border-color: #0f62fe; color: #0f62fe; }
 
 /* Слайдеры */
-.thickness-slider-container{
-  background:#fff; padding:12px; border-radius:12px; box-shadow: var(--shadow); text-align:center; min-width:150px;
-}
-.thickness-slider-container label{ font-size:13px; font-weight:700; margin-bottom:8px; display:block; color:#374151; }
 .thickness-slider{
-  appearance:none; width:130px; height:8px; border-radius:999px;
-  background:linear-gradient(90deg,#a8c5ff 0%, #0f62fe 0%, #e5e7eb 0%); outline:none;
+  appearance:none; width:120px; height:8px; border-radius:999px;
+  background:linear-gradient(90deg, var(--brand) 0%, var(--brand) 0%, #e5e7eb 0%); outline:none;
 }
 .thickness-slider::-webkit-slider-thumb{
-  appearance:none; width:20px; height:20px; border-radius:50%; background:#0f62fe;
+  appearance:none; width:20px; height:20px; border-radius:50%; background:var(--brand);
   box-shadow:0 3px 8px rgba(0,0,0,.2); cursor:pointer; transition:transform .15s;
 }
 .thickness-slider::-webkit-slider-thumb:hover{ transform:scale(1.1); }
-#thickness-value, #global-thickness-value{ font-variant-numeric: tabular-nums; }
+#thickness-value{ font-variant-numeric: tabular-nums; }
 
 /* Фон */
 .gradient-selector{
@@ -186,7 +193,7 @@ html,body{
 
 /* Окно заметки */
 .note-window{
-  position:absolute; width:260px; height:260px; /* было 210px */
+  position:absolute; width:260px; height:260px;
   background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow: var(--shadow);
   z-index:1500; display:flex; flex-direction:column; resize:both; overflow:auto;
 }
@@ -202,15 +209,22 @@ html,body{
 /* Выпадающий список заметок */
 .notes-dropdown{
   position:fixed; z-index:3000; display:none; max-height:320px; overflow:auto;
-  min-width:260px; max-width:360px; padding:6px;
+  min-width:280px; max-width:380px; padding:6px;
   background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow: var(--shadow);
 }
-.note-item{ display:flex; gap:10px; padding:8px; border-radius:10px; cursor:pointer; align-items:flex-start; }
+.note-item{ display:flex; gap:10px; padding:8px; border-radius:10px; align-items:flex-start; justify-content: space-between; }
 .note-item:hover{ background:#f3f4f6; }
-.note-dot{ width:10px; height:10px; border-radius:50%; border:2px solid #111; margin-top:6px; }
+.note-item-content { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; flex-grow: 1; }
+.note-dot{ width:10px; height:10px; border-radius:50%; border:2px solid #111; margin-top:6px; flex-shrink: 0; }
 .note-meta{ display:flex; flex-direction:column; gap:2px; }
 .note-date{ font-weight:700; }
-.note-text-preview{ font-size:13px; color:var(--muted); }
+.note-text-preview{ font-size:13px; color:var(--muted); word-break: break-word; }
+.note-delete-btn{
+  font-size: 20px; color: #9ca3af; cursor: pointer; padding: 0 4px; border-radius: 50%;
+  transition: color .2s, background-color .2s; flex-shrink: 0; align-self: center;
+}
+.note-delete-btn:hover{ color: #ef4444; background-color: #fee2e2; }
+
 
 /* Прямоугольник выделения */
 .selection-box{

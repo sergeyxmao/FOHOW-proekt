@@ -2,23 +2,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('canvas');
   const svgLayer = document.getElementById('svg-layer');
   const addCardBtn = document.getElementById('add-card-btn');
+  const addLargeCardBtn = document.getElementById('add-large-card-btn');
   const addTemplateBtn = document.getElementById('add-template-btn');
-  const lineColorPicker = document.getElementById('line-color-picker');
-  const thicknessSlider = document.getElementById('thickness-slider');
-  const thicknessValue = document.getElementById('thickness-value');
   const gradientSelector = document.getElementById('gradient-selector');
   const undoBtn = document.getElementById('undo-btn');
   const redoBtn = document.getElementById('redo-btn');
   const loadProjectBtn = document.getElementById('load-project-btn');
   const loadProjectInput = document.getElementById('load-project-input');
-
-  // Новые элементы
   const selectionModeBtn = document.getElementById('selection-mode-btn');
-  const globalThicknessSlider = document.getElementById('global-thickness-slider');
-  const globalThicknessValue = document.getElementById('global-thickness-value');
   const saveProjectBtn = document.getElementById('save-project-btn');
   const exportHtmlBtn = document.getElementById('export-html-btn');
   const notesListBtn = document.getElementById('notes-list-btn');
+
+  // Новые элементы управления линиями
+  const thicknessSlider = document.getElementById('thickness-slider');
+  const thicknessValue = document.getElementById('thickness-value');
+  const lineColorTrigger = document.getElementById('line-color-trigger');
+  const hiddenLineColorPicker = document.getElementById('hidden-line-color-picker');
+  const applyAllToggle = document.getElementById('apply-all-toggle');
 
   const GRID_SIZE = 70;
   const MARKER_OFFSET = 12;
@@ -26,13 +27,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let canvasState = { x: 0, y: 0, scale: 1, isPanning: false, lastMouseX: 0, lastMouseY: 0 };
   let activeState = {
-    currentColor: '#3d85c6',
+    currentColor: '#0f62fe',
     currentThickness: 5,
     selectedLine: null,
     selectedCards: new Set(),
     isDrawingLine: false,
     isSelecting: false,
     isSelectionMode: false,
+    isGlobalLineMode: false, // Новый флаг для применения ко всем линиям
     lineStart: null,
     previewLine: null
   };
@@ -47,15 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!canvas || !svgLayer) return;
 
   if (addCardBtn) addCardBtn.addEventListener('click', () => { createCard(); saveState(); });
+  if (addLargeCardBtn) addLargeCardBtn.addEventListener('click', () => { createCard({ isLarge: true }); saveState(); });
   if (addTemplateBtn) addTemplateBtn.addEventListener('click', loadTemplate);
 
-  setupPalette();
-  setupThicknessSlider();
+  setupLineControls();
   setupGlobalEventListeners();
   setupGradientSelector();
   setupHistoryButtons();
   setupSelectionMode();
-  setupGlobalThicknessSlider();
   setupSaveButtons();
   setupNotesDropdown();
   setupNoteAutoClose();
@@ -202,28 +203,72 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function setupGlobalThicknessSlider() {
-    if (!globalThicknessSlider || !globalThicknessValue) return;
-    const updateTrack = (val, slider) => {
-      const min = Number(slider.min || 0), max = Number(slider.max || 100);
-      const percent = Math.round(((val - min) / (max - min)) * 100);
-      slider.style.background = `linear-gradient(90deg,#42e695 0%, #3bb2b8 ${percent}%, #e0e0e0 ${percent}%)`;
+  /* ===== Новая объединенная функция управления линиями ===== */
+  function setupLineControls() {
+    if (!thicknessSlider || !lineColorTrigger || !hiddenLineColorPicker || !applyAllToggle) return;
+    
+    // Инициализация
+    lineColorTrigger.style.backgroundColor = activeState.currentColor;
+    hiddenLineColorPicker.value = activeState.currentColor;
+    thicknessValue.textContent = activeState.currentThickness;
+    thicknessSlider.value = activeState.currentThickness;
+
+    const updateSliderTrack = (val) => {
+        const min = Number(thicknessSlider.min), max = Number(thicknessSlider.max);
+        const percent = Math.round(((val - min) / (max - min)) * 100);
+        thicknessSlider.style.background = `linear-gradient(90deg, ${activeState.currentColor} 0%, ${activeState.currentColor} ${percent}%, #e5e7eb ${percent}%)`;
+        thicknessSlider.style.setProperty('--brand', activeState.currentColor);
     };
-    globalThicknessValue.textContent = globalThicknessSlider.value;
-    updateTrack(globalThicknessSlider.value, globalThicknessSlider);
-    globalThicknessSlider.addEventListener('input', (e) => {
-      const newThickness = Number(e.target.value);
-      globalThicknessValue.textContent = String(newThickness);
-      updateTrack(newThickness, globalThicknessSlider);
-      lines.forEach(line => { line.thickness = newThickness; line.element.setAttribute('stroke-width', newThickness); });
-      if (activeState.selectedLine) activeState.selectedLine.thickness = newThickness;
-      activeState.currentThickness = newThickness;
-      if (thicknessSlider) thicknessSlider.value = newThickness;
-      if (thicknessValue) thicknessValue.textContent = newThickness;
-      if (thicknessSlider) updateTrack(newThickness, thicknessSlider);
+    updateSliderTrack(activeState.currentThickness);
+
+    // Слушатель переключателя "Применить ко всем"
+    applyAllToggle.addEventListener('click', () => {
+      activeState.isGlobalLineMode = !activeState.isGlobalLineMode;
+      applyAllToggle.classList.toggle('active', activeState.isGlobalLineMode);
     });
-    globalThicknessSlider.addEventListener('change', saveState);
+
+    // Слушатели цвета
+    lineColorTrigger.addEventListener('click', () => hiddenLineColorPicker.click());
+    hiddenLineColorPicker.addEventListener('input', (e) => {
+      const newColor = e.target.value;
+      activeState.currentColor = newColor;
+      lineColorTrigger.style.backgroundColor = newColor;
+      updateSliderTrack(thicknessSlider.value);
+
+      if (activeState.isGlobalLineMode) {
+        lines.forEach(line => {
+          line.color = newColor;
+          line.element.setAttribute('stroke', newColor);
+          line.element.style.setProperty('--line-color', newColor);
+        });
+      } else if (activeState.selectedLine) {
+        activeState.selectedLine.color = newColor;
+        activeState.selectedLine.element.setAttribute('stroke', newColor);
+        activeState.selectedLine.element.style.setProperty('--line-color', newColor);
+      }
+      saveState();
+    });
+
+    // Слушатели толщины
+    thicknessSlider.addEventListener('input', (e) => {
+      const newThickness = Number(e.target.value);
+      activeState.currentThickness = newThickness;
+      thicknessValue.textContent = newThickness;
+      updateSliderTrack(newThickness);
+
+      if (activeState.isGlobalLineMode) {
+        lines.forEach(line => {
+          line.thickness = newThickness;
+          line.element.setAttribute('stroke-width', newThickness);
+        });
+      } else if (activeState.selectedLine) {
+        activeState.selectedLine.thickness = newThickness;
+        activeState.selectedLine.element.setAttribute('stroke-width', newThickness);
+      }
+    });
+    thicknessSlider.addEventListener('change', saveState);
   }
+
 
   function updateCanvasTransform() {
     canvas.style.transform = `translate(${canvasState.x}px, ${canvasState.y}px) scale(${canvasState.scale})`;
@@ -236,7 +281,14 @@ document.addEventListener('DOMContentLoaded', () => {
     card.className = 'card'; card.id = cardId;
     if (opts.isDarkMode) card.classList.add('dark-mode');
 
-    const CARD_WIDTH = 380, CARD_HEIGHT = 280, PADDING = 50;
+    // Поддержка большой карточки и загрузки кастомной ширины
+    if (opts.isLarge) {
+        card.style.width = '475px'; // 380 * 1.25
+    } else if (opts.width) {
+        card.style.width = opts.width;
+    }
+
+    const CARD_WIDTH = card.offsetWidth || 380, CARD_HEIGHT = 280, PADDING = 50;
     let initialX, initialY;
 
     if (opts.x != null) { initialX = opts.x; initialY = opts.y; }
@@ -460,43 +512,6 @@ document.addEventListener('DOMContentLoaded', () => {
     pathElement.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${finalP2.x} ${finalP2.y}`);
   }
 
-  /* ===== Слайдер толщины (локальный) ===== */
-  function setupThicknessSlider() {
-    if (!thicknessSlider || !thicknessValue) return;
-    const updateTrack = (val, slider) => {
-      const min = Number(slider.min || 0), max = Number(slider.max || 100);
-      const percent = Math.round(((val - min) / (max - min)) * 100);
-      slider.style.background = `linear-gradient(90deg,#42e695 0%, #3bb2b8 ${percent}%, #e0e0e0 ${percent}%)`;
-    };
-    thicknessValue.textContent = thicknessSlider.value;
-    updateTrack(thicknessSlider.value, thicknessSlider);
-    thicknessSlider.addEventListener('input', (e) => {
-      const newThickness = Number(e.target.value);
-      activeState.currentThickness = newThickness;
-      thicknessValue.textContent = String(newThickness);
-      updateTrack(newThickness, thicknessSlider);
-      if (activeState.selectedLine) {
-        activeState.selectedLine.thickness = newThickness;
-        activeState.selectedLine.element.setAttribute('stroke-width', newThickness);
-        saveState();
-      }
-    });
-  }
-
-  /* ===== Палитра цвета линии ===== */
-  function setupPalette() {
-    if (!lineColorPicker) return;
-    lineColorPicker.addEventListener('input', (e) => {
-      activeState.currentColor = e.target.value;
-      if (activeState.selectedLine) {
-        activeState.selectedLine.color = activeState.currentColor;
-        activeState.selectedLine.element.setAttribute('stroke', activeState.currentColor);
-        activeState.selectedLine.element.style.setProperty('--line-color', activeState.currentColor);
-        saveState();
-      }
-    });
-  }
-
   /* ===== Фоны ===== */
   function setupGradientSelector() {
     if (!gradientSelector) return;
@@ -542,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
           x: (cardRect.right - canvasRect.left) / canvasState.scale + 20,
           y: (cardRect.top - canvasRect.top) / canvasState.scale,
           width: 260,
-          height: 260,   // выше, чтобы 5 строк поместились
+          height: 260,
           visible: false,
           window: null
         };
@@ -753,7 +768,6 @@ document.addEventListener('DOMContentLoaded', () => {
           items.push({ card: cd, date, color, firstLine });
         });
       });
-      // сортировка по дате (новые сверху)
       items.sort((a,b) => a.date > b.date ? -1 : 1);
 
       if (items.length === 0) {
@@ -761,37 +775,51 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      dropdown.innerHTML = items.map((it, idx) => `
+      dropdown.innerHTML = items.map(it => `
         <div class="note-item" data-card="${it.card.id}" data-date="${it.date}">
-          <div class="note-dot" style="background:${it.color}"></div>
-          <div class="note-meta">
-            <div class="note-date">${it.date.split('-').reverse().join('.')}</div>
-            <div class="note-text-preview">${escapeHtml(it.firstLine).slice(0,80)}</div>
+          <div class="note-item-content">
+            <div class="note-dot" style="background:${it.color}"></div>
+            <div class="note-meta">
+              <div class="note-date">${it.date.split('-').reverse().join('.')}</div>
+              <div class="note-text-preview">${escapeHtml(it.firstLine).slice(0,80)}</div>
+            </div>
           </div>
+          <div class="note-delete-btn" title="Удалить заметку">×</div>
         </div>
       `).join('');
 
       dropdown.querySelectorAll('.note-item').forEach(el => {
-        el.addEventListener('click', () => {
-          const cardId = el.getAttribute('data-card');
-          const dateStr = el.getAttribute('data-date');
-          const cardData = cards.find(c => c.id === cardId);
+        el.querySelector('.note-item-content').addEventListener('click', () => {
+          const cardData = cards.find(c => c.id === el.dataset.card);
           if (!cardData || !cardData.note) return;
-
-          // открыть окно возле карточки на нужной дате
           const cardRect = cardData.element.getBoundingClientRect();
           const canvasRect = canvas.getBoundingClientRect();
           const note = cardData.note;
           ensureNoteStructure(note);
-          note.selectedDate = dateStr;
+          note.selectedDate = el.dataset.date;
           note.x = (cardRect.right - canvasRect.left) / canvasState.scale + 20;
           note.y = (cardRect.top - canvasRect.top) / canvasState.scale;
-
           if (note.window) { note.window.remove(); note.window = null; }
           note.visible = true;
           createNoteWindow(cardData);
           saveState();
           hide();
+        });
+
+        el.querySelector('.note-delete-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const cardData = cards.find(c => c.id === el.dataset.card);
+            if (cardData && cardData.note && cardData.note.entries[el.dataset.date]) {
+                delete cardData.note.entries[el.dataset.date];
+                const noteBtn = cardData.element.querySelector('.note-btn');
+                if (!hasAnyEntry(cardData.note)) {
+                    noteBtn.classList.remove('has-text');
+                    noteBtn.textContent = '📝';
+                }
+                saveState();
+                buildList();
+                updateNotesButtonState();
+            }
         });
       });
     }
@@ -809,8 +837,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     notesListBtn.addEventListener('click', () => {
       if (notesListBtn.disabled) return;
-      const visible = dropdown.style.display === 'block';
-      if (visible) hide(); else show();
+      if (dropdown.style.display === 'block') hide(); else show();
     });
 
     document.addEventListener('mousedown', (e) => {
@@ -823,8 +850,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateNotesButtonState() {
     if (!notesListBtn) return;
-    const hasAnyNote = cards.some(c => !!c.note);
-    notesListBtn.disabled = !hasAnyNote;
+    const hasAnyNoteWithText = cards.some(c => c.note && hasAnyEntry(c.note));
+    notesListBtn.disabled = !hasAnyNoteWithText;
   }
 
   /* ===== Выделение/утилиты ===== */
@@ -881,9 +908,15 @@ document.addEventListener('DOMContentLoaded', () => {
     clearSelection();
     activeState.selectedLine = lineData;
     lineData.element.classList.add('selected');
-    if (lineColorPicker) lineColorPicker.value = lineData.color;
-    if (thicknessSlider) thicknessSlider.value = lineData.thickness;
-    if (thicknessValue) thicknessValue.textContent = lineData.thickness;
+
+    // Обновляем UI панели управления
+    thicknessSlider.value = lineData.thickness;
+    thicknessValue.textContent = lineData.thickness;
+    hiddenLineColorPicker.value = lineData.color;
+    lineColorTrigger.style.backgroundColor = lineData.color;
+    activeState.currentThickness = lineData.thickness;
+    activeState.currentColor = lineData.color;
+    setupLineControls();
   }
 
   function toggleCardSelection(cardData) {
@@ -1046,6 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
         id: c.id,
         x: parseFloat(c.element.style.left),
         y: parseFloat(c.element.style.top),
+        width: c.element.style.width || null, // Сохраняем ширину
         locked: c.locked,
         title: c.element.querySelector('.card-title')?.innerText ?? '',
         bodyHTML: c.element.querySelector('.card-body')?.innerHTML ?? '',
@@ -1076,6 +1110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.cards.forEach(cd => {
       const cardData = createCard({
         x: cd.x, y: cd.y, locked: cd.locked,
+        width: cd.width, // Загружаем ширину
         title: cd.title, bodyHTML: cd.bodyHTML,
         headerBg: cd.headerBg, colorIndex: cd.colorIndex,
         bodyClass: cd.bodyClass, note: cd.note, isDarkMode: cd.isDarkMode,
@@ -1223,180 +1258,58 @@ document.addEventListener('DOMContentLoaded', () => {
     // Загрузка JSON
     if (loadProjectBtn && loadProjectInput) {
       loadProjectBtn.addEventListener('click', () => loadProjectInput.click());
-loadProjectInput.addEventListener('change', async (e) => {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
+      loadProjectInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
 
-  try {
-    const text = await file.text();
-
-    // 1) Явно отсекём HTML-файлы
-    const isHtml = /^\s*<!doctype html|<html[\s>]/i.test(text);
-    if (isHtml) throw new Error('html-file');
-
-    // 2) Парсим JSON
-    const state = JSON.parse(text);
-
-    // 3) Простая валидация структуры
-    const ok =
-      state && typeof state === 'object' &&
-      Array.isArray(state.cards) && Array.isArray(state.lines);
-
-    if (!ok) throw new Error('bad-structure');
-
-    loadState(state, true);
-  } catch (err) {
-    console.error('Не удалось загрузить проект:', err);
-    if (String(err.message) === 'html-file') {
-      alert('Вы выбрали HTML-файл из «Экспорт HTML». Для продолжения выберите JSON, сохранённый кнопкой «💾 Сохранить проект».');
-    } else if (String(err.message) === 'bad-structure') {
-      alert('Файл прочитан, но структура не похожа на проект (нет полей cards/lines). Проверьте, что это JSON из «💾 Сохранить проект».');
-    } else {
-      alert('Файл повреждён или имеет неверный формат JSON.');
-    }
-  } finally {
-    loadProjectInput.value = '';
-  }
-});
-
+        try {
+          const text = await file.text();
+          const isHtml = /^\s*<!doctype html|<html[\s>]/i.test(text);
+          if (isHtml) throw new Error('html-file');
+          const state = JSON.parse(text);
+          const ok = state && typeof state === 'object' && Array.isArray(state.cards) && Array.isArray(state.lines);
+          if (!ok) throw new Error('bad-structure');
+          loadState(state, true);
+        } catch (err) {
+          console.error('Не удалось загрузить проект:', err);
+          if (String(err.message) === 'html-file') {
+            alert('Вы выбрали HTML-файл из «Экспорт HTML». Для продолжения выберите JSON, сохранённый кнопкой «💾 Сохранить проект».');
+          } else if (String(err.message) === 'bad-structure') {
+            alert('Файл прочитан, но структура не похожа на проект (нет полей cards/lines). Проверьте, что это JSON из «💾 Сохранить проект».');
+          } else {
+            alert('Файл повреждён или имеет неверный формат JSON.');
+          }
+        } finally {
+          loadProjectInput.value = '';
+        }
+      });
     }
 
     // Экспорт HTML с fallback
-if (exportHtmlBtn) {
-  exportHtmlBtn.addEventListener('click', () => {
-    const bodyStyle = getComputedStyle(document.body);
-
-    const viewOnlyScript = `
-      <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        const canvas = document.getElementById('canvas');
-        let isPanning=false,lastMouseX=0,lastMouseY=0;
-        let x=${canvasState.x},y=${canvasState.y},scale=${canvasState.scale};
-        function updateTransform(){canvas.style.transform=\`translate(\${x}px,\${y}px) scale(\${scale})\`;}
-        window.addEventListener('mousedown',e=>{if(e.button===1){isPanning=true;lastMouseX=e.clientX;lastMouseY=e.clientY;document.body.style.cursor='move';}});
-        window.addEventListener('mousemove',e=>{if(isPanning){const dx=e.clientX-lastMouseX,dy=e.clientY-lastMouseY;x+=dx;y+=dy;lastMouseX=e.clientX;lastMouseY=e.clientY;updateTransform();}});
-        window.addEventListener('mouseup',e=>{if(e.button===1){isPanning=false;document.body.style.cursor='default';}});
-        window.addEventListener('wheel',e=>{e.preventDefault();const s=-e.deltaY*0.001;const ns=Math.max(0.1,Math.min(5,scale+s));const mx=e.clientX,my=e.clientY;x=mx-(mx-x)*(ns/scale);y=my-(my-y)*(ns/scale);scale=ns;updateTransform();},{passive:false});
-        updateTransform();
+    if (exportHtmlBtn) {
+      exportHtmlBtn.addEventListener('click', () => {
+        const bodyStyle = getComputedStyle(document.body);
+        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
+        const canvasClone = canvas.cloneNode(true);
+        canvasClone.querySelectorAll('.note-resize-handle, .note-close-btn').forEach(el => el.remove());
+        canvasClone.querySelectorAll('[contenteditable], .card-controls, .close-btn, .lock-btn, .header-color-picker-btn, .body-color-changer, .connection-point').forEach(el => {
+            if (el.hasAttribute('contenteditable')) el.setAttribute('contenteditable','false');
+            el.style.pointerEvents = 'none';
+        });
+        const buildAndDownload = (cssText) => {
+          const htmlContent = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Просмотр Схемы</title><style>${cssText}body{overflow:hidden}.card:hover{transform:none;box-shadow:0 8px 20px rgba(0,0,0,.15)}.card.selected{box-shadow:0 8px 20px rgba(0,0,0,.15)}</style></head><body style="background:${bodyStyle.background};">${canvasClone.outerHTML}${viewOnlyScript}</body></html>`;
+          const blob = new Blob([htmlContent], {type:'text/html'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `scheme-${Date.now()}.html`; a.click();
+          URL.revokeObjectURL(url);
+        };
+        fetch('style.css').then(r => r.ok ? r.text() : Promise.reject()).then(cssText => buildAndDownload(cssText)).catch(() => {
+            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
+            buildAndDownload(minimalCss);
+        });
       });
-      <\/script>
-    `;
-
-    const canvasClone = canvas.cloneNode(true);
-
-    // 1) НЕ удаляем элементы шапки/низов, иначе ломается сетка.
-    // Удаляем только элементы окна заметок:
-    // удаляем ТОЛЬКО элементы окна заметок
-canvasClone.querySelectorAll('.note-resize-handle, .note-close-btn').forEach(el => el.remove());
-
-// отключаем клики у UI-элементов (чтобы сохранить верстку, но сделать «только просмотр»)
-canvasClone
-  .querySelectorAll('[contenteditable], .card-controls, .close-btn, .lock-btn, .header-color-picker-btn, .body-color-changer, .connection-point')
-  .forEach(el => {
-    if (el.hasAttribute('contenteditable')) el.setAttribute('contenteditable','false');
-    el.style.pointerEvents = 'none';
-  });
-
-
-    // 2) Отключаем взаимодействие с UI-элементами в просмотре:
-    canvasClone.querySelectorAll('[contenteditable]').forEach(el => el.setAttribute('contenteditable','false'));
-    canvasClone
-      .querySelectorAll('.card-controls, .close-btn, .lock-btn, .header-color-picker-btn, .body-color-changer, .connection-point')
-      .forEach(el => { el.style.pointerEvents = 'none'; });
-
-    const buildAndDownload = (cssText) => {
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="ru">
-        <head>
-          <meta charset="UTF-8">
-          <title>Просмотр Схемы</title>
-          <style>
-            ${cssText}
-            body{overflow:hidden}
-            .card:hover{transform:none;box-shadow:0 8px 20px rgba(0,0,0,.15)}
-            .card.selected{box-shadow:0 8px 20px rgba(0,0,0,.15)}
-          </style>
-        </head>
-        <body style="background:${bodyStyle.background};">
-          ${canvasClone.outerHTML}
-          ${viewOnlyScript}
-        </body>
-        </html>`;
-      const blob = new Blob([htmlContent], {type:'text/html'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `scheme-${Date.now()}.html`; a.click();
-      URL.revokeObjectURL(url);
-    };
-
-    // Пробуем подтянуть реальный style.css. Если не вышло (file://) — включаем fallback.
-    fetch('style.css')
-      .then(r => r.ok ? r.text() : Promise.reject())
-      .then(cssText => buildAndDownload(cssText))
-      .catch(() => {
-        const minimalCss = `
-  /* База */
-  html,body{margin:0;height:100%}
-  body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}
-  #canvas{position:relative;width:100%;height:100%;transform-origin:0 0}
-  #svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}
-
-  /* Линии */
-  .line{fill:none;pointer-events:auto;cursor:pointer;color:var(--line-color,#3d85c6);
-        stroke:currentColor;stroke-linecap:round}
-
-  /* Карточка */
-  .card{position:absolute;width:380px;background:#fff;border-radius:20px;
-        box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}
-  .card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;
-               display:grid;grid-template-columns:28px 28px 1fr 28px 28px;
-               align-items:center;gap:6px;border-radius:20px 20px 0 0}
-  .card-title{
-    grid-column:3/4;
-    display:flex;align-items:center;justify-content:center;
-    font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
-  }
-  .card-body{padding:14px 16px;background:#fff;border-radius:0 0 20px 20px}
-
-  /* Ряды */
-  .card-row{display:flex;align-items:center;gap:10px;margin:8px 0}
-  .label{color:#6b7280;font-weight:600;margin-right:6px}
-  .value{color:#111827;display:inline-flex;align-items:center;line-height:1.2}
-
-  /* Монетка (можешь уменьшить до 72px при желании) */
-  .coin-icon{width:80px;height:80px;flex:0 0 auto;display:block}
-  .coin-icon circle{vector-effect:non-scaling-stroke}
-
-  /* Кнопки — вид сохраняем, клики отключили выше */
-  .header-color-picker-btn{width:20px;height:20px;border:none;border-radius:6px;
-                           box-shadow:inset 0 0 0 2px rgba(255,255,255,.65)}
-  .lock-btn,.close-btn{font-size:16px;line-height:1;text-align:center}
-  .card-controls{position:absolute;right:10px;bottom:10px;display:flex;gap:8px}
-  .card-control-btn{width:26px;height:26px;border-radius:10px;border:none;
-                    box-shadow:0 2px 6px rgba(0,0,0,.15);display:inline-flex;
-                    align-items:center;justify-content:center}
-
-  /* Точки соединения — «как в приложении», меньше и с белой обводкой */
-  .connection-point{
-    position:absolute;width:12px;height:12px;          /* было 16px */
-    background:#000;border-radius:50%;
-    border:2px solid #fff;                             /* было 3px */
-    transform:translate(-50%,-50%);
-    box-shadow:0 2px 6px rgba(0,0,0,.25)
-  }
-  .connection-point.top{left:50%;top:0}
-  .connection-point.bottom{left:50%;top:100%}
-  .connection-point.left{left:0;top:50%}
-  .connection-point.right{left:100%;top:50%}
-`;
-
-
-        buildAndDownload(minimalCss);
-      });
-  });
-}
-
+    }
   }
 
   saveState();
