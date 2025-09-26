@@ -4,68 +4,58 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=1024">
   <title>Интерактивная доска</title>
-  
-  <!-- ЗАЩИТА ПАРОЛЕМ - ПОДКЛЮЧАЕМ ПЕРВЫМ -->
+
+  <!-- При необходимости оставьте ваш auth.js -->
   <script src="auth.js"></script>
-  
+
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-  <!-- ================================= -->
-  <!-- ПАНЕЛЬ УПРАВЛЕНИЯ СЛЕВА (НОВАЯ) -->
-  <!-- ================================= -->
+  <!-- Панель слева -->
   <div class="ui-panel-left">
-    <button id="selection-mode-btn" class="ui-btn" title="Режим выделения (Esc для отмены)">⬚</button>
+    <button id="selection-mode-btn" class="ui-btn" title="Режим выделения (Esc)">⬚</button>
     <button id="undo-btn" class="ui-btn" title="Отменить (Ctrl+Z)">↶</button>
     <button id="redo-btn" class="ui-btn" title="Повторить (Ctrl+Shift+Z)">↷</button>
-    <button id="save-project-btn" class="ui-btn" title="Сохранить проект (для редактирования)">💾</button>
-    <button id="export-html-btn" class="ui-btn" title="Экспорт в HTML (для просмотра)">📄</button>
+    <button id="save-project-btn" class="ui-btn" title="Сохранить проект (JSON)">💾</button>
+    <button id="export-html-btn" class="ui-btn" title="Экспорт в HTML (просмотр)">📄</button>
     <button id="load-project-btn" class="ui-btn" title="Загрузить проект из JSON">📂</button>
-    <a id="help-btn"
-       class="ui-btn"
-       title="Открыть инструкцию (DOCX)"
-       href="Описание.docx"
-       download="Инструкция по проекту.docx">📘</a>
-    <input type="file" id="load-project-input" accept="application/json" style="display:none">
+
+    <a id="help-btn" class="ui-btn" title="Открыть инструкцию (DOCX)"
+       href="Описание.docx" download="Инструкция по проекту.docx">📘</a>
+
+    <input type="file" id="load-project-input" accept=".json,application/json" style="display:none">
   </div>
 
-  <!-- ================================== -->
-  <!-- ПАНЕЛЬ ИНСТРУМЕНТОВ СПРАВА (ИЗМЕНЕНА) -->
-  <!-- ================================== -->
+  <!-- Панель справа -->
   <div class="ui-panel-right">
-   <!-- Фон -->
     <div id="gradient-selector" class="gradient-selector">
       <div class="gradient-title">Фон</div>
-      <button class="grad-btn" data-gradient="#ffffff" title="Белый">⬜</button>
-	  <button class="grad-btn" data-gradient="linear-gradient(135deg, #8c8c8c, #c2c2c2)">⬜</button>
+      <button class="grad-btn" data-gradient="#f5f7fb" title="Светлый">⬜</button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#eef1f5,#dde3ea)">⬜</button>
       <button class="grad-btn" data-gradient="linear-gradient(135deg,#f6d365,#fda085)">🌅</button>
       <button class="grad-btn" data-gradient="linear-gradient(135deg,#a1c4fd,#c2e9fb)">❄️</button>
       <button class="grad-btn" data-gradient="linear-gradient(135deg,#f093fb,#f5576c)">🌸</button>
     </div>
-      
-    <!-- Толщина новой/выбранной линии -->
+
     <div class="thickness-slider-container">
       <label for="thickness-slider">Толщина линии: <span id="thickness-value">5</span> px</label>
       <input type="range" id="thickness-slider" class="thickness-slider" min="5" max="15" value="5" step="5"/>
     </div>
-    
-    <!-- Общая толщина всех линий -->
+
     <div class="thickness-slider-container">
       <label for="global-thickness-slider">Общая толщина: <span id="global-thickness-value">5</span> px</label>
       <input type="range" id="global-thickness-slider" class="thickness-slider" min="5" max="15" value="5" step="5"/>
     </div>
 
-    <!-- Палитра цвета линий -->
     <div id="color-palette" class="color-palette">
-        <label for="line-color-picker" class="color-picker-label">Цвет линии</label>
-        <input type="color" id="line-color-picker" value="#3d85c6" title="Выбрать цвет линии">
+      <label for="line-color-picker" class="color-picker-label">Цвет линии</label>
+      <input type="color" id="line-color-picker" value="#0f62fe" title="Выбрать цвет линии">
     </div>
-	
-	 <div class="row">
+
+    <div class="row">
       <button id="add-card-btn" class="add-btn" title="Добавить карточку">+</button>
       <button id="add-template-btn" class="ui-btn" title="Добавить шаблон">▶</button>
     </div>
-	
   </div>
 
   <div id="canvas">
@@ -77,8 +67,7 @@
       </defs>
     </svg>
   </div>
-  
-  <script src="script.js"></script>
 
+  <script src="script.js"></script>
 </body>
 </html>

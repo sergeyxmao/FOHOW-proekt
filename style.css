@@ -1,399 +1,232 @@
-:root {
+:root{
   --card-width: 380px;
+  --brand: #0f62fe;         /* базовый корпоративный синий */
+  --ink: #111827;           /* основной текст */
+  --muted: #6b7280;         /* вторичный текст */
+  --panel: #ffffff;         /* фон панелей */
+  --surface: #ffffff;       /* фон карточек */
+  --bg: #f5f7fb;            /* фон страницы */
+  --radius: 14px;
+  --shadow: 0 8px 20px rgba(0,0,0,.12);
 }
 
-/* ====== БАЗА ====== */
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%; height: 100%;
-  overflow: hidden;
-  background: linear-gradient(135deg,#f6d365,#fda085);
-  font-family: "Comic Neue","Arial Rounded MT Bold",Arial,sans-serif;
+/* ===== БАЗА в деловом стиле ===== */
+html,body{
+  margin:0; padding:0; width:100%; height:100%;
+  overflow:hidden;
+  background: var(--bg);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--ink);
   user-select: none;
 }
 
-/* ====== UI PANELS (ИЗМЕНЕНО) ====== */
-.ui-panel-left {
-  position: fixed;
-  top: 20px; left: 20px;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255,255,255,0.7);
-  padding: 8px;
-  border-radius: 16px;
-  backdrop-filter: blur(5px);
-  box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+/* ===== Панели ===== */
+.ui-panel-left{
+  position:fixed; top:20px; left:20px; z-index:2000;
+  display:flex; align-items:center; gap:10px;
+  background: var(--panel);
+  padding:8px 10px; border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.ui-panel-right{
+  position:fixed; top:20px; right:20px; z-index:2000;
+  display:flex; flex-direction:column; align-items:flex-end; gap:14px;
 }
 
-.ui-panel-right {
-  position: fixed;
-  top: 20px; right: 20px;
-  z-index: 2000;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end; /* Выравниваем элементы по правому краю */
-  gap: 16px;
-}
-
-.ui-panel-right .row { 
-  display:flex; 
-  gap:10px; 
-  align-items:center; 
-  flex-wrap: wrap; 
-  justify-content: flex-end;
-}
+.ui-panel-right .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
 
 .ui-btn{
-  min-width:42px; height:42px;
-  padding:0 10px;
-  background:#fff; border:0; border-radius:12px;
-  font-size:24px; cursor:pointer;
-  box-shadow:0 6px 15px rgba(0,0,0,0.2);
-  transition:transform .2s, box-shadow .2s, background-color .2s;
-  display: grid;
-  place-items: center;
+  min-width:40px; height:40px; padding:0 10px;
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px;
+  font-size:18px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.06);
+  transition:transform .15s, box-shadow .15s, background-color .15s, border-color .15s;
+  display:grid; place-items:center; color:var(--ink);
 }
-.ui-btn:hover{ transform:translateY(-2px); box-shadow:0 10px 18px rgba(0,0,0,0.28); }
+.ui-btn:hover{ transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,.12); border-color:#d1d5db; }
+.ui-btn.active{ background:#eaf1ff; border-color:#cfe0ff; color:#0b5bd3; }
 
-/* ДОБАВЛЕН СТИЛЬ: Активная кнопка режима */
-.ui-btn.active {
-  background-color: #a1c4fd;
-  color: white;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+/* Кнопка + в деловом стиле */
+.add-btn{
+  width:56px; height:56px;
+  background:#fff; color:var(--brand);
+  border:1px solid #e5e7eb; border-radius:12px;
+  font-size:28px; font-weight:700; cursor:pointer; box-shadow: var(--shadow);
+  transition:transform .15s, box-shadow .15s, border-color .15s;
 }
+.add-btn:hover{ transform:translateY(-1px); box-shadow:0 10px 22px rgba(0,0,0,.14); border-color:#cfe0ff; }
 
-/* Кнопка + */
-.add-btn {
-  width: 65px; height: 65px;
-  background: radial-gradient(circle at 30% 30%,#ff9a9e,#fad0c4);
-  color: #fff; border: none; border-radius: 50%;
-  font-size: 32px; font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
-  transition: transform .2s ease, box-shadow .3s ease;
+/* Палитра линий */
+.color-palette{
+  display:flex; flex-direction:column; gap:8px;
+  background:#fff; padding:12px; border-radius:12px; box-shadow: var(--shadow); align-items:center;
 }
-.add-btn:hover {
-  transform: scale(1.15) rotate(10deg);
-  box-shadow: 0 12px 25px rgba(0,0,0,0.35);
+.color-picker-label{ font-size:13px; font-weight:700; color:#374151; }
+#line-color-picker{
+  appearance:none; width:52px; height:32px; background:transparent; border:none; cursor:pointer;
 }
+#line-color-picker::-webkit-color-swatch{ border-radius:8px; border:1px solid #cbd5e1; }
+#line-color-picker::-moz-color-swatch{ border-radius:8px; border:1px solid #cbd5e1; }
 
-/* ====== COLOR PALETTE (Обновлено) ====== */
-.color-palette {
-  display: flex; flex-direction: column; gap: 8px;
-  background: #fff; padding: 12px;
-  border-radius: 14px;
-  box-shadow: 0 6px 15px rgba(0,0,0,0.2);
-  align-items: center;
+/* Слайдеры */
+.thickness-slider-container{
+  background:#fff; padding:12px; border-radius:12px; box-shadow: var(--shadow); text-align:center; min-width:150px;
 }
-.color-picker-label {
-  font-size: 13px; font-weight: 700;
+.thickness-slider-container label{ font-size:13px; font-weight:700; margin-bottom:8px; display:block; color:#374151; }
+.thickness-slider{
+  appearance:none; width:130px; height:8px; border-radius:999px;
+  background:linear-gradient(90deg,#a8c5ff 0%, #0f62fe 0%, #e5e7eb 0%); outline:none;
 }
-#line-color-picker {
-  -webkit-appearance: none; -moz-appearance: none; appearance: none;
-  width: 50px; height: 30px;
-  background-color: transparent; border: none; cursor: pointer;
+.thickness-slider::-webkit-slider-thumb{
+  appearance:none; width:20px; height:20px; border-radius:50%; background:#0f62fe;
+  box-shadow:0 3px 8px rgba(0,0,0,.2); cursor:pointer; transition:transform .15s;
 }
-#line-color-picker::-webkit-color-swatch {
-  border-radius: 8px; border: 1px solid #ccc;
-}
-#line-color-picker::-moz-color-swatch {
-  border-radius: 8px; border: 1px solid #ccc;
-}
+.thickness-slider::-webkit-slider-thumb:hover{ transform:scale(1.1); }
+#thickness-value, #global-thickness-value{ font-variant-numeric: tabular-nums; }
 
-/* ====== SLIDER ====== */
-.thickness-slider-container {
-  background: #fff; padding: 12px; border-radius: 14px;
-  box-shadow: 0 6px 15px rgba(0,0,0,0.2);
-  text-align: center; min-width: 140px;
+/* Фон (градиенты-опции остаются) */
+.gradient-selector{
+  display:grid; grid-template-columns:repeat(5,45px); gap:8px;
+  background:#fff; padding:10px 12px; border-radius:12px; box-shadow: var(--shadow); justify-items:center; align-items:center;
 }
-.thickness-slider-container label {
-  font-size: 13px; font-weight: 700; margin-bottom: 10px; display: block;
+.gradient-title{ grid-column:1/-1; font-size:13px; font-weight:700; margin-bottom:2px; color:#374151; }
+.grad-btn{
+  width:36px; height:36px; border-radius:10px; border:1px solid #e5e7eb;
+  cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.06); transition:transform .15s; background:#fff;
 }
-.thickness-slider {
-  -webkit-appearance: none; appearance: none;
-  width: 120px; height: 8px; border-radius: 999px;
-  background: linear-gradient(90deg,#42e695 0%, #3bb2b8 0%, #e0e0e0 0%);
-  outline: none;
-}
-.thickness-slider::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: linear-gradient(135deg,#42e695,#3bb2b8);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-  cursor: pointer; transition: transform .2s;
-}
-.thickness-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
-#thickness-value, #global-thickness-value { font-variant-numeric: tabular-nums; }
+.grad-btn:hover{ transform:translateY(-1px); }
 
-/* ====== ГРАДИЕНТ-ФОН ====== */
-.gradient-selector {
-  display: grid;
-  grid-template-columns: repeat(5, 45px);
-  gap: 8px;
-  background: #fff; padding: 10px 12px;
-  border-radius: 14px; box-shadow: 0 6px 15px rgba(0,0,0,0.2);
-  justify-items: center; align-items: center;
-}
-.gradient-title {
-  grid-column: 1 / -1; font-size: 13px; font-weight: 700; margin-bottom: 2px;
-}
-.grad-btn {
-  width: 36px; height: 36px; border-radius: 10px; border: none;
-  cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-  transition: transform .2s; background:#fff;
-}
-.grad-btn:hover { transform: translateY(-2px); }
-
-/* ====== CANVAS ====== */
-#canvas {
-  position: relative; width: 100%; height: 100%;
-  transform-origin: 0 0; cursor: default;
-}
-#svg-layer {
-  position: absolute; inset: 0;
-  pointer-events: none; overflow: visible;
-}
-.line {
-  fill: none;
-  pointer-events: auto; cursor: pointer;
-  color: var(--line-color, black);
-  filter: drop-shadow(0 0 5px rgba(0,0,0,0.2));
+/* Canvas/SVG */
+#canvas{ position:relative; width:100%; height:100%; transform-origin:0 0; cursor:default; }
+#svg-layer{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+.line{
+  fill:none; pointer-events:auto; cursor:pointer;
+  color: var(--line-color, var(--brand));
+  filter: drop-shadow(0 0 5px rgba(0,0,0,.15));
   marker-start: url(#marker-dot);
-  marker-end: url(#marker-dot); /* ← стрелки заменены на кружки */
+  marker-end: url(#marker-dot);
 }
-.line.selected { stroke-dasharray: 6 6; }
+.line.selected{ stroke-dasharray:6 6; }
 
-/* ====== CARD ====== */
-.card {
-  position: absolute; width: var(--card-width);
-  background: linear-gradient(145deg,#ffffff,#f0f0f0);
-  border-radius: 20px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-  transition: transform .2s ease, box-shadow .3s ease;
+/* Карточка */
+.card{
+  position:absolute; width:var(--card-width);
+  background: var(--surface); border-radius:16px; box-shadow: var(--shadow);
+  transition: transform .15s ease, box-shadow .15s ease;
 }
-.card:hover { transform: scale(1.03); box-shadow: 0 12px 25px rgba(0,0,0,0.3); }
-.card.selected { box-shadow: 0 0 0 4px #ff4081, 0 12px 25px rgba(0,0,0,0.3); }
+.card:hover{ transform:translateY(-1px); box-shadow:0 12px 26px rgba(0,0,0,.18); }
+.card.selected{ box-shadow:0 0 0 3px #0f62fe33, 0 12px 26px rgba(0,0,0,.18); }
 
 /* Заголовок карточки */
-.card-header {
-  background: linear-gradient(135deg,#4facfe,#00f2fe);
-  color: #fff; padding: 10px; position: relative;
-  height: 52px; border-radius: 20px 20px 0 0;
-  cursor: grab;
-  display: grid;
-  /* Обновлено для новых иконок */
-  grid-template-columns: 28px 28px 1fr 28px 28px;
-  align-items: center;
-  gap: 5px;
+.card-header{
+  background: var(--brand); color:#fff; padding:10px; position:relative;
+  height:52px; border-radius:16px 16px 0 0; cursor:grab;
+  display:grid; grid-template-columns:28px 28px 1fr 28px 28px; align-items:center; gap:6px;
 }
-
-/* Заголовок-текст (RUY...) — крупнее и по центру */
-.card-title {
-  grid-column: 3 / 4;
-  text-align: center;
-  font-size: 22px;
-  line-height: 1;
-  font-weight: 800;
-  letter-spacing: .5px;
-  outline: none;
+.card-title{
+  grid-column:3/4; text-align:center; font-size:20px; line-height:1; font-weight:800; letter-spacing:.3px; outline:none;
 }
-
-/* Крестик */
-.close-btn {
-  grid-column: 5 / 6; justify-self: end;
-  font-size: 22px; cursor: pointer; transition: transform .2s;
-  display: none; /* <-- ДОБАВЬТЕ ЭТУ СТРОКУ */
-}
-.close-btn:hover { transform: scale(1.2) rotate(15deg); }
-
-/* Замок */
-.lock-btn {
-  grid-column: 1 / 2; justify-self: start;
-  font-size: 20px; cursor: pointer; user-select: none;
-  transition: transform .2s;
-}
-.lock-btn:hover { transform: scale(1.15); }
+.close-btn{ grid-column:5/6; justify-self:end; font-size:20px; cursor:pointer; transition:transform .15s; display:none; }
+.close-btn:hover{ transform:scale(1.1) rotate(8deg); }
+.lock-btn{ grid-column:1/2; justify-self:start; font-size:18px; cursor:pointer; user-select:none; transition:transform .15s; }
+.lock-btn:hover{ transform:scale(1.1); }
 
 /* Кнопка выбора цвета заголовка */
-/* Кнопка выбора цвета заголовка (перемещена) */
-.header-color-picker-btn {
-    position: absolute;
-    top: 80px; /* Отступ от верха карточки */
-    left: 10px; /* Отступ от левого края карточки */
-    z-index: 10; /* Размещаем поверх других элементов */
-    width: 22px; height: 22px; border-radius: 6px;
-    border: 2px solid #444; /* Сделали рамку серой, чтобы было видно на белом */
-    cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+.header-color-picker-btn{
+  position:absolute; top:80px; left:10px; z-index:10; width:22px; height:22px; border-radius:6px;
+  border:2px solid #444; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,.1);
 }
-.header-color-picker-btn:hover { transform: scale(1.1); }
-#card-header-color-input {
-    visibility: hidden; position: absolute;
-}
+.header-color-picker-btn:hover{ transform:scale(1.05); }
+#card-header-color-input{ visibility:hidden; position:absolute; }
 
-
-/* Заблокированная карточка */
-.card.locked { opacity: .9; }
-.card.locked .card-header { cursor: not-allowed; }
-.card.locked .connection-point,
-.card.locked .color-changer { display: none !important; }
+/* Блокировка */
+.card.locked{ opacity:.95; }
+.card.locked .card-header{ cursor:not-allowed; }
+.card.locked .connection-point, .card.locked .color-changer{ display:none !important; }
 
 /* Тело карточки */
-.card-body { padding: 15px; text-align: center; background: #fff; border-radius: 0 0 20px 20px; }
-.card-body.dark-bg { background: #424242; }
+.card-body{ padding:15px; text-align:center; background:#fff; border-radius:0 0 16px 16px; }
+.card-body.dark-bg{ background:#2b2b2b; }
 
-.card-row {
-  display: flex; justify-content: center; align-items: center;
-  gap: 10px; margin-bottom: 12px;
+.card-row{ display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:12px; }
+.label{ font-weight:700; color:#374151; }
+.value{
+  color:#111827; font-weight:800; font-size:20px; outline:none; padding:3px 6px; border-radius:5px;
 }
-.label { font-weight: 700; color: #444; }
-.value {
-  color: #333; /* <-- 1. ИЗМЕНЕН ЦВЕТ (здесь темно-серый, выберите любой) */
-  font-weight: 1000; /* <-- 2. ДОБАВЛЕНА ЖИРНОСТЬ (700 - это "bold") */
-  font-size: 20px; /* <-- 3. ДОБАВЛЕН РАЗМЕР ШРИФТА (подберите нужный) */
-  outline: none; 
-  padding: 3px 6px; 
-  border-radius: 5px;
-}
-.value:focus { background: #fff8dc; box-shadow: 0 0 6px 2px rgba(255,193,7,0.5); }
+.value:focus{ background:#fff8dc; box-shadow:0 0 6px 2px rgba(255,193,7,.35); }
 
-/* Иконка */
-.coin-icon { width: 28px; height: 28px; cursor: pointer; transition: transform .2s; }
-.coin-icon:hover { transform: scale(1.2); }
+/* Иконка монеты */
+.coin-icon{ width:28px; height:28px; cursor:pointer; transition:transform .15s; }
+.coin-icon:hover{ transform:scale(1.1); }
 
 /* Точки соединения */
-.connection-point {
-  position: absolute; width: 18px; height: 18px; z-index: 101;
-  background: #fff; border: 3px solid #00bcd4; border-radius: 50%;
-  cursor: pointer; transform: translate(-50%,-50%);
-  display: none; transition: background .2s, transform .2s;
+.connection-point{
+  position:absolute; width:16px; height:16px; z-index:101;
+  background:#fff; border:3px solid var(--brand); border-radius:50%;
+  cursor:pointer; transform:translate(-50%,-50%); display:none; transition: background .15s, transform .15s;
 }
-.card:hover .connection-point { display: block; }
-.connection-point:hover { background: #00bcd4; transform: scale(1.2) translate(-50%,-50%); }
-.connection-point.top { top: 0; left: 50%; }
-.connection-point.bottom { top: 100%; left: 50%; }
-.connection-point.left { top: 50%; left: 0; }
-.connection-point.right { top: 50%; left: 100%; }
+.card:hover .connection-point{ display:block; }
+.connection-point:hover{ background: var(--brand); transform: scale(1.15) translate(-50%,-50%); }
+.connection-point.top{ top:0; left:50%; }
+.connection-point.bottom{ top:100%; left:50%; }
+.connection-point.left{ top:50%; left:0; }
+.connection-point.right{ top:50%; left:100%; }
 
-/* Нижние кнопки управления карточкой */
-.card-controls {
-    position: absolute; bottom: 8px; right: 8px;
-    display: flex; gap: 6px;
-    z-index: 102;
+/* Низ карточки */
+.card-controls{ position:absolute; bottom:8px; right:8px; display:flex; gap:6px; z-index:102; }
+.card-control-btn{
+  width:22px; height:22px; border:none; border-radius:6px; cursor:pointer;
+  box-shadow:0 2px 5px rgba(0,0,0,.1); font-size:16px; display:grid; place-items:center;
 }
-.card-control-btn {
-    width: 22px; height: 22px; border: none; border-radius: 6px;
-    cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    font-size: 16px; display: grid; place-items: center;
-}
-.color-changer {
-  border: 2px solid #444;
-}
-.body-color-changer {
-    position: absolute; bottom: 8px; left: 8px;
-}
+.color-changer{ border:2px solid #444; }
+.body-color-changer{ position:absolute; bottom:8px; left:8px; }
 
-/* ====== ЗАМЕТКИ (Новый блок) ====== */
-.note-btn { background: #ffeb3b; }
-.note-btn.has-text { background: #f44336; color: white; }
+/* Заметки */
+.note-btn{ background:#fff; }
+.note-btn.has-text{ background:#e11d48; color:#fff; }
 
-.note-window {
-  position: absolute;
-  width: 220px; height: 150px;
-  background: #fffbef;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-  z-index: 1500;
-  display: flex; flex-direction: column;
+.note-window{
+  position:absolute; width:260px; height:210px; background:#fff;
+  border:1px solid #e5e7eb; border-radius:12px; box-shadow: var(--shadow);
+  z-index:1500; display:flex; flex-direction:column; resize:both; overflow:auto;
 }
-.note-header {
-  background: #f0e68c;
-  padding: 4px 8px;
-  border-radius: 10px 10px 0 0;
-  cursor: grab;
-  text-align: right;
+.note-header{ background:#f3f4f6; padding:6px 8px; border-radius:12px 12px 0 0; cursor:grab; display:flex; align-items:center; justify-content:space-between; }
+.note-textarea{
+  flex-grow:1; border:1px solid #e5e7eb; background:#ffffff; color:#222; border-radius:8px; margin:8px; padding:10px;
+  font-family:inherit; font-size:14px; line-height:1.35; resize:both; outline:none;
 }
-.note-close-btn { cursor: pointer; font-weight: bold; }
-.note-textarea {
-  flex-grow: 1;
-  border: none;
-  background: transparent;
-  padding: 10px;
-  font-family: inherit; font-size: 14px;
-  resize: none; outline: none;
-}
-.note-resize-handle {
-  position: absolute;
-  bottom: 0; right: 0;
-  width: 15px; height: 15px;
-  cursor: se-resize;
-  background: repeating-linear-gradient(135deg, #ccc, #ccc 2px, transparent 2px, transparent 4px);
-}
-
+.note-resize-handle{ position:absolute; bottom:0; right:0; width:15px; height:15px; cursor:se-resize;
+  background:repeating-linear-gradient(135deg,#ccc,#ccc 2px,transparent 2px,transparent 4px); }
 
 /* Прямоугольник выделения */
-.selection-box {
-  position: absolute;
-  border: 2px dashed #00bcd4;
-  background: rgba(0,188,212,0.1);
-  pointer-events: none;
+.selection-box{
+  position:absolute; border:2px dashed #0f62fe; background:rgba(15,98,254,.08); pointer-events:none;
 }
 
-/* ====== СТИЛИ ДЛЯ ТЁМНОГО РЕЖИМА КАРТОЧКИ ====== */
-
-/* Когда у карточки есть класс .dark-mode... */
-
-/* 1. Меняем фон самой карточки (который виден по краям) и фон тела */
+/* Тёмный режим карточки — контраст фикс */
 .card.dark-mode,
-.card.dark-mode .card-body {
-  background: #424242; /* Задаем темный фон */
-}
-
-/* 2. Делаем текст-подписи ("Баланс:", "Цикл:") светлым */
-.card.dark-mode .label {
-  color: #424242; /* Светло-серый цвет для лучшей читаемости */
-}
-
-/* 3. Делаем основной текст (цифры, "330/330pv") тоже светлым */
-.card.dark-mode .value {
-  color: #424242; /* Белый цвет для контраста */
-}
-
-/* 4. Если нужно, чтобы иконка монетки тоже стала светлее */
-.card.dark-mode .coin-icon circle {
-    fill: #424242; /* Например, серый цвет для монетки */
-}
-/* 5. Делаем фон шапки таким же темным, как и тело */
-.card.dark-mode .card-header {
-  background: #424242 !important; /* Используем !important, чтобы перебить инлайновый стиль цвета */
-}
-
-/* 6. Делаем текст заголовка (RUY...) светло-серым */
-.card.dark-mode .card-title {
-  color: #424242;
-}
-
-/* 7. Перекрашиваем нижние кнопки управления в нейтральный серый */
+.card.dark-mode .card-body{ background:#2b2b2b; }
+.card.dark-mode .label{ color:#e5e7eb; }
+.card.dark-mode .value{ color:#f9fafb; }
+.card.dark-mode .card-header{ background:#1f2937 !important; }
+.card.dark-mode .card-title{ color:#f3f4f6; }
 .card.dark-mode .note-btn,
-.card.dark-mode .color-changer {
-  background: #424242 !important; /* !important нужен для переопределения цвета заметок и палитры */
-  border-color: #424242; /* Меняем цвет рамки у палитры */
-}
+.card.dark-mode .color-changer{ background:#374151 !important; border-color:#4b5563; color:#e5e7eb; }
+.card.dark-mode .header-color-picker-btn{ display:none; }
+.card.dark-mode .card-row .coin-icon{ display:none; }
 
-/* 8. Делаем иконку-заметку внутри кнопки тоже серой */
-.card.dark-mode .note-btn {
-    color: #424242;
-}
-/* 9. Скрываем розовый квадрат (кнопку выбора цвета) */
-.card.dark-mode .header-color-picker-btn {
-  display: none;
-}
+/* Календарь в заметках — сетка не «ломается» */
+.note-window .cal-grid{ width:100%; display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:26px; }
+.note-window .cal-cell{ min-width:0; height:26px; line-height:26px; padding:0; overflow:hidden; white-space:nowrap; text-overflow:clip; }
+.note-window .cal-month{ white-space:nowrap; }
 
-/* 10. Полностью скрываем иконку монетки */
-.card.dark-mode .card-row .coin-icon {
-  display: none;
+/* Попап цветов для чисел в .value */
+.num-color-pop{
+  position:fixed; z-index:3000; display:none; background:#fff; border:1px solid #e5e7eb; border-radius:10px;
+  box-shadow: var(--shadow); padding:6px; gap:6px; align-items:center;
 }
+.num-color-pop .dot{ width:18px; height:18px; border-radius:50%; border:2px solid #333; cursor:pointer; }
+.num-color-pop .dot.red{ background:#e53935; }
+.num-color-pop .dot.yellow{ background:#ffeb3b; }
+.num-color-pop .dot.green{ background:#43a047; }
+
+/* Чтобы локальная раскраска текста не терялась */
+.value [data-num-color]{ color: initial; }

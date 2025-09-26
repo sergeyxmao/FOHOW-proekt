@@ -59,11 +59,77 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSelectionMode();
   setupGlobalThicknessSlider();
   setupSaveButtons();
+  // --- Попап для раскраски выбранных чисел ---
+const numPop = document.createElement('div');
+numPop.className = 'num-color-pop';
+numPop.innerHTML = `
+  <div class="dot red"    data-color="#e53935" title="Красный"></div>
+  <div class="dot yellow" data-color="#ffeb3b" title="Жёлтый"></div>
+  <div class="dot green"  data-color="#43a047" title="Зелёный"></div>
+`;
+document.body.appendChild(numPop);
+let lastRange = null;
+
+function showNumPop() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return hideNumPop();
+  const range = sel.getRangeAt(0);
+  const common = range.commonAncestorContainer;
+  const valueEl = (common.nodeType === 1 ? common : common.parentElement)?.closest('.value[contenteditable="true"]');
+  if (!valueEl || sel.isCollapsed) { hideNumPop(); return; }
+
+  const rect = range.getBoundingClientRect();
+  numPop.style.left = `${Math.max(8, rect.left)}px`;
+  numPop.style.top  = `${rect.bottom + 6}px`;
+  numPop.style.display = 'flex';
+  lastRange = range;
+}
+
+function hideNumPop(){ numPop.style.display='none'; lastRange = null; }
+
+document.addEventListener('selectionchange', () => {
+  requestAnimationFrame(showNumPop);
+});
+
+document.addEventListener('mousedown', (e) => {
+  if (!e.target.closest('.num-color-pop') && !e.target.closest('.value[contenteditable="true"]')) {
+    hideNumPop();
+  }
+});
+
+numPop.addEventListener('click', (e) => {
+  const btn = e.target.closest('.dot');
+  if (!btn || !lastRange) return;
+  const color = btn.dataset.color;
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(lastRange);
+
+  const span = document.createElement('span');
+  span.setAttribute('data-num-color', color);
+  span.style.color = color;
+
+  try {
+    lastRange.surroundContents(span);
+  } catch(_) {
+    const frag = lastRange.extractContents();
+    span.appendChild(frag);
+    lastRange.insertNode(span);
+  }
+  hideNumPop();
+  saveState();
+});
+
 
   // ==== Global listeners ====
   function setupGlobalEventListeners() {
     window.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.ui-panel') || e.target.closest('.note-window')) return;
+      if (
+  e.target.closest('.ui-panel-left') ||
+  e.target.closest('.ui-panel-right') ||
+  e.target.closest('.note-window')
+) return;
+
 
       if (e.button === 1) { 
         e.preventDefault();
@@ -355,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
       saveState();
     });
     const noteBtn = card.querySelector('.note-btn');
-    if (cardData.note && cardData.note.text) {
+    if (cardData.note && hasAnyEntry(cardData.note)) {
       noteBtn.classList.add('has-text');
       noteBtn.textContent = '❗';
     }
@@ -569,129 +635,243 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==== Notes ====
-  function toggleNote(cardData) {
-    if (cardData.note && cardData.note.window) {
-      cardData.note.window.remove();
-      cardData.note.window = null;
-      cardData.note.visible = false;
-    } else {
-      if (!cardData.note) {
-        const cardRect = cardData.element.getBoundingClientRect();
-        const canvasRect = canvas.getBoundingClientRect();
-        cardData.note = {
-          text: '',
-          x: (cardRect.right - canvasRect.left) / canvasState.scale + 20,
-          y: (cardRect.top - canvasRect.top) / canvasState.scale,
-          width: 220,
-          height: 150,
-          visible: false,
-          window: null
-        };
-      }
-      cardData.note.visible = true;
-      createNoteWindow(cardData);
+function hasAnyEntry(note) {
+  if (!note) return false;
+  if (note.entries && typeof note.entries === 'object') {
+    return Object.values(note.entries).some(v => v && String(v).trim().length > 0);
+  }
+  return !!(note.text && String(note.text).trim().length > 0); // legacy
+}
+
+function ensureNoteStructure(note) {
+  // миграция и дефолты
+  if (!note.entries) note.entries = {};
+  if (!note.colors)  note.colors  = {};             // <— ПЕР-ДАТНЫЕ ЦВЕТА
+  if (!note.selectedDate) note.selectedDate = new Date().toISOString().slice(0,10);
+  if (!note.highlightColor) note.highlightColor = '#f44336'; // дефолт для «старых» записей
+  if (note.text && !note.entries[note.selectedDate]) {
+    note.entries[note.selectedDate] = note.text;
+    note.text = '';
+  }
+}
+
+function toggleNote(cardData) {
+  if (cardData.note && cardData.note.window) {
+    cardData.note.window.remove();
+    cardData.note.window = null;
+    cardData.note.visible = false;
+  } else {
+    if (!cardData.note) {
+      const cardRect = cardData.element.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      cardData.note = {
+        text: '',                     // legacy
+        entries: {},                  // { 'YYYY-MM-DD': '...' }
+        selectedDate: new Date().toISOString().slice(0,10),
+        highlightColor: '#f44336',    // красный по умолчанию
+        x: (cardRect.right - canvasRect.left) / canvasState.scale + 20,
+        y: (cardRect.top - canvasRect.top) / canvasState.scale,
+        width: 260,
+        height: 210,
+        visible: false,
+        window: null
+      };
     }
-    saveState();
+    cardData.note.visible = true;
+    createNoteWindow(cardData);
+  }
+  saveState();
+}
+
+function createNoteWindow(cardData) {
+  const note = cardData.note;
+  ensureNoteStructure(note);
+
+  const noteWindow = document.createElement('div');
+  noteWindow.className = 'note-window';
+  noteWindow.style.left = `${note.x}px`;
+  noteWindow.style.top = `${note.y}px`;
+  noteWindow.style.width = `${note.width}px`;
+  noteWindow.style.height = `${note.height}px`;
+
+  const styles = `
+    <style>
+      .note-header{display:flex;align-items:center;gap:8px;justify-content:space-between}
+      .note-cal-wrap{padding:6px 8px 0 8px}
+      .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-weight:700}
+      .cal-month{font-size:12px}
+      .cal-nav{display:flex;gap:6px}
+      .cal-btn{border:none;border-radius:6px;padding:2px 6px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2);background:#fff}
+      .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:11px}
+      .cal-dow{opacity:.7;text-align:center}
+      .cal-cell{height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;background:#fff}
+      .cal-cell.out{opacity:.35}
+      .cal-cell.selected{outline:2px solid #4caf50}
+      .cal-cell.has-entry{box-shadow: inset 0 0 0 2px rgba(0,0,0,.08)}
+      .note-tools{display:flex;gap:6px;align-items:center;margin-left:auto;margin-right:6px}
+      .clr-dot{width:18px;height:18px;border-radius:50%;border:2px solid #333;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+      .clr-dot.active{box-shadow:0 0 0 2px rgba(0,0,0,.25), inset 0 0 0 2px #fff}
+      .note-textarea{min-height:80px}
+    </style>
+  `;
+
+  noteWindow.innerHTML = `
+  ${styles}
+  <div class="note-header">
+    <div class="note-close-btn" title="Закрыть">×</div>
+    <div class="note-tools">
+      <div class="clr-dot" data-color="#f44336" title="Красный" style="background:#f44336"></div>
+      <div class="clr-dot" data-color="#ffca28" title="Жёлтый" style="background:#ffca28"></div>
+      <div class="clr-dot" data-color="#42a5f5" title="Синий" style="background:#42a5f5"></div>
+    </div>
+  </div>
+
+  <div class="note-cal-wrap">
+    <div class="cal-head">
+      <button class="cal-btn prev">‹</button>
+      <div class="cal-month"></div>
+      <button class="cal-btn next">›</button>
+    </div>
+    <div class="cal-grid">
+      <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
+      <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
+    </div>
+  </div>
+  <textarea class="note-textarea" placeholder="Введите текст заметки на выбранную дату..."></textarea>
+  <div class="note-resize-handle"></div>
+`;
+
+  canvas.appendChild(noteWindow);
+  note.window = noteWindow;
+
+  // Цветные точки — цвет теперь задаётся для ВЫБРАННОЙ даты
+  const colorDots = noteWindow.querySelectorAll('.clr-dot');
+
+  function updateColorDotsActive() {
+    const currentColor = note.colors[note.selectedDate] || note.highlightColor;
+    colorDots.forEach(d => d.classList.toggle('active', d.getAttribute('data-color') === currentColor));
   }
 
-  function createNoteWindow(cardData) {
-    const note = cardData.note;
-    const noteWindow = document.createElement('div');
-    noteWindow.className = 'note-window';
-    noteWindow.style.left = `${note.x}px`;
-    noteWindow.style.top = `${note.y}px`;
-    noteWindow.style.width = `${note.width}px`;
-    noteWindow.style.height = `${note.height}px`;
-
-    noteWindow.innerHTML = `
-        <div class="note-header">
-            <span class="note-close-btn">×</span>
-        </div>
-        <textarea class="note-textarea" placeholder="Введите текст..."></textarea>
-        <div class="note-resize-handle"></div>
-    `;
-    canvas.appendChild(noteWindow);
-    note.window = noteWindow;
-
-    const textarea = noteWindow.querySelector('.note-textarea');
-    textarea.value = note.text;
-    const noteBtn = cardData.element.querySelector('.note-btn');
-
-    textarea.addEventListener('input', () => {
-      note.text = textarea.value;
-      if (note.text) {
-        noteBtn.classList.add('has-text');
-        noteBtn.textContent = '❗';
-      } else {
-        noteBtn.classList.remove('has-text');
-        noteBtn.textContent = '📝';
-      }
-    });
-    textarea.addEventListener('blur', saveState);
-
-    noteWindow.querySelector('.note-close-btn').addEventListener('click', () => {
-      note.visible = false;
-      noteWindow.remove();
-      note.window = null;
+  colorDots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      const c = dot.getAttribute('data-color');
+      // записываем цвет для конкретной выбранной даты
+      note.colors[note.selectedDate] = c;
+      updateColorDotsActive();
+      renderCalendar();
       saveState();
     });
+  });
 
-    makeMovable(noteWindow, note);
-    makeResizable(noteWindow, note);
-    return noteWindow;
+
+  // Календарь
+  const calMonthEl = noteWindow.querySelector('.cal-month');
+  const calGrid = noteWindow.querySelector('.cal-grid');
+  const prevBtn = noteWindow.querySelector('.prev');
+  const nextBtn = noteWindow.querySelector('.next');
+  let viewDate = new Date(note.selectedDate);
+
+  function ymd(d) { return d.toISOString().slice(0,10); }
+  function formatMonthYear(d) { return d.toLocaleDateString('ru-RU',{month:'long', year:'numeric'}); }
+
+  function renderCalendar() {
+    calGrid.querySelectorAll('.cal-cell').forEach(el => el.remove());
+    const first = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+    const last  = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 0);
+    const startIndex = (first.getDay() + 6) % 7; // 0=Пн
+
+    calMonthEl.textContent = formatMonthYear(viewDate);
+
+    const daysInPrev = new Date(viewDate.getFullYear(), viewDate.getMonth(), 0).getDate();
+    for (let i=0;i<startIndex;i++){
+      const dayNum = daysInPrev - startIndex + 1 + i;
+      const d = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, dayNum);
+      calGrid.appendChild(makeCell(d, true));
+    }
+    for (let day=1; day<=last.getDate(); day++){
+      const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+      calGrid.appendChild(makeCell(d, false));
+    }
+    const totalCells = calGrid.querySelectorAll('.cal-cell').length;
+    const rest = (totalCells % 7) ? (7 - (totalCells % 7)) : 0;
+    for (let i=1;i<=rest;i++){
+      const d = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, i);
+      calGrid.appendChild(makeCell(d, true));
+    }
   }
-  
-  function makeMovable(element, data) {
-    const header = element.querySelector('.note-header');
-    header.addEventListener('mousedown', (e) => {
-      e.stopPropagation();
-      const startX = e.clientX;
-      const startY = e.clientY;
-      
-      function onMove(e2) {
-        const dx = (e2.clientX - startX) / canvasState.scale;
-        const dy = (e2.clientY - startY) / canvasState.scale;
-        data.x += dx;
-        data.y += dy;
-        element.style.left = `${data.x}px`;
-        element.style.top = `${data.y}px`;
-      }
-      function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        saveState();
-      }
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+
+  function makeCell(dateObj, outMonth) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell' + (outMonth ? ' out' : '');
+    const dateStr = ymd(dateObj);
+    cell.textContent = String(dateObj.getDate());
+
+    if (dateStr === note.selectedDate) cell.classList.add('selected');
+
+    const hasEntry = !!(note.entries[dateStr] && String(note.entries[dateStr]).trim().length > 0);
+    if (hasEntry) {
+      cell.classList.add('has-entry');
+      const dayColor = note.colors[dateStr] || note.highlightColor; // если не задан индивидуальный — берём общий
+      cell.style.background = dayColor;
+      cell.style.color = '#fff';
+
+    }
+
+    cell.addEventListener('click', () => {
+      note.selectedDate = dateStr;
+      renderCalendar();
+      textarea.value = note.entries[note.selectedDate] || '';
+	  updateColorDotsActive();
+
     });
+    return cell;
   }
 
-  function makeResizable(element, data) {
-    const handle = element.querySelector('.note-resize-handle');
-    handle.addEventListener('mousedown', (e) => {
-      e.stopPropagation();
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startW = data.width;
-      const startH = data.height;
+  prevBtn.addEventListener('click', () => {
+    viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
+    renderCalendar();
+	updateColorDotsActive();
 
-      function onMove(e2) {
-        const dw = (e2.clientX - startX) / canvasState.scale;
-        const dh = (e2.clientY - startY) / canvasState.scale;
-        data.width = Math.max(150, startW + dw);
-        data.height = Math.max(100, startH + dh);
-        element.style.width = `${data.width}px`;
-        element.style.height = `${data.height}px`;
-      }
-      function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        saveState();
-      }
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  }
+  });
+  nextBtn.addEventListener('click', () => {
+    viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 1);
+    renderCalendar();
+  });
+
+  renderCalendar();
+
+  const textarea = noteWindow.querySelector('.note-textarea');
+
+
+  const noteBtn  = cardData.element.querySelector('.note-btn');
+  textarea.value = note.entries[note.selectedDate] || '';
+  textarea.addEventListener('input', () => {
+    const val = textarea.value;
+    if (val && val.trim()) note.entries[note.selectedDate] = val;
+    else delete note.entries[note.selectedDate];
+
+    if (hasAnyEntry(note)) {
+      noteBtn.classList.add('has-text');
+      noteBtn.textContent = '❗';
+    } else {
+      noteBtn.classList.remove('has-text');
+      noteBtn.textContent = '📝';
+    }
+    renderCalendar(); // чтобы дата сразу подсветилась/снялась
+  });
+  textarea.addEventListener('blur', saveState);
+
+  noteWindow.querySelector('.note-close-btn').addEventListener('click', () => {
+    note.visible = false;
+    noteWindow.remove();
+    note.window = null;
+    saveState();
+  });
+
+  makeMovable(noteWindow, note);
+  makeResizable(noteWindow, note);
+  return noteWindow;
+}
 
   // ==== Selection & utils ====
   function deleteCard(cardData) {
@@ -1161,20 +1341,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Загрузка JSON
     if (loadProjectBtn && loadProjectInput) {
       loadProjectBtn.addEventListener('click', () => loadProjectInput.click());
-      loadProjectInput.addEventListener('change', async (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-        try {
-          const text = await file.text();
-          const state = JSON.parse(text);
-          loadState(state, true);
-        } catch (err) {
-          console.error('Не удалось загрузить JSON:', err);
-          alert('Файл повреждён или имеет неверный формат JSON.');
-        } finally {
-          loadProjectInput.value = '';
-        }
-      });
+loadProjectInput.addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+
+    // 1) Явно отсекём HTML-файлы
+    const isHtml = /^\s*<!doctype html|<html[\s>]/i.test(text);
+    if (isHtml) throw new Error('html-file');
+
+    // 2) Парсим JSON
+    const state = JSON.parse(text);
+
+    // 3) Простая валидация структуры
+    const ok =
+      state && typeof state === 'object' &&
+      Array.isArray(state.cards) && Array.isArray(state.lines);
+
+    if (!ok) throw new Error('bad-structure');
+
+    loadState(state, true);
+  } catch (err) {
+    console.error('Не удалось загрузить проект:', err);
+    if (String(err.message) === 'html-file') {
+      alert('Вы выбрали HTML-файл из «Экспорт HTML». Для продолжения выберите JSON, сохранённый кнопкой «💾 Сохранить проект».');
+    } else if (String(err.message) === 'bad-structure') {
+      alert('Файл прочитан, но структура не похожа на проект (нет полей cards/lines). Проверьте, что это JSON из «💾 Сохранить проект».');
+    } else {
+      alert('Файл повреждён или имеет неверный формат JSON.');
+    }
+  } finally {
+    loadProjectInput.value = '';
+  }
+});
+
     }
 
     // Экспорт HTML с fallback
