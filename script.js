@@ -988,28 +988,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function toggleNote(cardData) {
+    // Если окно заметки уже существует, значит мы его закрываем.
     if (cardData.note && cardData.note.window) {
       cardData.note.window.remove();
       cardData.note.window = null;
       cardData.note.visible = false;
-    } else {
+    } else { // Окна нет, значит, открываем.
+      
+      // Получаем текущие координаты карточки на экране.
+      const cardRect = cardData.element.getBoundingClientRect();
+  
+      // Если объекта заметки нет в принципе, создаем его.
       if (!cardData.note) {
-        const cardRect = cardData.element.getBoundingClientRect();
         cardData.note = {
           text: '',
           entries: {},
           colors: {},
           selectedDate: new Date().toISOString().slice(0,10),
           highlightColor: '#f44336',
-          // Сохраняем позицию в координатах viewport
-          x: cardRect.right + 15,
-          y: cardRect.top,
           width: 260,
-          height: 380, // Увеличим высоту по умолчанию
+          height: 380,
           visible: false,
           window: null
+          // Позиция x/y будет задана ниже
         };
       }
+  
+      // **Ключевое исправление**: Всегда обновляем позицию заметки перед ее созданием.
+      // Это гарантирует, что она появится рядом с карточкой, даже если холст был сдвинут.
+      cardData.note.x = cardRect.right + 15;
+      cardData.note.y = cardRect.top;
+      
+      // Теперь показываем и создаем DOM-элемент.
       cardData.note.visible = true;
       createNoteWindow(cardData);
     }
@@ -1609,3 +1619,4 @@ async function prepareForPrint() {
     saveState();
 });
 // ============== КОНЕЦ ФИНАЛЬНОЙ ВЕРСИИ SCRIPT.JS ==============
+```</details>
