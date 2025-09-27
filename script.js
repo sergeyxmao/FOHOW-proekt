@@ -412,20 +412,26 @@ document.addEventListener('DOMContentLoaded', () => {
           element: selectedCard.element,
           startX: parseFloat(selectedCard.element.style.left),
           startY: parseFloat(selectedCard.element.style.top),
-          noteStartX: selectedCard.note ? selectedCard.note.x : 0,
-          noteStartY: selectedCard.note ? selectedCard.note.y : 0
+          // Сохраняем начальную позицию окна заметки в координатах viewport
+          noteStartX: (selectedCard.note && selectedCard.note.window) ? selectedCard.note.window.offsetLeft : 0,
+          noteStartY: (selectedCard.note && selectedCard.note.window) ? selectedCard.note.window.offsetTop : 0,
         });
       });
 
       const startMouseX = e.clientX, startMouseY = e.clientY;
 
       function onMouseMove(e2) {
-        const dx = (e2.clientX - startMouseX) / canvasState.scale;
-        const dy = (e2.clientY - startMouseY) / canvasState.scale;
+        // Дельта для перемещения карточки в пространстве холста
+        const dx_canvas = (e2.clientX - startMouseX) / canvasState.scale;
+        const dy_canvas = (e2.clientY - startMouseY) / canvasState.scale;
+        
+        // Дельта для перемещения окна заметки в пространстве viewport
+        const dx_viewport = e2.clientX - startMouseX;
+        const dy_viewport = e2.clientY - startMouseY;
 
         draggedCards.forEach(dragged => {
-          const newX = dragged.startX + dx;
-          const newY = dragged.startY + dy;
+          const newX = dragged.startX + dx_canvas;
+          const newY = dragged.startY + dy_canvas;
           const snappedX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
           const snappedY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
 
@@ -433,11 +439,10 @@ document.addEventListener('DOMContentLoaded', () => {
           dragged.element.style.top  = `${snappedY}px`;
           updateLinesForCard(dragged.element.id);
 
+          // Обновляем позицию окна заметки
           if (dragged.card.note && dragged.card.note.window) {
-            dragged.card.note.x = dragged.noteStartX + (snappedX - dragged.startX);
-            dragged.card.note.y = dragged.noteStartY + (snappedY - dragged.startY);
-            dragged.card.note.window.style.left = `${dragged.card.note.x}px`;
-            dragged.card.note.window.style.top  = `${dragged.card.note.y}px`;
+            dragged.card.note.window.style.left = `${dragged.noteStartX + dx_viewport}px`;
+            dragged.card.note.window.style.top  = `${dragged.noteStartY + dy_viewport}px`;
           }
         });
       }
@@ -445,6 +450,15 @@ document.addEventListener('DOMContentLoaded', () => {
       function onMouseUp() {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+        
+        // Сохраняем финальную позицию окна заметки после перетаскивания
+        draggedCards.forEach(dragged => {
+            if (dragged.card.note && dragged.card.note.window) {
+                dragged.card.note.x = parseFloat(dragged.card.note.window.style.left);
+                dragged.card.note.y = parseFloat(dragged.card.note.window.style.top);
+            }
+        });
+        
         saveState();
       }
       document.addEventListener('mousemove', onMouseMove);
@@ -953,7 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-// ============== НАЧАЛО НОВОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
+// ============== НАЧАЛО ОБНОВЛЕННОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
   function hasAnyEntry(note) {
     if (!note) return false;
     if (note.entries && typeof note.entries === 'object') {
@@ -964,7 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function ensureNoteStructure(note) {
     if (!note.entries) note.entries = {};
-    if (!note.colors)  note.colors  = {}; // цвет по датам
+    if (!note.colors)  note.colors  = {};
     if (!note.selectedDate) note.selectedDate = new Date().toISOString().slice(0,10);
     if (!note.highlightColor) note.highlightColor = '#f44336';
     if (note.text && !note.entries[note.selectedDate]) {
@@ -981,17 +995,17 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       if (!cardData.note) {
         const cardRect = cardData.element.getBoundingClientRect();
-        const canvasRect = canvas.getBoundingClientRect();
         cardData.note = {
           text: '',
           entries: {},
           colors: {},
           selectedDate: new Date().toISOString().slice(0,10),
           highlightColor: '#f44336',
-          x: (cardRect.right - canvasRect.left) / canvasState.scale + 20,
-          y: (cardRect.top   - canvasRect.top)  / canvasState.scale,
+          // Сохраняем позицию в координатах viewport
+          x: cardRect.right + 15,
+          y: cardRect.top,
           width: 260,
-          height: 260,
+          height: 380, // Увеличим высоту по умолчанию
           visible: false,
           window: null
         };
@@ -1016,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const styles = `
       <style>
-        .note-header .note-close-btn { font-size: 20px; cursor: pointer; padding: 0 8px; }
+        .note-header .note-close-btn { font-size: 20px; cursor: pointer; padding: 0 8px; border: none; background: transparent; }
         .note-header{display:flex;align-items:center;gap:8px;justify-content:space-between}
         .note-cal-wrap{padding:6px 8px 0 8px}
         .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-weight:700}
@@ -1038,27 +1052,27 @@ document.addEventListener('DOMContentLoaded', () => {
     noteWindow.innerHTML = `
       ${styles}
       <div class="note-header">
-        <div class="note-close-btn" title="Закрыть">×</div>
+        <button class="note-close-btn" title="Закрыть">×</button>
         <div class="note-tools">
           <div class="clr-dot" data-color="#f44336" title="Красный" style="background:#f44336"></div>
           <div class="clr-dot" data-color="#ffca28" title="Жёлтый"  style="background:#ffca28"></div>
           <div class="clr-dot" data-color="#42a5f5" title="Синий"   style="background:#42a5f5"></div>
         </div>
       </div>
-
-      <div class="note-cal-wrap">
-        <div class="cal-head">
-          <button class="cal-btn prev">‹</button>
-          <div class="cal-month"></div>
-          <button class="cal-btn next">›</button>
+      <div class="note-content-scroller">
+        <div class="note-cal-wrap">
+          <div class="cal-head">
+            <button class="cal-btn prev">‹</button>
+            <div class="cal-month"></div>
+            <button class="cal-btn next">›</button>
+          </div>
+          <div class="cal-grid">
+            <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
+            <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
+          </div>
         </div>
-        <div class="cal-grid">
-          <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
-          <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
-        </div>
+        <textarea class="note-textarea" placeholder="Введите текст заметки на выбранную дату..."></textarea>
       </div>
-
-      <textarea class="note-textarea" rows="5" placeholder="Введите текст заметки на выбранную дату..."></textarea>
       <div class="note-resize-handle"></div>
     `;
 
@@ -1108,10 +1122,12 @@ document.addEventListener('DOMContentLoaded', () => {
         calGrid.appendChild(makeCell(d, false));
       }
       const totalCells = calGrid.querySelectorAll('.cal-cell').length;
-      const rest = (totalCells % 7) ? (7 - (totalCells % 7)) : 0;
-      for (let i=1;i<=rest;i++){
-        const d = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, i);
-        calGrid.appendChild(makeCell(d, true));
+      if (totalCells < 42) {
+          const rest = 42 - totalCells;
+          for (let i=1; i<=rest; i++){
+            const d = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, i);
+            calGrid.appendChild(makeCell(d, true));
+          }
       }
     }
 
@@ -1174,7 +1190,6 @@ document.addEventListener('DOMContentLoaded', () => {
       saveState();
     });
     
-    // Интеграция перетаскивания и изменения размера
     const header = noteWindow.querySelector('.note-header');
     header.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -1261,22 +1276,27 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="note-text-preview">${escapeHtml(it.firstLine).slice(0,80)}</div>
             </div>
           </div>
-          <div class="note-delete-btn" title="Удалить заметку">×</div>
+          <button class="note-delete-btn" title="Удалить заметку">×</button>
         </div>
       `).join('');
 
       dropdown.querySelectorAll('.note-item').forEach(el => {
         el.querySelector('.note-item-content').addEventListener('click', () => {
           const cardData = cards.find(c => c.id === el.dataset.card);
-          if (!cardData || !cardData.note) return;
+          if (!cardData) return;
+          if (cardData.note && cardData.note.window) {
+            cardData.note.window.remove();
+            cardData.note.window = null;
+          }
           const cardRect = cardData.element.getBoundingClientRect();
-          const canvasRect = canvas.getBoundingClientRect();
+          if (!cardData.note) {
+              toggleNote(cardData); // Создаст заметку с правильной структурой
+          }
           const note = cardData.note;
           ensureNoteStructure(note);
           note.selectedDate = el.dataset.date;
-          note.x = (cardRect.right - canvasRect.left) / canvasState.scale + 20;
-          note.y = (cardRect.top   - canvasRect.top)  / canvasState.scale;
-          if (note.window) { note.window.remove(); note.window = null; }
+          note.x = cardRect.right + 15;
+          note.y = cardRect.top;
           note.visible = true;
           createNoteWindow(cardData);
           saveState();
@@ -1324,16 +1344,27 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === notesListBtn || e.target.closest('#notes-dropdown')) return;
       hide();
     });
-
-    updateNotesButtonState();
   }
 
   function updateNotesButtonState() {
-    if (!notesListBtn) return;
-    const hasAnyNoteWithText = cards.some(c => c.note && hasAnyEntry(c.note));
-    notesListBtn.disabled = !hasAnyNoteWithText;
+    cards.forEach(cardData => {
+        const noteBtn = cardData.element.querySelector('.note-btn');
+        if (noteBtn) {
+            if (hasAnyEntry(cardData.note)) {
+                noteBtn.classList.add('has-text');
+                noteBtn.textContent = '❗';
+            } else {
+                noteBtn.classList.remove('has-text');
+                noteBtn.textContent = '📝';
+            }
+        }
+    });
+    if (notesListBtn) {
+      const hasAnyNoteWithText = cards.some(c => c.note && hasAnyEntry(c.note));
+      notesListBtn.disabled = !hasAnyNoteWithText;
+    }
   }
-// ============== КОНЕЦ НОВОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
+// ============== КОНЕЦ ОБНОВЛЕННОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
 
 // ============== НАЧАЛО НОВОЙ ФУНКЦИИ ДЛЯ ПЕЧАТИ ==============
 async function prepareForPrint() {
