@@ -187,21 +187,23 @@ html,body{
 .color-changer{ border:2px solid #444; }
 .body-color-changer{ position:absolute; bottom:8px; left:8px; }
 
-/* Заметки (кнопка в карточке) */
-.note-btn{ background:#fff; }
-.note-btn.has-text{ background:#e11d48; color:#fff; }
+/* === НАЧАЛО НОВЫХ СТИЛЕЙ ДЛЯ ЗАМЕТОК === */
+/* Кнопка заметки на карточке */
+.note-btn { background:#fff; }
+.note-btn.has-text { background:#e11d48; color:#fff; }
 
 /* Окно заметки */
 .note-window{
-  position:absolute; width:260px; height:260px;
+  position:absolute; width:260px; height:auto; min-height: 260px;
   background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow: var(--shadow);
   z-index:1500; display:flex; flex-direction:column; resize:both; overflow:auto;
 }
-.note-header{ background:#f3f4f6; padding:6px 8px; border-radius:12px 12px 0 0; cursor:grab; display:flex; align-items:center; justify-content:space-between; }
+.note-header{ background:#f3f4f6; padding:6px 8px; border-radius:12px 12px 0 0; cursor:grab;
+  display:flex; align-items:center; justify-content:space-between; }
 .note-textarea{
   flex-grow:1; border:1px solid #e5e7eb; background:#ffffff; color:#222; border-radius:8px; margin:8px; padding:10px;
-  font-family:inherit; font-size:14px; line-height:1.35; resize:both; outline:none;
-  min-height:120px; /* гарантировано >= 5 строк */
+  font-family:inherit; font-size:14px; line-height:1.35; resize:none; outline:none;
+  min-height:120px;
 }
 .note-resize-handle{ position:absolute; bottom:0; right:0; width:15px; height:15px; cursor:se-resize;
   background:repeating-linear-gradient(135deg,#ccc,#ccc 2px,transparent 2px,transparent 4px); }
@@ -212,18 +214,24 @@ html,body{
   min-width:280px; max-width:380px; padding:6px;
   background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow: var(--shadow);
 }
-.note-item{ display:flex; gap:10px; padding:8px; border-radius:10px; align-items:flex-start; justify-content: space-between; }
+.note-item{ display:flex; gap:10px; padding:8px; border-radius:10px; align-items:flex-start; justify-content:space-between; }
 .note-item:hover{ background:#f3f4f6; }
-.note-item-content { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; flex-grow: 1; }
-.note-dot{ width:10px; height:10px; border-radius:50%; border:2px solid #111; margin-top:6px; flex-shrink: 0; }
+.note-item-content{ display:flex; gap:10px; align-items:flex-start; cursor:pointer; flex-grow:1; }
+.note-dot{ width:10px; height:10px; border-radius:50%; border:2px solid #111; margin-top:6px; flex-shrink:0; }
 .note-meta{ display:flex; flex-direction:column; gap:2px; }
 .note-date{ font-weight:700; }
 .note-text-preview{ font-size:13px; color:var(--muted); word-break: break-word; }
 .note-delete-btn{
-  font-size: 20px; color: #9ca3af; cursor: pointer; padding: 0 4px; border-radius: 50%;
-  transition: color .2s, background-color .2s; flex-shrink: 0; align-self: center;
+  font-size:20px; color:#9ca3af; cursor:pointer; padding:0 4px; border-radius:50%;
+  transition: color .2s, background-color .2s; flex-shrink:0; align-self:center; border: none; background: transparent;
 }
-.note-delete-btn:hover{ color: #ef4444; background-color: #fee2e2; }
+.note-delete-btn:hover{ color:#ef4444; background-color:#fee2e2; }
+
+/* Адаптация календаря внутри заметки */
+.note-window .cal-grid{ width:100%; display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:26px; }
+.note-window .cal-cell{ min-width:0; height:26px; line-height:26px; padding:0; overflow:hidden; white-space:nowrap; text-overflow:clip; }
+.note-window .cal-month{ white-space:nowrap; }
+/* === КОНЕЦ НОВЫХ СТИЛЕЙ ДЛЯ ЗАМЕТОК === */
 
 
 /* Прямоугольник выделения */
@@ -242,11 +250,6 @@ html,body{
 .card.dark-mode .color-changer{ background:#374151 !important; border-color:#4b5563; color:#e5e7eb; }
 .card.dark-mode .header-color-picker-btn{ display:none; }
 .card.dark-mode .card-row .coin-icon{ display:none; }
-
-/* Календарь в заметке */
-.note-window .cal-grid{ width:100%; display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:26px; }
-.note-window .cal-cell{ min-width:0; height:26px; line-height:26px; padding:0; overflow:hidden; white-space:nowrap; text-overflow:clip; }
-.note-window .cal-month{ white-space:nowrap; }
 
 /* Попап цветов для чисел */
 .num-color-pop{
