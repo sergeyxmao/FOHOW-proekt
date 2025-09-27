@@ -1618,5 +1618,3 @@ async function prepareForPrint() {
 
     saveState();
 });
-// ============== КОНЕЦ ФИНАЛЬНОЙ ВЕРСИИ SCRIPT.JS ==============
-```</details>
