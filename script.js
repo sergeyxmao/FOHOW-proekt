@@ -956,7 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ============== НАЧАЛО ОБНОВЛЕННОЙ ФУНКЦИИ (ЗАМЕНИТЬ В SCRIPT.JS) ==============
+// ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ (ЗАМЕНИТЬ В SCRIPT.JS) ==============
   async function prepareForPrint() {
     if (cards.length === 0) {
       alert("На доске нет элементов для печати.");
@@ -983,14 +983,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Скрипт, который будет работать в новом окне
     const screenshotScript = `
-      // Получаем доступ к глобальному объекту jsPDF, который мы подключили
       const { jsPDF } = window.jspdf;
 
       const pngBtn = document.getElementById('do-screenshot-btn');
-      const pdfBtn = document.getElementById('do-pdf-btn'); // Новая кнопка PDF
+      const pdfBtn = document.getElementById('do-pdf-btn');
       const target = document.getElementById('canvas');
 
-      // --- Логика для PNG (остается почти без изменений) ---
       pngBtn.addEventListener('click', () => {
         pngBtn.textContent = 'Создание PNG...';
         pngBtn.disabled = true;
@@ -1011,16 +1009,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      // --- НОВАЯ ЛОГИКА ДЛЯ PDF ---
       pdfBtn.addEventListener('click', () => {
         const input = prompt("Введите желаемые размеры для печати в сантиметрах (Ширина x Высота), например: 150x120. Или напишите 'оригинал', чтобы использовать текущий размер.", "оригинал");
-        if (input === null) return; // Пользователь нажал "Отмена"
+        if (input === null) return;
 
         pngBtn.disabled = true;
         pdfBtn.textContent = 'Подготовка PDF...';
         pdfBtn.disabled = true;
 
-        // DPI для конвертации см в пиксели (стандарт для печати)
         const DPI = 150; 
         const CM_PER_INCH = 2.54;
 
@@ -1035,31 +1031,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (parts.length === 2) {
                     const reqWidthCm = parseFloat(parts[0]);
                     const reqHeightCm = parseFloat(parts[1]);
-
                     if (!isNaN(reqWidthCm) && !isNaN(reqHeightCm) && reqWidthCm > 0 && reqHeightCm > 0) {
                         targetWidthPx = Math.round((reqWidthCm / CM_PER_INCH) * DPI);
                         targetHeightPx = Math.round((reqHeightCm / CM_PER_INCH) * DPI);
                     } else {
                         alert("Неверный формат. Пожалуйста, введите размеры как '150x120'.");
-                        return; // Выходим, если ввод некорректен
+                        pdfBtn.disabled = false; pngBtn.disabled = false; pdfBtn.textContent = 'Сохранить для печати (PDF)';
+                        return;
                     }
                 } else {
                     alert("Неверный формат. Пожалуйста, введите размеры как '150x120'.");
+                    pdfBtn.disabled = false; pngBtn.disabled = false; pdfBtn.textContent = 'Сохранить для печати (PDF)';
                     return;
                 }
             }
 
-            // Создаем PDF документ формата A4, в портретной ориентации
-            const doc = new jsPDF({
-                orientation: 'p',
-                unit: 'pt', // работаем в "точках" (стандарт для PDF)
-                format: 'a4'
-            });
-
+            const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
-
-            // Масштабируем холст до целевых размеров
             const scaledCanvas = document.createElement('canvas');
             scaledCanvas.width = targetWidthPx;
             scaledCanvas.height = targetHeightPx;
@@ -1069,18 +1058,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalPages = Math.ceil(targetWidthPx / pageWidth) * Math.ceil(targetHeightPx / pageHeight);
             let pagesProcessed = 0;
 
-            // Нарезаем масштабированный холст на страницы
             for (let y = 0; y < targetHeightPx; y += pageHeight) {
                 for (let x = 0; x < targetWidthPx; x += pageWidth) {
                     pagesProcessed++;
+                    // === ВОТ ИСПРАВЛЕННАЯ СТРОКА ===
                     pdfBtn.textContent = \`Стр. \${pagesProcessed} / \${totalPages}...\`;
                     
-                    // Добавляем новую страницу, если это не первая
-                    if (x > 0 || y > 0) {
-                        doc.addPage();
-                    }
+                    if (x > 0 || y > 0) doc.addPage();
                     
-                    // Вырезаем кусок из большого холста и вставляем его на страницу PDF
                     const sliceWidth = Math.min(pageWidth, targetWidthPx - x);
                     const sliceHeight = Math.min(pageHeight, targetHeightPx - y);
                     
@@ -1107,7 +1092,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     `;
 
-    // Функция, которая создаст и откроет новое окно
     const createPrintWindow = (cssText) => {
         let html = `
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати</title>
@@ -1120,8 +1104,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
             .card:hover { transform: none !important; box-shadow: 0 8px 20px rgba(0,0,0,.12) !important; }
-            
-            /* Стили для кнопок управления */
             #controls { 
               position: fixed; top: 20px; left: 20px; z-index: 9999;
               display: flex; flex-direction: column; gap: 10px;
@@ -1211,13 +1193,12 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
     
-    // Этот код остался без изменений - он загружает стили и вызывает createPrintWindow
     fetch('style.css')
       .then(response => response.ok ? response.text() : Promise.reject())
       .then(cssText => createPrintWindow(cssText))
       .catch(() => {
         const minimalCss = `
-          :root{--card-width: 380px; --brand: #0f62fe;} /* ... и другие минимальные стили ... */
+          :root{--card-width: 380px; --brand: #0f62fe;}
         `;
         createPrintWindow(minimalCss);
       });
