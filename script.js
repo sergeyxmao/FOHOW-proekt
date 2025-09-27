@@ -1050,7 +1050,7 @@ async function prepareForPrint() {
           for (let y = 0; y < targetHeightPx; y += pageHeight) {
             for (let x = 0; x < targetWidthPx; x += pageWidth) {
               n++;
-              pdfBtn.textContent = \`Стр. \${n} / \${totalPages}...\`;
+              pdfBtn.textContent = 'Стр. ' + n + ' / ' + totalPages + '...';
               if (x > 0 || y > 0) doc.addPage();
 
               const sliceW = Math.min(pageWidth,  targetWidthPx - x);
@@ -1189,4 +1189,5 @@ async function prepareForPrint() {
     saveState();
 });
 // ============== КОНЕЦ ФИНАЛЬНОЙ ВЕРСИИ SCRIPT.JS ==============
+
 
