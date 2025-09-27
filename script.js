@@ -501,16 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Здесь должны быть все ваши функции для работы с заметками,
-  // я их сократил, но они должны быть в вашем файле
-  function hasAnyEntry(note) { return false; }
-  function toggleNote(cardData) {}
-  function createNoteWindow(cardData) {}
-  function setupNoteAutoClose() {}
-  function setupNotesDropdown() {}
-  function updateNotesButtonState() {}
-
-
   function deleteCard(cardData) {
     lines = lines.filter(line => {
       if (line.startCard.id === cardData.id || line.endCard.id === cardData.id) { line.element.remove(); return false; }
@@ -956,7 +946,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-// ============== НАЧАЛО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК (ЗАМЕНИТЬ ПУСТЫЕ ФУНКЦИИ) ==============
+// ============== НАЧАЛО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
   function hasAnyEntry(note) {
     return note && note.content && note.content.trim() !== '';
   }
@@ -1153,10 +1143,247 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 // ============== КОНЕЦ КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
 
+// ============== НАЧАЛО НОВОЙ ФУНКЦИИ ДЛЯ ПЕЧАТИ ==============
+async function prepareForPrint() {
+    if (cards.length === 0) {
+      alert("На доске нет элементов для печати.");
+      return;
+    }
+
+    const state = serializeState();
+    const PADDING = 100;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    state.cards.forEach(card => {
+        const cardWidth = parseInt(card.width, 10) || 380;
+        const cardHeight = 280;
+        minX = Math.min(minX, card.x);
+        minY = Math.min(minY, card.y);
+        maxX = Math.max(maxX, card.x + cardWidth);
+        maxY = Math.max(maxY, card.y + cardHeight);
+    });
+
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+    
+    const bodyStyle = getComputedStyle(document.body);
+
+    // Скрипт, который будет работать в новом окне
+    const screenshotScript = `
+      document.addEventListener('DOMContentLoaded', () => {
+        const { jsPDF } = window.jspdf;
+
+        const pngBtn = document.getElementById('do-screenshot-btn');
+        const pdfBtn = document.getElementById('do-pdf-btn');
+        const target = document.getElementById('canvas');
+
+        if (!pngBtn || !pdfBtn || !target) {
+            console.error('Необходимые элементы для печати не найдены!');
+            return;
+        }
+
+        pngBtn.addEventListener('click', () => {
+          pngBtn.textContent = 'Создание PNG...';
+          pngBtn.disabled = true;
+          pdfBtn.disabled = true;
+
+          html2canvas(target, { scale: 2, useCORS: true }).then(canvas => {
+              const link = document.createElement('a');
+              link.download = 'scheme-screenshot.png';
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+              pngBtn.textContent = 'Готово!';
+          }).catch(err => {
+              console.error("Ошибка при создании PNG:", err);
+              pngBtn.textContent = 'Ошибка! Попробуйте снова';
+          }).finally(() => {
+              pngBtn.disabled = false;
+              pdfBtn.disabled = false;
+          });
+        });
+
+        pdfBtn.addEventListener('click', () => {
+          const input = prompt("Введите желаемые размеры для печати в сантиметрах (Ширина x Высота), например: 150x120. Или напишите 'оригинал', чтобы использовать текущий размер.", "оригинал");
+          if (input === null) return;
+
+          pngBtn.disabled = true;
+          pdfBtn.textContent = 'Подготовка PDF...';
+          pdfBtn.disabled = true;
+
+          const DPI = 150; 
+          const CM_PER_INCH = 2.54;
+
+          html2canvas(target, { scale: 2, useCORS: true }).then(canvas => {
+              pdfBtn.textContent = 'Нарезка изображения...';
+
+              let targetWidthPx = canvas.width;
+              let targetHeightPx = canvas.height;
+
+              if (input.toLowerCase() !== 'оригинал') {
+                  const parts = input.split('x');
+                  if (parts.length === 2) {
+                      const reqWidthCm = parseFloat(parts[0]);
+                      const reqHeightCm = parseFloat(parts[1]);
+                      if (!isNaN(reqWidthCm) && !isNaN(reqHeightCm) && reqWidthCm > 0 && reqHeightCm > 0) {
+                          targetWidthPx = Math.round((reqWidthCm / CM_PER_INCH) * DPI);
+                          targetHeightPx = Math.round((reqHeightCm / CM_PER_INCH) * DPI);
+                      } else {
+                          alert("Неверный формат. Пожалуйста, введите размеры как '150x120'.");
+                          pdfBtn.disabled = false; pngBtn.disabled = false; pdfBtn.textContent = 'Сохранить для печати (PDF)';
+                          return;
+                      }
+                  } else {
+                      alert("Неверный формат. Пожалуйста, введите размеры как '150x120'.");
+                      pdfBtn.disabled = false; pngBtn.disabled = false; pdfBtn.textContent = 'Сохранить для печати (PDF)';
+                      return;
+                  }
+              }
+
+              const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+              const pageWidth = doc.internal.pageSize.getWidth();
+              const pageHeight = doc.internal.pageSize.getHeight();
+              const scaledCanvas = document.createElement('canvas');
+              scaledCanvas.width = targetWidthPx;
+              scaledCanvas.height = targetHeightPx;
+              const ctx = scaledCanvas.getContext('2d');
+              ctx.drawImage(canvas, 0, 0, targetWidthPx, targetHeightPx);
+              
+              const totalPages = Math.ceil(targetWidthPx / pageWidth) * Math.ceil(targetHeightPx / pageHeight);
+              let pagesProcessed = 0;
+
+              for (let y = 0; y < targetHeightPx; y += pageHeight) {
+                  for (let x = 0; x < targetWidthPx; x += pageWidth) {
+                      pagesProcessed++;
+                      pdfBtn.textContent = 'Стр. ' + pagesProcessed + ' / ' + totalPages + '...';
+                      if (x > 0 || y > 0) doc.addPage();
+                      const sliceWidth = Math.min(pageWidth, targetWidthPx - x);
+                      const sliceHeight = Math.min(pageHeight, targetHeightPx - y);
+                      const tempCanvas = document.createElement('canvas');
+                      tempCanvas.width = sliceWidth;
+                      tempCanvas.height = sliceHeight;
+                      tempCanvas.getContext('2d').drawImage(scaledCanvas, x, y, sliceWidth, sliceHeight, 0, 0, sliceWidth, sliceHeight);
+                      doc.addImage(tempCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, sliceWidth, sliceHeight);
+                  }
+              }
+              pdfBtn.textContent = 'Сохранение PDF...';
+              doc.save('FOHOW-scheme.pdf');
+              pdfBtn.textContent = 'Готово!';
+          }).catch(err => {
+              console.error("Ошибка при создании PDF:", err);
+              pdfBtn.textContent = 'Ошибка! Попробуйте снова';
+          }).finally(() => {
+               pngBtn.disabled = false;
+               pdfBtn.disabled = false;
+          });
+        });
+      });
+    `;
+
+    const createPrintWindow = (cssText) => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            alert("Не удалось открыть новое окно. Пожалуйста, разрешите всплывающие окна для этого сайта.");
+            return;
+        }
+
+        printWindow.document.open();
+        printWindow.document.write(`
+          <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати</title>
+          
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
+
+          <style>
+            ${cssText}
+            html, body { 
+              overflow: auto !important; margin: 0; padding: 0;
+              width: ${contentWidth + PADDING * 2}px;
+              height: ${contentHeight + PADDING * 2}px;
+            }
+            #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
+            .card:hover { transform: none !important; box-shadow: 0 8px 20px rgba(0,0,0,.12) !important; }
+            #controls { position: fixed; top: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+            .control-btn { padding: 12px 20px; font-size: 16px; font-weight: bold; background-color: #0f62fe; color: white; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.2); transition: background-color 0.2s; }
+            .control-btn:hover:not(:disabled) { background-color: #0042d6; }
+            .control-btn:disabled { background-color: #6b7280; cursor: not-allowed; }
+          </style></head>
+          <body style="background: ${bodyStyle.background};">
+            <div id="controls">
+              <button id="do-screenshot-btn" class="control-btn">Сохранить как картинку (PNG)</button>
+              <button id="do-pdf-btn" class="control-btn">Сохранить для печати (PDF)</button>
+            </div>
+            <div id="canvas">
+               <svg id="svg-layer" style="width:100%; height:100%;"><defs>
+                    <marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
+                      <circle cx="5" cy="5" r="4" fill="currentColor"/>
+                    </marker></defs>
+                </svg>
+            </div>
+            <script>${screenshotScript}<\/script>
+          </body></html>`);
+        printWindow.document.close();
+
+        printWindow.addEventListener('load', () => {
+            const printCanvas = printWindow.document.getElementById('canvas');
+            const printSvgLayer = printWindow.document.getElementById('svg-layer');
+            if (!printCanvas || !printSvgLayer) return;
+
+            const cardElements = new Map();
+            state.cards.forEach(cardData => {
+                const cardEl = printWindow.document.createElement('div');
+                cardEl.className = 'card';
+                if(cardData.isDarkMode) cardEl.classList.add('dark-mode');
+                cardEl.style.width = cardData.width || '380px';
+                cardEl.style.left = `${cardData.x - minX + PADDING}px`;
+                cardEl.style.top = `${cardData.y - minY + PADDING}px`;
+                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cardData.bodyHTML}</div>`;
+                printCanvas.appendChild(cardEl);
+                cardElements.set(cardData.id, cardEl);
+            });
+
+            state.lines.forEach(lineData => {
+                const startEl = cardElements.get(lineData.startId);
+                const endEl = cardElements.get(lineData.endId);
+                if (!startEl || !endEl) return;
+                
+                const getPrintCoords = (el, side) => {
+                  const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+                  const w = parseInt(el.style.width, 10) || 380, h = 280;
+                  switch (side) {
+                    case 'top': return { x: x + w / 2, y: y };
+                    case 'bottom': return { x: x + w / 2, y: y + h };
+                    case 'left': return { x: x, y: y + h / 2 };
+                    case 'right': return { x: x + w, y: y + h / 2 };
+                  }
+                };
+                
+                const p1 = getPrintCoords(startEl, lineData.startSide);
+                const p2 = getPrintCoords(endEl, lineData.endSide);
+                const path = printWindow.document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('class', 'line');
+                path.setAttribute('stroke', lineData.color);
+                path.setAttribute('stroke-width', lineData.thickness);
+                path.style.setProperty('--line-color', lineData.color);
+                path.setAttribute('marker-start', 'url(#marker-dot)');
+                path.setAttribute('marker-end', 'url(#marker-dot)');
+                
+                let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
+                path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
+                printSvgLayer.appendChild(path);
+            });
+        });
+    };
+    
+    fetch('style.css')
+      .then(response => response.ok ? response.text() : Promise.reject())
+      .then(cssText => createPrintWindow(cssText))
+      .catch(() => {
+        const minimalCss = ':root{--card-width: 380px; --brand: #0f62fe;}';
+        createPrintWindow(minimalCss);
+      });
+}
+// ============== КОНЕЦ НОВОЙ ФУНКЦИИ ==============
+
     saveState();
 });
 // ============== КОНЕЦ ФИНАЛЬНОЙ ВЕРСИИ SCRIPT.JS ==============
-
-
-
-
