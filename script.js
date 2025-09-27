@@ -956,7 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-// ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ (ЗАМЕНИТЬ В SCRIPT.JS) ==============
+  // ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ (ЗАМЕНИТЬ В SCRIPT.JS) ==============
   async function prepareForPrint() {
     if (cards.length === 0) {
       alert("На доске нет элементов для печати.");
@@ -1061,8 +1061,9 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let y = 0; y < targetHeightPx; y += pageHeight) {
                 for (let x = 0; x < targetWidthPx; x += pageWidth) {
                     pagesProcessed++;
+                    
                     // === ВОТ ИСПРАВЛЕННАЯ СТРОКА ===
-                    pdfBtn.textContent = \`Стр. \${pagesProcessed} / \${totalPages}...\`;
+                    pdfBtn.textContent = 'Стр. ' + pagesProcessed + ' / ' + totalPages + '...';
                     
                     if (x > 0 || y > 0) doc.addPage();
                     
@@ -1093,14 +1094,14 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     const createPrintWindow = (cssText) => {
-        let html = `
+        let html = \`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати</title>
           <style>
-            ${cssText}
+            \${cssText}
             html, body { 
               overflow: auto !important; margin: 0; padding: 0;
-              width: ${contentWidth + PADDING * 2}px;
-              height: ${contentHeight + PADDING * 2}px;
+              width: \${contentWidth + PADDING * 2}px;
+              height: \${contentHeight + PADDING * 2}px;
             }
             #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
             .card:hover { transform: none !important; box-shadow: 0 8px 20px rgba(0,0,0,.12) !important; }
@@ -1117,7 +1118,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .control-btn:hover:not(:disabled) { background-color: #0042d6; }
             .control-btn:disabled { background-color: #6b7280; cursor: not-allowed; }
           </style></head>
-          <body style="background: ${bodyStyle.background};">
+          <body style="background: \${bodyStyle.background};">
             <div id="controls">
               <button id="do-screenshot-btn" class="control-btn">Сохранить как картинку (PNG)</button>
               <button id="do-pdf-btn" class="control-btn">Сохранить для печати (PDF)</button>
@@ -1129,8 +1130,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </marker></defs>
                 </svg>
             </div>
-            <script>${screenshotScript}<\/script>
-          </body></html>`;
+            <script>\${screenshotScript}<\/script>
+          </body></html>\`;
 
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
@@ -1152,9 +1153,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 cardEl.className = 'card';
                 if(cardData.isDarkMode) cardEl.classList.add('dark-mode');
                 cardEl.style.width = cardData.width || '380px';
-                cardEl.style.left = `${cardData.x - minX + PADDING}px`;
-                cardEl.style.top = `${cardData.y - minY + PADDING}px`;
-                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cardData.bodyHTML}</div>`;
+                cardEl.style.left = \`\${cardData.x - minX + PADDING}px\`;
+                cardEl.style.top = \`\${cardData.y - minY + PADDING}px\`;
+                cardEl.innerHTML = \`<div class="card-header" style="background:\${cardData.headerBg};"><span class="card-title">\${cardData.title}</span></div><div class="card-body \${cardData.bodyClass}">\${cardData.bodyHTML}</div>\`;
                 printCanvas.appendChild(cardEl);
                 cardElements.set(cardData.id, cardEl);
             });
@@ -1186,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 path.setAttribute('marker-end', 'url(#marker-dot)');
                 
                 let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
-                path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
+                path.setAttribute('d', \`M \${p1.x} \${p1.y} L \${midP1.x} \${midP1.y} L \${p2.x} \${p2.y}\`);
                 printSvgLayer.appendChild(path);
             });
           }, 100);
@@ -1197,13 +1198,14 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(response => response.ok ? response.text() : Promise.reject())
       .then(cssText => createPrintWindow(cssText))
       .catch(() => {
-        const minimalCss = `
+        const minimalCss = \`
           :root{--card-width: 380px; --brand: #0f62fe;}
-        `;
+        \`;
         createPrintWindow(minimalCss);
       });
   }
-  // ============== КОНЕЦ ОБНОВЛЕННОЙ ФУНКЦИИ ==============
+  // ============== КОНЕЦ ОБНОВЛЕННОЙ ФУНКЦИИ ==============```
+
     saveState();
 });
 // ============== КОНЕЦ ФИНАЛЬНОЙ ВЕРСИИ SCRIPT.JS ==============
