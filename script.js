@@ -369,11 +369,16 @@ document.addEventListener('DOMContentLoaded', () => {
     bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
 
     const noteBtn = card.querySelector('.note-btn');
-    noteBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleNote(cardData); });
-    if (cardData.note && cardData.note.visible) {
-      // Defer creation to ensure card is in DOM and has dimensions
-      setTimeout(() => createNoteWindow(cardData), 0);
+    if (cardData.note && hasAnyEntry(cardData.note)) {
+      noteBtn.classList.add('has-text');
+      noteBtn.textContent = '❗';
     }
+    noteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleNote(cardData);
+      updateNotesButtonState();
+    });
+    if (cardData.note && cardData.note.visible) createNoteWindow(cardData);
 
     card.querySelectorAll('[contenteditable="true"]').forEach(el => el.addEventListener('blur', () => saveState()));
 
@@ -429,10 +434,8 @@ document.addEventListener('DOMContentLoaded', () => {
           updateLinesForCard(dragged.element.id);
 
           if (dragged.card.note && dragged.card.note.window) {
-            const noteDx = snappedX - dragged.startX;
-            const noteDy = snappedY - dragged.startY;
-            dragged.card.note.x = dragged.noteStartX + noteDx;
-            dragged.card.note.y = dragged.noteStartY + noteDy;
+            dragged.card.note.x = dragged.noteStartX + (snappedX - dragged.startX);
+            dragged.card.note.y = dragged.noteStartY + (snappedY - dragged.startY);
             dragged.card.note.window.style.left = `${dragged.card.note.x}px`;
             dragged.card.note.window.style.top  = `${dragged.card.note.y}px`;
           }
@@ -950,227 +953,268 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-// ============== НАЧАЛО НОВОГО ФУНКЦИОНАЛА ЗАМЕТОК ==============
-  const NOTE_COLORS = ['#f87171', '#fbbf24', '#a3e635', '#60a5fa', '#c084fc'];
-  const DEFAULT_NOTE_HIGHLIGHT = 'rgba(15, 98, 254, .15)';
-
-  // Helper to check if a note has any actual text content
+// ============== НАЧАЛО НОВОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
   function hasAnyEntry(note) {
-    if (!note || !note.entries) return false;
-    return Object.values(note.entries).some(text => text && text.trim() !== '');
+    if (!note) return false;
+    if (note.entries && typeof note.entries === 'object') {
+      return Object.values(note.entries).some(v => v && String(v).trim().length > 0);
+    }
+    return !!(note.text && String(note.text).trim().length > 0);
   }
-  
-  // Helper to format a Date object into 'YYYY-MM-DD'
-  function toISODateString(date) {
-    return date.getFullYear() + '-' +
-           ('0' + (date.getMonth() + 1)).slice(-2) + '-' +
-           ('0' + date.getDate()).slice(-2);
+
+  function ensureNoteStructure(note) {
+    if (!note.entries) note.entries = {};
+    if (!note.colors)  note.colors  = {}; // цвет по датам
+    if (!note.selectedDate) note.selectedDate = new Date().toISOString().slice(0,10);
+    if (!note.highlightColor) note.highlightColor = '#f44336';
+    if (note.text && !note.entries[note.selectedDate]) {
+      note.entries[note.selectedDate] = note.text;
+      note.text = '';
+    }
   }
 
   function toggleNote(cardData) {
-    // Initialize note object if it doesn't exist
-    if (!cardData.note) {
-      const cardRect = cardData.element.getBoundingClientRect();
-      const canvasRect = canvas.getBoundingClientRect();
-      const pos = getCanvasCoordinates(cardRect.right, cardRect.top);
-      cardData.note = {
-        entries: {},
-        colors: {},
-        selectedDate: toISODateString(new Date()),
-        highlightColor: DEFAULT_NOTE_HIGHLIGHT,
-        visible: false,
-        x: pos.x + 15,
-        y: pos.y,
-        width: 280,
-        height: 380
-      };
-    }
-    cardData.note.visible = !cardData.note.visible;
-
-    if (cardData.note.visible) {
-      createNoteWindow(cardData);
-    } else if (cardData.note.window) {
+    if (cardData.note && cardData.note.window) {
       cardData.note.window.remove();
       cardData.note.window = null;
+      cardData.note.visible = false;
+    } else {
+      if (!cardData.note) {
+        const cardRect = cardData.element.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        cardData.note = {
+          text: '',
+          entries: {},
+          colors: {},
+          selectedDate: new Date().toISOString().slice(0,10),
+          highlightColor: '#f44336',
+          x: (cardRect.right - canvasRect.left) / canvasState.scale + 20,
+          y: (cardRect.top   - canvasRect.top)  / canvasState.scale,
+          width: 260,
+          height: 260,
+          visible: false,
+          window: null
+        };
+      }
+      cardData.note.visible = true;
+      createNoteWindow(cardData);
     }
     saveState();
+    updateNotesButtonState();
   }
 
   function createNoteWindow(cardData) {
-    if (cardData.note.window) {
-      cardData.note.window.style.zIndex = 1501; // Bring to front
-      return;
-    }
+    const note = cardData.note;
+    ensureNoteStructure(note);
 
     const noteWindow = document.createElement('div');
     noteWindow.className = 'note-window';
-    noteWindow.id = `note_win_${cardData.id}`;
-    noteWindow.style.left = `${cardData.note.x}px`;
-    noteWindow.style.top = `${cardData.note.y}px`;
-    noteWindow.style.width = `${cardData.note.width}px`;
-    noteWindow.style.height = `${cardData.note.height}px`;
+    noteWindow.style.left   = `${note.x}px`;
+    noteWindow.style.top    = `${note.y}px`;
+    noteWindow.style.width  = `${note.width}px`;
+    noteWindow.style.height = `${note.height}px`;
 
-    const colorPaletteHTML = NOTE_COLORS.map(c => `<div class="dot" style="background-color:${c}" data-color="${c}"></div>`).join('');
+    const styles = `
+      <style>
+        .note-header .note-close-btn { font-size: 20px; cursor: pointer; padding: 0 8px; }
+        .note-header{display:flex;align-items:center;gap:8px;justify-content:space-between}
+        .note-cal-wrap{padding:6px 8px 0 8px}
+        .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-weight:700}
+        .cal-month{font-size:12px}
+        .cal-nav{display:flex;gap:6px}
+        .cal-btn{border:none;border-radius:6px;padding:2px 6px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2);background:#fff}
+        .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;font-size:11px}
+        .cal-dow{opacity:.7;text-align:center}
+        .cal-cell{height:24px;display:flex;align-items:center;justify-content:center;border-radius:6px;cursor:pointer;background:#fff}
+        .cal-cell.out{opacity:.35}
+        .cal-cell.selected{outline:2px solid #4caf50}
+        .cal-cell.has-entry{box-shadow: inset 0 0 0 2px rgba(0,0,0,.08)}
+        .note-tools{display:flex;gap:6px;align-items:center;margin-left:auto;margin-right:6px}
+        .clr-dot{width:18px;height:18px;border-radius:50%;border:2px solid #333;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+        .clr-dot.active{box-shadow:0 0 0 2px rgba(0,0,0,.25), inset 0 0 0 2px #fff}
+      </style>
+    `;
 
     noteWindow.innerHTML = `
+      ${styles}
       <div class="note-header">
-        <span>Заметка к "${cardData.element.querySelector('.card-title').textContent}"</span>
-        <button class="note-close-btn" title="Закрыть">×</button>
+        <div class="note-close-btn" title="Закрыть">×</div>
+        <div class="note-tools">
+          <div class="clr-dot" data-color="#f44336" title="Красный" style="background:#f44336"></div>
+          <div class="clr-dot" data-color="#ffca28" title="Жёлтый"  style="background:#ffca28"></div>
+          <div class="clr-dot" data-color="#42a5f5" title="Синий"   style="background:#42a5f5"></div>
+        </div>
       </div>
-      <div class="num-color-pop" style="display:flex; position:relative; padding: 4px 8px; justify-content:center;">
-        ${colorPaletteHTML}
+
+      <div class="note-cal-wrap">
+        <div class="cal-head">
+          <button class="cal-btn prev">‹</button>
+          <div class="cal-month"></div>
+          <button class="cal-btn next">›</button>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
+          <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
+        </div>
       </div>
-      <div class="cal-header" style="display:flex; justify-content:space-between; align-items:center; padding: 4px 8px;">
-        <button class="cal-nav-btn prev-month">‹</button>
-        <span class="cal-month"></span>
-        <button class="cal-nav-btn next-month">›</button>
-      </div>
-      <div class="cal-grid"></div>
-      <textarea class="note-textarea" placeholder="Введите текст для выбранной даты..."></textarea>
+
+      <textarea class="note-textarea" rows="5" placeholder="Введите текст заметки на выбранную дату..."></textarea>
       <div class="note-resize-handle"></div>
     `;
 
     document.body.appendChild(noteWindow);
-    cardData.note.window = noteWindow;
+    note.window = noteWindow;
 
-    const textarea = noteWindow.querySelector('.note-textarea');
-    const calGrid = noteWindow.querySelector('.cal-grid');
-    const calMonthLabel = noteWindow.querySelector('.cal-month');
-    let currentDisplayDate = new Date(cardData.note.selectedDate);
+    const colorDots = noteWindow.querySelectorAll('.clr-dot');
+    function updateColorDotsActive() {
+      const currentColor = note.colors[note.selectedDate] || note.highlightColor;
+      colorDots.forEach(d => d.classList.toggle('active', d.getAttribute('data-color') === currentColor));
+    }
+    colorDots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        const c = dot.getAttribute('data-color');
+        note.colors[note.selectedDate] = c;
+        updateColorDotsActive();
+        renderCalendar();
+        saveState();
+      });
+    });
+
+    const calMonthEl = noteWindow.querySelector('.cal-month');
+    const calGrid    = noteWindow.querySelector('.cal-grid');
+    const prevBtn    = noteWindow.querySelector('.prev');
+    const nextBtn    = noteWindow.querySelector('.next');
+    let viewDate     = new Date(note.selectedDate);
+
+    function ymd(d) { return d.toISOString().slice(0,10); }
+    function formatMonthYear(d) { return d.toLocaleDateString('ru-RU',{month:'long', year:'numeric'}); }
 
     function renderCalendar() {
-      calGrid.innerHTML = '';
-      const year = currentDisplayDate.getFullYear();
-      const month = currentDisplayDate.getMonth();
-      calMonthLabel.textContent = currentDisplayDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
-      
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-      const daysInMonth = lastDay.getDate();
-      
-      // Weekday headers
-      'Пн,Вт,Ср,Чт,Пт,Сб,Вс'.split(',').forEach(d => {
-        const dayEl = document.createElement('div');
-        dayEl.className = 'cal-cell';
-        dayEl.style.fontWeight = 'bold';
-        dayEl.textContent = d;
-        calGrid.appendChild(dayEl);
+      calGrid.querySelectorAll('.cal-cell').forEach(el => el.remove());
+      const first = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+      const last  = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 0);
+      const startIndex = (first.getDay() + 6) % 7;
+
+      calMonthEl.textContent = formatMonthYear(viewDate);
+
+      const daysInPrev = new Date(viewDate.getFullYear(), viewDate.getMonth(), 0).getDate();
+      for (let i=0;i<startIndex;i++){
+        const dayNum = daysInPrev - startIndex + 1 + i;
+        const d = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, dayNum);
+        calGrid.appendChild(makeCell(d, true));
+      }
+      for (let day=1; day<=last.getDate(); day++){
+        const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+        calGrid.appendChild(makeCell(d, false));
+      }
+      const totalCells = calGrid.querySelectorAll('.cal-cell').length;
+      const rest = (totalCells % 7) ? (7 - (totalCells % 7)) : 0;
+      for (let i=1;i<=rest;i++){
+        const d = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, i);
+        calGrid.appendChild(makeCell(d, true));
+      }
+    }
+
+    function makeCell(dateObj, outMonth) {
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell' + (outMonth ? ' out' : '');
+      const dateStr = ymd(dateObj);
+      cell.textContent = String(dateObj.getDate());
+      if (dateStr === note.selectedDate) cell.classList.add('selected');
+
+      const hasEntry = !!(note.entries[dateStr] && String(note.entries[dateStr]).trim().length > 0);
+      if (hasEntry) {
+        cell.classList.add('has-entry');
+        const dayColor = note.colors[dateStr] || note.highlightColor;
+        cell.style.background = dayColor;
+        cell.style.color = '#fff';
+      }
+
+      cell.addEventListener('click', () => {
+        note.selectedDate = dateStr;
+        renderCalendar();
+        textarea.value = note.entries[note.selectedDate] || '';
+        updateColorDotsActive();
       });
-      
-      // Empty cells for first day offset
-      let dayOfWeek = firstDay.getDay();
-      if (dayOfWeek === 0) dayOfWeek = 7; // Sunday is 0, make it 7
-      for (let i = 1; i < dayOfWeek; i++) {
-        calGrid.appendChild(document.createElement('div'));
-      }
-      
-      // Day cells
-      for (let day = 1; day <= daysInMonth; day++) {
-        const cell = document.createElement('button');
-        cell.className = 'cal-cell';
-        cell.textContent = day;
-        const dateStr = toISODateString(new Date(year, month, day));
-        cell.dataset.date = dateStr;
-
-        if (cardData.note.entries[dateStr]?.trim()) {
-            cell.style.background = cardData.note.colors[dateStr] || cardData.note.highlightColor;
-        }
-        if (dateStr === cardData.note.selectedDate) {
-            cell.style.outline = `2px solid ${NOTE_COLORS[3]}`;
-        }
-        
-        cell.addEventListener('click', () => {
-          cardData.note.selectedDate = dateStr;
-          renderCalendar();
-          updateTextarea();
-        });
-        calGrid.appendChild(cell);
-      }
+      return cell;
     }
 
-    function updateTextarea() {
-      textarea.value = cardData.note.entries[cardData.note.selectedDate] || '';
-    }
-    
-    // Event Listeners
+    prevBtn.addEventListener('click', () => {
+      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
+      renderCalendar(); updateColorDotsActive();
+    });
+    nextBtn.addEventListener('click', () => {
+      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 1);
+      renderCalendar(); updateColorDotsActive();
+    });
+
+    renderCalendar();
+    updateColorDotsActive();
+
+    const textarea = noteWindow.querySelector('.note-textarea');
+    const noteBtn  = cardData.element.querySelector('.note-btn');
+    textarea.value = note.entries[note.selectedDate] || '';
     textarea.addEventListener('input', () => {
-      const text = textarea.value;
-      if (text.trim() === '') {
-        delete cardData.note.entries[cardData.note.selectedDate];
-      } else {
-        cardData.note.entries[cardData.note.selectedDate] = text;
-      }
-      renderCalendar(); // To update date highlight
+      const val = textarea.value;
+      if (val && val.trim()) note.entries[note.selectedDate] = val;
+      else delete note.entries[note.selectedDate];
+
+      if (hasAnyEntry(note)) { noteBtn.classList.add('has-text'); noteBtn.textContent = '❗'; }
+      else { noteBtn.classList.remove('has-text'); noteBtn.textContent = '📝'; }
+
+      renderCalendar();
       updateNotesButtonState();
     });
     textarea.addEventListener('blur', saveState);
 
-    noteWindow.querySelector('.note-close-btn').addEventListener('click', () => toggleNote(cardData));
-    noteWindow.querySelector('.prev-month').addEventListener('click', () => {
-      currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
-      renderCalendar();
+    noteWindow.querySelector('.note-close-btn').addEventListener('click', () => {
+      note.visible = false;
+      noteWindow.remove();
+      note.window = null;
+      saveState();
     });
-    noteWindow.querySelector('.next-month').addEventListener('click', () => {
-      currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
-      renderCalendar();
-    });
-    noteWindow.querySelector('.num-color-pop').addEventListener('click', (e) => {
-      const colorDiv = e.target.closest('.dot');
-      if (colorDiv) {
-        cardData.note.colors[cardData.note.selectedDate] = colorDiv.dataset.color;
-        renderCalendar();
-        saveState();
-      }
-    });
-
-    // Dragging
+    
+    // Интеграция перетаскивания и изменения размера
     const header = noteWindow.querySelector('.note-header');
     header.addEventListener('mousedown', (e) => {
-      e.stopPropagation(); e.preventDefault();
+      e.preventDefault();
       const startX = e.clientX, startY = e.clientY;
-      const startNoteX = cardData.note.x, startNoteY = cardData.note.y;
+      const startNoteX = note.x, startNoteY = note.y;
 
       function onMove(e2) {
-        const dx = e2.clientX - startX; // No scaling for UI elements
+        const dx = e2.clientX - startX;
         const dy = e2.clientY - startY;
-        cardData.note.x = startNoteX + dx;
-        cardData.note.y = startNoteY + dy;
-        noteWindow.style.left = `${cardData.note.x}px`;
-        noteWindow.style.top = `${cardData.note.y}px`;
+        note.x = startNoteX + dx;
+        note.y = startNoteY + dy;
+        noteWindow.style.left = `${note.x}px`;
+        noteWindow.style.top = `${note.y}px`;
       }
+
       function onUp() {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveState();
       }
+
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
      
-    // Resizing
     new ResizeObserver(() => {
-        cardData.note.width = noteWindow.offsetWidth;
-        cardData.note.height = noteWindow.offsetHeight;
+        note.width = noteWindow.offsetWidth;
+        note.height = noteWindow.offsetHeight;
     }).observe(noteWindow);
-
-    renderCalendar();
-    updateTextarea();
-    textarea.focus();
   }
 
   function setupNoteAutoClose() {
     document.addEventListener('mousedown', (e) => {
-      const dropdown = document.querySelector('.notes-dropdown');
-      if (dropdown && !e.target.closest('.notes-dropdown') && e.target !== notesListBtn) {
-        dropdown.style.display = 'none';
-      }
-      
-      // Close empty note windows
-      cards.forEach(cardData => {
-        if (cardData.note && cardData.note.visible && !hasAnyEntry(cardData.note)) {
-          if (!e.target.closest(`#note_win_${cardData.id}`) && !e.target.closest('.note-btn')) {
-            toggleNote(cardData);
-          }
+      if (e.target.closest('.note-window') || e.target.closest('.note-btn')) return;
+      cards.forEach(cd => {
+        const n = cd.note;
+        if (n && n.window && !hasAnyEntry(n)) {
+          n.visible = false;
+          n.window.remove();
+          n.window = null;
         }
       });
     });
@@ -1178,113 +1222,118 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setupNotesDropdown() {
     if (!notesListBtn) return;
-    let dropdown = document.querySelector('.notes-dropdown');
+
+    let dropdown = document.querySelector('#notes-dropdown');
     if (!dropdown) {
       dropdown = document.createElement('div');
       dropdown.className = 'notes-dropdown';
+      dropdown.id = 'notes-dropdown';
       document.body.appendChild(dropdown);
     }
 
-    notesListBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (dropdown.style.display === 'block') {
-        dropdown.style.display = 'none';
+    function buildList() {
+      const items = [];
+      cards.forEach(cd => {
+        if (!cd.note) return;
+        const note = cd.note;
+        ensureNoteStructure(note);
+        Object.entries(note.entries).forEach(([date, text]) => {
+          const pure = String(text || '').trim();
+          if (!pure) return;
+          const firstLine = pure.split('\n')[0];
+          const color = (note.colors && note.colors[date]) || note.highlightColor || '#f44336';
+          items.push({ card: cd, date, color, firstLine });
+        });
+      });
+      items.sort((a,b) => a.date > b.date ? -1 : 1);
+
+      if (items.length === 0) {
+        dropdown.innerHTML = `<div class="note-item" style="cursor:default;opacity:.7">Заметок с текстом пока нет</div>`;
         return;
       }
-      
-      dropdown.innerHTML = ''; // Clear previous items
-      
-      const allEntries = [];
-      cards.forEach(cardData => {
-        if (cardData.note && cardData.note.entries) {
-          for (const date in cardData.note.entries) {
-            const text = cardData.note.entries[date];
-            if (text && text.trim() !== '') {
-              allEntries.push({
-                cardData,
-                date,
-                text,
-                color: cardData.note.colors[date] || cardData.note.highlightColor
-              });
-            }
-          }
-        }
-      });
-      
-      allEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      if (allEntries.length > 0) {
-        allEntries.forEach(entry => {
-          const item = document.createElement('div');
-          item.className = 'note-item';
-          const cardTitle = entry.cardData.element.querySelector('.card-title').textContent;
-          const formattedDate = new Date(entry.date).toLocaleDateString('ru-RU');
-
-          item.innerHTML = `
-            <div class="note-item-content">
-              <div class="note-dot" style="background-color: ${entry.color};"></div>
-              <div class="note-meta">
-                <div class="note-date">${cardTitle} &ndash; ${formattedDate}</div>
-                <div class="note-text-preview">${entry.text.substring(0, 50).replace(/\n/g, ' ')}...</div>
-              </div>
+      dropdown.innerHTML = items.map(it => `
+        <div class="note-item" data-card="${it.card.id}" data-date="${it.date}">
+          <div class="note-item-content">
+            <div class="note-dot" style="background:${it.color}"></div>
+            <div class="note-meta">
+              <div class="note-date">${it.date.split('-').reverse().join('.')}</div>
+              <div class="note-text-preview">${escapeHtml(it.firstLine).slice(0,80)}</div>
             </div>
-            <button class="note-delete-btn" title="Удалить запись за ${formattedDate}">🗑️</button>
-          `;
-          
-          item.querySelector('.note-item-content').addEventListener('click', () => {
-             entry.cardData.note.selectedDate = entry.date;
-             if (!entry.cardData.note.visible) {
-               toggleNote(entry.cardData);
-             } else {
-                // If already visible, just re-render calendar to focus date
-                if(entry.cardData.note.window) createNoteWindow(entry.cardData);
-             }
-             dropdown.style.display = 'none';
-          });
+          </div>
+          <div class="note-delete-btn" title="Удалить заметку">×</div>
+        </div>
+      `).join('');
 
-          item.querySelector('.note-delete-btn').addEventListener('click', (ev) => {
-              ev.stopPropagation();
-              if(confirm(`Удалить запись за ${formattedDate} для "${cardTitle}"?`)) {
-                  delete entry.cardData.note.entries[entry.date];
-                  saveState();
-                  updateNotesButtonState();
-                  notesListBtn.click(); // Re-open to refresh
-                  notesListBtn.click();
-              }
-          });
-          dropdown.appendChild(item);
+      dropdown.querySelectorAll('.note-item').forEach(el => {
+        el.querySelector('.note-item-content').addEventListener('click', () => {
+          const cardData = cards.find(c => c.id === el.dataset.card);
+          if (!cardData || !cardData.note) return;
+          const cardRect = cardData.element.getBoundingClientRect();
+          const canvasRect = canvas.getBoundingClientRect();
+          const note = cardData.note;
+          ensureNoteStructure(note);
+          note.selectedDate = el.dataset.date;
+          note.x = (cardRect.right - canvasRect.left) / canvasState.scale + 20;
+          note.y = (cardRect.top   - canvasRect.top)  / canvasState.scale;
+          if (note.window) { note.window.remove(); note.window = null; }
+          note.visible = true;
+          createNoteWindow(cardData);
+          saveState();
+          hide();
         });
-      } else {
-        dropdown.innerHTML = '<div style="padding:10px; color:#6b7280;">Нет активных заметок.</div>';
-      }
-      
-      const btnRect = notesListBtn.getBoundingClientRect();
-      dropdown.style.left = `${btnRect.left}px`;
-      dropdown.style.top = `${btnRect.bottom + 8}px`;
+
+        el.querySelector('.note-delete-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          const cardData = cards.find(c => c.id === el.dataset.card);
+          if (cardData && cardData.note && cardData.note.entries[el.dataset.date]) {
+            delete cardData.note.entries[el.dataset.date];
+            const noteBtn = cardData.element.querySelector('.note-btn');
+            if (!hasAnyEntry(cardData.note)) {
+              noteBtn.classList.remove('has-text');
+              noteBtn.textContent = '📝';
+            }
+            saveState();
+            buildList();
+            updateNotesButtonState();
+          }
+        });
+      });
+    }
+
+    function escapeHtml(s){
+      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+
+    function show() {
+      buildList();
+      const r = notesListBtn.getBoundingClientRect();
+      dropdown.style.left = `${r.left}px`;
+      dropdown.style.top  = `${r.bottom + 6}px`;
       dropdown.style.display = 'block';
+    }
+    function hide(){ dropdown.style.display = 'none'; }
+
+    notesListBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (notesListBtn.disabled) return;
+      if (dropdown.style.display === 'block') hide(); else show();
     });
+
+    document.addEventListener('mousedown', (e) => {
+      if (e.target === notesListBtn || e.target.closest('#notes-dropdown')) return;
+      hide();
+    });
+
+    updateNotesButtonState();
   }
 
   function updateNotesButtonState() {
-      let anyNoteHasTextAtAll = false;
-      cards.forEach(cardData => {
-          const noteBtn = cardData.element.querySelector('.note-btn');
-          if (noteBtn) {
-              if (hasAnyEntry(cardData.note)) {
-                  noteBtn.classList.add('has-text');
-                  noteBtn.textContent = '❗';
-                  anyNoteHasTextAtAll = true;
-              } else {
-                  noteBtn.classList.remove('has-text');
-                  noteBtn.textContent = '📝';
-              }
-          }
-      });
-      if (notesListBtn) {
-          notesListBtn.disabled = !anyNoteHasTextAtAll;
-      }
+    if (!notesListBtn) return;
+    const hasAnyNoteWithText = cards.some(c => c.note && hasAnyEntry(c.note));
+    notesListBtn.disabled = !hasAnyNoteWithText;
   }
-// ============== КОНЕЦ НОВОГО ФУНКЦИОНАЛА ЗАМЕТОК ==============
+// ============== КОНЕЦ НОВОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
 
 // ============== НАЧАЛО НОВОЙ ФУНКЦИИ ДЛЯ ПЕЧАТИ ==============
 async function prepareForPrint() {
@@ -1311,7 +1360,6 @@ async function prepareForPrint() {
     
     const bodyStyle = getComputedStyle(document.body);
 
-    // Скрипт, который будет работать в новом окне
     const screenshotScript = `
       document.addEventListener('DOMContentLoaded', () => {
         const { jsPDF } = window.jspdf;
