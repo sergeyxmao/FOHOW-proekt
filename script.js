@@ -957,7 +957,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ============== НАЧАЛО ОБНОВЛЕННОЙ ФУНКЦИИ (ЗАМЕНИТЬ В SCRIPT.JS) ==============
-   // ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ (ЗАМЕНИТЬ В SCRIPT.JS) ==============
   async function prepareForPrint() {
     if (cards.length === 0) {
       alert("На доске нет элементов для печати.");
@@ -1088,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const p1 = getPrintCoords(startEl, lineData.startSide);
                 const p2 = getPrintCoords(endEl, lineData.endSide);
-                const path = printWindow.document.createElementNS('http://www.w.org/2000/svg', 'path');
+                const path = printWindow.document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('class', 'line');
                 path.setAttribute('stroke', lineData.color);
                 path.setAttribute('stroke-width', lineData.thickness);
@@ -1139,4 +1138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         createPrintWindow(minimalCss);
       });
   }
-  // ============== КОНЕЦ ИСПРАВЛЕННОЙ ФУНКЦИИ ==============
+  // ============== КОНЕЦ ОБНОВЛЕННОЙ ФУНКЦИИ ==============```
+    saveState();
+});
+// ============== КОНЕЦ ФИНАЛЬНОЙ ВЕРСИИ SCRIPT.JS ==============
