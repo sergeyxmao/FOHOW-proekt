@@ -987,19 +987,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function toggleNote(cardData) {
+   function toggleNote(cardData) {
     // Если окно заметки уже существует, значит мы его закрываем.
     if (cardData.note && cardData.note.window) {
       cardData.note.window.remove();
       cardData.note.window = null;
       cardData.note.visible = false;
     } else { // Окна нет, значит, открываем.
-      
-      // Получаем текущие координаты карточки на экране.
-      const cardRect = cardData.element.getBoundingClientRect();
-  
-      // Если объекта заметки нет в принципе, создаем его.
+
+      // Если объекта заметки нет в принципе, создаем его с начальными параметрами.
       if (!cardData.note) {
+        const cardRect = cardData.element.getBoundingClientRect();
         cardData.note = {
           text: '',
           entries: {},
@@ -1009,17 +1007,14 @@ document.addEventListener('DOMContentLoaded', () => {
           width: 260,
           height: 380,
           visible: false,
-          window: null
-          // Позиция x/y будет задана ниже
+          window: null,
+          // Позиция задается только один раз при создании
+          x: cardRect.right + 15,
+          y: cardRect.top
         };
       }
-  
-      // **Ключевое исправление**: Всегда обновляем позицию заметки перед ее созданием.
-      // Это гарантирует, что она появится рядом с карточкой, даже если холст был сдвинут.
-      cardData.note.x = cardRect.right + 15;
-      cardData.note.y = cardRect.top;
       
-      // Теперь показываем и создаем DOM-элемент.
+      // Показываем окно и создаем его DOM-элемент, используя сохраненные размеры и позицию.
       cardData.note.visible = true;
       createNoteWindow(cardData);
     }
@@ -1618,3 +1613,4 @@ async function prepareForPrint() {
 
     saveState();
 });
+
