@@ -957,7 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
     // ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ (ЗАМЕНИТЬ В SCRIPT.JS) ==============
-  async function prepareForPrint() {
+async function prepareForPrint() {
     if (cards.length === 0) {
       alert("На доске нет элементов для печати.");
       return;
@@ -1102,6 +1102,12 @@ document.addEventListener('DOMContentLoaded', () => {
         printWindow.document.open();
         printWindow.document.write(`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати</title>
+          
+          <!-- === НАЧАЛО ИСПРАВЛЕНИЯ === -->
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
+          <!-- === КОНЕЦ ИСПРАВЛЕНИЯ === -->
+
           <style>
             ${cssText}
             html, body { 
@@ -1132,7 +1138,6 @@ document.addEventListener('DOMContentLoaded', () => {
           </body></html>`);
         printWindow.document.close();
 
-        // Вместо setTimeout используем ожидание события `load` нового окна
         printWindow.addEventListener('load', () => {
             const printCanvas = printWindow.document.getElementById('canvas');
             const printSvgLayer = printWindow.document.getElementById('svg-layer');
@@ -1191,11 +1196,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const minimalCss = ':root{--card-width: 380px; --brand: #0f62fe;}';
         createPrintWindow(minimalCss);
       });
-  }
-  // ============== КОНЕЦ ОБНОВЛЕННОЙ ФУНКЦИИ ==============
+}
+// ============== КОНЕЦ ОБНОВЛЕННОЙ ФУНКЦИИ ==============
 
     saveState();
 });
 // ============== КОНЕЦ ФИНАЛЬНОЙ ВЕРСИИ SCRIPT.JS ==============
+
 
 
