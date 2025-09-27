@@ -1028,10 +1028,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const noteWindow = document.createElement('div');
     noteWindow.className = 'note-window';
-    noteWindow.style.left   = `${note.x}px`;
-    noteWindow.style.top    = `${note.y}px`;
-    noteWindow.style.width  = `${note.width}px`;
-    noteWindow.style.height = `${note.height}px`;
+    noteWindow.style.left = `${note.x}px`;
+noteWindow.style.top  = `${note.y}px`;
+
+// Ставим сохранённые размеры только если они адекватные,
+// иначе даём сработать CSS (min-height, min-width)
+if (Number.isFinite(note.width)  && note.width  >= 200) noteWindow.style.width  = `${note.width}px`;
+if (Number.isFinite(note.height) && note.height >= 200) noteWindow.style.height = `${note.height}px`;
+
 
     const styles = `
       <style>
@@ -1109,7 +1113,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatMonthYear(d) { return d.toLocaleDateString('ru-RU',{month:'long', year:'numeric'}); }
 
     function renderCalendar() {
-      calGrid.querySelectorAll('.cal-cell').forEach(el => el.remove());
+      // Полностью перерисовываем грид: сначала шапка дней недели, потом дни месяца
+calGrid.innerHTML = `
+  <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
+  <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
+`;
       const first = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
       const last  = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 0);
       const startIndex = (first.getDay() + 6) % 7;
@@ -1221,9 +1229,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
      
     new ResizeObserver(() => {
-        note.width = noteWindow.offsetWidth;
-        note.height = noteWindow.offsetHeight;
-    }).observe(noteWindow);
+  const w = noteWindow.offsetWidth;
+  const h = noteWindow.offsetHeight;
+  if (w >= 200) note.width  = w;
+  if (h >= 200) note.height = h;
+}).observe(noteWindow);
+
   }
 
   function setupNoteAutoClose() {
@@ -1613,4 +1624,5 @@ async function prepareForPrint() {
 
     saveState();
 });
+
 
