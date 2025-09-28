@@ -175,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('keydown', (e) => {
       if (e.target.isContentEditable || ['TEXTAREA','INPUT'].includes(e.target.tagName)) return;
 
+      // --- START CHANGE: Updated Escape key behavior ---
       if (e.key === 'Escape') {
         if (activeState.isDrawingLine) cancelDrawing();
         if (activeState.isSelectionMode) {
@@ -182,7 +183,13 @@ document.addEventListener('DOMContentLoaded', () => {
           if (selectionModeBtn) selectionModeBtn.classList.remove('active');
           document.body.style.cursor = 'default';
         }
+        clearSelection();
+        if (activeState.selectedLine) {
+            activeState.selectedLine.element.classList.remove('selected');
+            activeState.selectedLine = null;
+        }
       }
+      // --- END CHANGE ---
       if (e.key === 'Delete') deleteSelection();
 
       if (e.ctrlKey && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -273,11 +280,13 @@ document.addEventListener('DOMContentLoaded', () => {
     card.className = 'card'; card.id = cardId;
     if (opts.isDarkMode) card.classList.add('dark-mode');
 
+    // --- START CHANGE: Increase large card width to +30% ---
     if (opts.isLarge) {
-        card.style.width = '475px';
+        card.style.width = '494px'; // 380px * 1.3 = 494px
     } else if (opts.width) {
         card.style.width = opts.width;
     }
+    // --- END CHANGE ---
 
     const CARD_WIDTH = card.offsetWidth || 380, CARD_HEIGHT = 280, PADDING = 50;
     let initialX, initialY;
@@ -307,14 +316,16 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-row"><span class="label">Актив-заказы PV:</span><span class="value" contenteditable="true">0 / 0</span></div>
         <div class="card-row"><span class="label">Цикл:</span><span class="value" contenteditable="true">0</span></div>
     `;
-
+    
+    // --- START CHANGE: Modify card HTML to move color changer button ---
     card.innerHTML = `
       <div class="card-header" style="${opts.headerBg ? `background:${opts.headerBg}` : ''}">
         <span class="lock-btn" title="Заблокировать">🔓</span>
-        <button class="header-color-picker-btn" title="Выбрать цвет заголовка"></button>
         <span class="card-title" contenteditable="true">${titleText}</span>
         <span class="close-btn" title="Удалить">×</span>
       </div>
+      <button class="header-color-picker-btn" title="Выбрать цвет заголовка"></button>
+      <div class="card-control-btn color-changer" data-color-index="${opts.colorIndex ?? 0}"></div>
       <div class="card-body ${opts.bodyClass || ''}">${bodyHTML}</div>
       <div class="connection-point top" data-side="top"></div>
       <div class="connection-point right" data-side="right"></div>
@@ -323,9 +334,9 @@ document.addEventListener('DOMContentLoaded', () => {
       <button class="card-control-btn body-color-changer" title="Сменить фон">🖌️</button>
       <div class="card-controls">
         <button class="card-control-btn note-btn" title="Заметка">📝</button>
-        <div class="card-control-btn color-changer" data-color-index="${opts.colorIndex ?? 0}"></div>
       </div>
     `;
+    // --- END CHANGE ---
 
     canvas.appendChild(card);
     const cardData = { id: cardId, element: card, locked: !!opts.locked, note: opts.note || null };
@@ -513,14 +524,25 @@ document.addEventListener('DOMContentLoaded', () => {
     pathElement.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${finalP2.x} ${finalP2.y}`);
   }
 
+  // --- START CHANGE: Updated background selector logic ---
   function setupGradientSelector() {
     if (!gradientSelector) return;
-    gradientSelector.querySelectorAll('.grad-btn').forEach(btn => {
+    gradientSelector.querySelectorAll('.grad-btn[data-gradient]').forEach(btn => {
       if (btn.dataset.gradient && btn.dataset.gradient !== '#ffffff') btn.style.background = btn.dataset.gradient;
-      else { btn.style.background = '#ffffff'; btn.style.border = '1px solid #ddd'; }
+      else { btn.style.background = '#f5f7fb'; btn.style.border = '1px solid #ddd'; }
       btn.addEventListener('click', () => { document.body.style.background = btn.dataset.gradient; });
     });
+
+    const customBgBtn = document.getElementById('custom-bg-btn');
+    const customBgInput = document.getElementById('custom-bg-input');
+    if (customBgBtn && customBgInput) {
+        customBgBtn.addEventListener('click', () => customBgInput.click());
+        customBgInput.addEventListener('input', (e) => {
+            document.body.style.background = e.target.value;
+        });
+    }
   }
+  // --- END CHANGE ---
   
   function deleteCard(cardData) {
     lines = lines.filter(line => {
@@ -641,10 +663,23 @@ document.addEventListener('DOMContentLoaded', () => {
     setSelectionSet(newSet);
   }
 
+  // --- START CHANGE: Updated selection logic to allow immediate dragging ---
   function endMarqueeSelection() {
     activeState.isSelecting = false;
-    if (selectionBox) { selectionBox.style.display = 'none'; selectionBox.style.width = '0px'; selectionBox.style.height = '0px'; }
+    if (selectionBox) { 
+        selectionBox.style.display = 'none'; 
+        selectionBox.style.width = '0px'; 
+        selectionBox.style.height = '0px'; 
+    }
+    
+    // If a selection was made, exit selection mode to allow dragging
+    if (activeState.selectedCards.size > 0) {
+        activeState.isSelectionMode = false;
+        if (selectionModeBtn) selectionModeBtn.classList.remove('active');
+        document.body.style.cursor = 'default';
+    }
   }
+  // --- END CHANGE ---
 
   function getCanvasCoordinates(clientX, clientY) {
     return { x: (clientX - canvasState.x) / canvasState.scale, y: (clientY - canvasState.y) / canvasState.scale };
@@ -1407,6 +1442,7 @@ async function prepareForPrint() {
     
     const bodyStyle = getComputedStyle(document.body);
 
+    // --- START CHANGE: Added toggles to screenshot script ---
     const screenshotScript = `
       document.addEventListener('DOMContentLoaded', () => {
         const { jsPDF } = window.jspdf;
@@ -1414,11 +1450,23 @@ async function prepareForPrint() {
         const pngBtn = document.getElementById('do-screenshot-btn');
         const pdfBtn = document.getElementById('do-pdf-btn');
         const target = document.getElementById('canvas');
+        const toggleContentBtn = document.getElementById('toggle-content-btn');
+        const toggleColorBtn = document.getElementById('toggle-color-btn');
 
-        if (!pngBtn || !pdfBtn || !target) {
+        if (!pngBtn || !pdfBtn || !target || !toggleContentBtn || !toggleColorBtn) {
             console.error('Необходимые элементы для печати не найдены!');
             return;
         }
+
+        toggleContentBtn.addEventListener('click', () => {
+            target.classList.toggle('content-hidden');
+            toggleContentBtn.classList.toggle('active');
+        });
+
+        toggleColorBtn.addEventListener('click', () => {
+            target.classList.toggle('outline-mode');
+            toggleColorBtn.classList.toggle('active');
+        });
 
         pngBtn.addEventListener('click', () => {
           pngBtn.textContent = 'Создание PNG...';
@@ -1435,8 +1483,11 @@ async function prepareForPrint() {
               console.error("Ошибка при создании PNG:", err);
               pngBtn.textContent = 'Ошибка! Попробуйте снова';
           }).finally(() => {
-              pngBtn.disabled = false;
-              pdfBtn.disabled = false;
+              setTimeout(() => {
+                pngBtn.textContent = 'Сохранить как картинку (PNG)';
+                pngBtn.disabled = false;
+                pdfBtn.disabled = false;
+              }, 1000);
           });
         });
 
@@ -1510,12 +1561,16 @@ async function prepareForPrint() {
               console.error("Ошибка при создании PDF:", err);
               pdfBtn.textContent = 'Ошибка! Попробуйте снова';
           }).finally(() => {
-               pngBtn.disabled = false;
-               pdfBtn.disabled = false;
+               setTimeout(() => {
+                pdfBtn.textContent = 'Сохранить для печати (PDF)';
+                pngBtn.disabled = false;
+                pdfBtn.disabled = false;
+               }, 1000);
           });
         });
       });
     `;
+    // --- END CHANGE ---
 
     const createPrintWindow = (cssText) => {
         const printWindow = window.open('', '_blank');
@@ -1525,6 +1580,7 @@ async function prepareForPrint() {
         }
 
         printWindow.document.open();
+        // --- START CHANGE: Added new styles and buttons for print window ---
         printWindow.document.write(`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати</title>
           
@@ -1539,16 +1595,56 @@ async function prepareForPrint() {
               height: ${contentHeight + PADDING * 2}px;
             }
             #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
-            .card:hover { transform: none !important; box-shadow: 0 8px 20px rgba(0,0,0,.12) !important; }
+            
+            /* Styles for PNG/PDF output */
+            .card {
+                box-shadow: none !important;
+                border: 1px solid #a9a9a9;
+            }
+            .card:hover { 
+                transform: none !important; 
+                box-shadow: none !important;
+            }
+            
             #controls { position: fixed; top: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
             .control-btn { padding: 12px 20px; font-size: 16px; font-weight: bold; background-color: #0f62fe; color: white; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.2); transition: background-color 0.2s; }
             .control-btn:hover:not(:disabled) { background-color: #0042d6; }
             .control-btn:disabled { background-color: #6b7280; cursor: not-allowed; }
+            
+            .toggle-btn {
+                width: 40px; height: 40px; border-radius: 50%;
+                border: 2px solid #ccc; background-color: #fff;
+                cursor: pointer; font-size: 20px;
+                display: grid; place-items: center;
+                transition: .2s;
+            }
+            .toggle-btn.active {
+                background-color: #eaf1ff;
+                border-color: #0f62fe;
+            }
+
+            /* Mode 1: Hide content */
+            .content-hidden .card-body {
+                visibility: hidden;
+            }
+            /* Mode 2: Greyscale / Outline */
+            .outline-mode .card-header { background: none !important; color: #000 !important; }
+            .outline-mode .card-body { background: none !important; }
+            .outline-mode .card { background: none !important; border: 1px solid #000 !important; }
+            .outline-mode .line { color: #000 !important; stroke: #000 !important; }
+            .outline-mode .value, .outline-mode .label, .outline-mode .card-title { color: #000 !important; }
+            .outline-mode .coin-icon circle { fill: none !important; stroke: #000 !important; }
+            .outline-mode [style*="background"] { background: none !important; }
+
           </style></head>
           <body style="background: ${bodyStyle.background};">
             <div id="controls">
               <button id="do-screenshot-btn" class="control-btn">Сохранить как картинку (PNG)</button>
               <button id="do-pdf-btn" class="control-btn">Сохранить для печати (PDF)</button>
+              <div id="print-toggles" style="margin-top: 10px; display: flex; gap: 10px;">
+                <button id="toggle-content-btn" class="toggle-btn" title="Скрыть/показать содержимое">👁️</button>
+                <button id="toggle-color-btn" class="toggle-btn" title="Включить/выключить цвета">🎨</button>
+              </div>
             </div>
             <div id="canvas">
                <svg id="svg-layer" style="width:100%; height:100%;"><defs>
@@ -1559,6 +1655,7 @@ async function prepareForPrint() {
             </div>
             <script>${screenshotScript}<\/script>
           </body></html>`);
+        // --- END CHANGE ---
         printWindow.document.close();
 
         printWindow.addEventListener('load', () => {
@@ -1624,5 +1721,3 @@ async function prepareForPrint() {
 
     saveState();
 });
-
-

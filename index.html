@@ -30,14 +30,15 @@
 
   <!-- Правая панель -->
   <div class="ui-panel-right">
+    <!-- --- START CHANGE: Updated background selector --- -->
     <div id="gradient-selector" class="gradient-selector">
       <div class="gradient-title">Фон</div>
-      <button class="grad-btn" data-gradient="#f5f7fb" title="Светлый">⬜</button>
-      <button class="grad-btn" data-gradient="linear-gradient(135deg,#eef1f5,#dde3ea)">⬜</button>
-      <button class="grad-btn" data-gradient="linear-gradient(135deg,#f6d365,#fda085)">🌅</button>
-      <button class="grad-btn" data-gradient="linear-gradient(135deg,#a1c4fd,#c2e9fb)">❄️</button>
-      <button class="grad-btn" data-gradient="linear-gradient(135deg,#f093fb,#f5576c)">🌸</button>
+      <button class="grad-btn" data-gradient="#f5f7fb" title="Светлый"></button>
+      <button class="grad-btn" data-gradient="linear-gradient(135deg,#eef1f5,#dde3ea)" title="Серый"></button>
+      <button id="custom-bg-btn" class="grad-btn" title="Выбрать цвет">🎨</button>
+      <input type="color" id="custom-bg-input" value="#f5f7fb" style="display:none;">
     </div>
+    <!-- --- END CHANGE --- -->
 
     <!-- Обновленная панель управления линиями -->
     <div id="line-controls-panel" class="line-controls-panel">
@@ -52,12 +53,13 @@
       </button>
     </div>
 
+    <!-- --- START CHANGE: Updated button icons --- -->
     <div class="row">
-      <button id="add-card-btn" class="add-btn" title="Добавить карточку">+</button>
-      <!-- Новая кнопка большой карточки -->
-      <button id="add-large-card-btn" class="add-btn add-btn--large" title="Добавить большую карточку">++</button>
-      <button id="add-template-btn" class="add-btn add-btn--triangle" title="Добавить шаблон">▶</button>
+      <button id="add-card-btn" class="add-btn" title="Добавить карточку">□</button>
+      <button id="add-large-card-btn" class="add-btn add-btn--large" title="Добавить большую карточку">⧠</button>
+      <button id="add-template-btn" class="add-btn" title="Добавить шаблон">⧉</button>
     </div>
+    <!-- --- END CHANGE --- -->
   </div>
 
   <div id="canvas">
