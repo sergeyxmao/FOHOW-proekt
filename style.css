@@ -297,3 +297,22 @@ html,body{
 .num-color-pop .dot.green{ background:#43a047; }
 
 .value [data-num-color]{ color: initial; }
+
+/* Active PV controls */
+.active-pv-controls{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
+.active-pv-controls .left-controls,
+.active-pv-controls .right-controls{display:flex;gap:6px}
+.active-btn{font-size:12px;padding:2px 6px;border-radius:8px;border:1px solid rgba(0,0,0,.12);background:#f5f5f7;cursor:pointer}
+.card.dark-mode .active-btn{background:#2b2b2f;border-color:#3a3a40}
+.active-btn:hover{filter:brightness(.96)}
+
+/* Active PV controls layout */
+.active-pv-controls{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
+.active-pv-controls .left-controls,
+.active-pv-controls .right-controls{display:flex;gap:6px}
+.active-pv-controls .mid-controls{display:flex;align-items:center}
+.active-btn{font-size:12px;padding:2px 6px;border-radius:8px;border:1px solid rgba(0,0,0,.12);background:#f5f5f7;cursor:pointer}
+.card.dark-mode .active-btn{background:#2b2b2f;border-color:#3a3a40}
+.active-btn:hover{filter:brightness(.96)}
+/* Запрет ручного редактирования текста Актив-заказов */
+.card .active-pv-row .value{pointer-events:none; user-select:none;}

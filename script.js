@@ -339,6 +339,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- END CHANGE ---
 
     canvas.appendChild(card);
+	ensureActiveControls(card);
+
     const cardData = { id: cardId, element: card, locked: !!opts.locked, note: opts.note || null };
     if (cardData.locked) card.classList.add('locked');
     cards.push(cardData);
@@ -841,14 +843,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateNotesButtonState();
     if (pushHistory) saveState();
+    // Подправим UI по данным движка
+    recalculateAndRender();
   }
 
-  function saveState() {
+    function saveState() {
     const snapshot = serializeState();
     if (undoStack.length === 0 && cards.length === 0 && lines.length === 0) return;
     undoStack.push(JSON.stringify(snapshot));
     if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
     redoStack = [];
+    // Обновим индикаторы после любого сохранения состояния
+    recalculateAndRender();
   }
 
   function undo() {
@@ -931,6 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       saveState();
     }, 0);
+
   }
   
   function setupSaveButtons() {
@@ -1001,7 +1008,280 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
   }
+  
+  // === ENGINE HOOKS v3: пересчёт + учёт "бонусов сверху" от Актив-заказов ===
+  function recalculateAndRender() {
+    try {
+      if (!window.Engine) return;
+      const state = serializeState();
+      const { result, meta } = Engine.recalc(state);
 
+      const id2el = new Map(cards.map(c => [c.id, c.element]));
+
+      cards.forEach(cd => {
+        const el = cd.element;
+
+        // Гарантируем, что есть контролы и скрытый контейнер данных
+        ensureActiveControls(el);
+
+        // Монетка (330/330pv) — визуал, как раньше
+        const circle = el.querySelector('.coin-icon circle');
+        if (circle) {
+          const full = meta.isFull[cd.id];
+          circle.setAttribute('fill', full ? '#ffd700' : '#3d85c6');
+        }
+
+        // Бонусы к Балансу, накопленные ИСКЛЮЧИТЕЛЬНО на верхнем уровне
+        const hidden = el.querySelector('.active-pv-hidden');
+        const aBonusL = hidden ? parseInt(hidden.dataset.abonusl || '0', 10) : 0;
+        const aBonusR = hidden ? parseInt(hidden.dataset.abonusr || '0', 10) : 0;
+
+        const rows = el.querySelectorAll('.card-row');
+        rows.forEach(row => {
+          const label = row.querySelector('.label');
+          const value = row.querySelector('.value');
+          if (!label || !value) return;
+          const name = (label.textContent || '').trim().toLowerCase();
+
+          if (name.startsWith('баланс')) {
+            const r = result[cd.id] || { L: 0, R: 0, total: 0 };
+            // Показываем: структурные баллы (Engine) + бонусы от Актив-заказов, дошедших до верха
+            // плюс локальные «+1», которые начисляются в ЭТОЙ карточке при наборе 330
+const localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
+const localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
+
+value.textContent = `${(r.L || 0) + aBonusL + localL} / ${(r.R || 0) + aBonusR + localR}`;
+
+          } else if (name.startsWith('цикл')) {
+            const r = result[cd.id] || { L: 0, R: 0, total: 0 };
+            const totalDisplay = (r.total || 0) + aBonusL + aBonusR;
+            value.textContent = String(Math.floor(totalDisplay / 72));
+          }
+        });
+      });
+    } catch (e) {
+      console.warn('Recalc/render error:', e);
+    }
+  }
+  // === /ENGINE HOOKS v3 ===
+
+
+  // === Active Orders helpers ===
+function ensureActiveControls(cardEl) {
+  // Ищем строку "Актив-заказы PV"
+  const rows = cardEl.querySelectorAll('.card-row');
+  let activeRow = null;
+  rows.forEach(r => {
+    const lab = r.querySelector('.label');
+    if (lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы')) activeRow = r;
+  });
+  if (!activeRow) return;
+
+  activeRow.classList.add('active-pv-row');
+
+  // Кнопки (+1/+10 слева и справа, посередине — Очистить)
+  if (!cardEl.querySelector('.active-pv-controls')) {
+    const controls = document.createElement('div');
+    controls.className = 'active-pv-controls';
+    controls.innerHTML = `
+      <div class="left-controls">
+        <button class="active-btn" data-dir="L" data-step="1">+1</button>
+        <button class="active-btn" data-dir="L" data-step="10">+10</button>
+      </div>
+      <div class="mid-controls">
+        <button class="active-btn active-clear">Очистить</button>
+      </div>
+      <div class="right-controls">
+        <button class="active-btn" data-dir="R" data-step="10">+10</button>
+        <button class="active-btn" data-dir="R" data-step="1">+1</button>
+      </div>`;
+    activeRow.insertAdjacentElement('afterend', controls);
+  }
+
+  // Скрытый контейнер данных
+  let hidden = cardEl.querySelector('.active-pv-hidden');
+  if (!hidden) {
+    hidden = document.createElement('span');
+    hidden.className = 'active-pv-hidden';
+    hidden.style.display = 'none';
+    hidden.dataset.btnL    = '0';
+    hidden.dataset.btnR    = '0';
+    hidden.dataset.abonusl = '0'; // бонусы от "дошедших до вершины" юнитов слева
+    hidden.dataset.abonusr = '0'; // бонусы от "дошедших до вершины" юнитов справа
+    hidden.dataset.locall  = '0'; // локальные +1 к Балансу за каждые 330 слева (внутри карточки)
+    hidden.dataset.localr  = '0'; // локальные +1 к Балансу справа
+    activeRow.insertAdjacentElement('afterend', hidden);
+  } else {
+    // Совместимость со старыми файлами
+    hidden.dataset.btnL    = hidden.dataset.btnL    || '0';
+    hidden.dataset.btnR    = hidden.dataset.btnR    || '0';
+    hidden.dataset.abonusl = hidden.dataset.abonusl || '0';
+    hidden.dataset.abonusr = hidden.dataset.abonusr || '0';
+    hidden.dataset.locall  = hidden.dataset.locall  || '0';
+    hidden.dataset.localr  = hidden.dataset.localr  || '0';
+  }
+
+  // Запрет ручного редактирования "Актив-заказы PV"
+  const valEl = activeRow.querySelector('.value');
+  if (valEl) {
+    valEl.setAttribute('contenteditable', 'false');
+    ['beforeinput','input','keydown','paste'].forEach(ev =>
+      activeRow.addEventListener(ev, (e) => { e.stopPropagation(); e.preventDefault(); }, { capture:true })
+    );
+  }
+}
+
+  function parseActivePV(cardEl) {
+    const row = Array.from(cardEl.querySelectorAll('.card-row')).find(r => {
+      const lab = r.querySelector('.label');
+      return lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы');
+    });
+    if (!row) return { L: 0, R: 0, row: null, valEl: null };
+    const valEl = row.querySelector('.value');
+    const txt = (valEl?.textContent || '').trim();
+    const m = /^(\d+)\s*\/\s*(\d+)/.exec(txt);
+    const L = m ? parseInt(m[1], 10) : 0;
+    const R = m ? parseInt(m[2], 10) : 0;
+    return { L, R, row, valEl };
+  }
+
+  function findCardByElement(el) {
+    const obj = cards.find(c => c.element === el);
+    return obj || null;
+  }
+
+  function findCardElementById(id) {
+    const obj = cards.find(c => c.id === id);
+    return obj ? obj.element : null;
+  }
+
+  // Получить parent и сторону (L/R) для childId по текущему состоянию
+  function getParentInfo(childId) {
+    if (!window.Engine) return null;
+    const { result, meta } = Engine.recalc(serializeState());
+    const p = meta.parentOf[childId];
+    if (!p) return null;
+    return { parentId: p.parentId, side: (p.side === 'right' ? 'R' : 'L') };
+  }
+
+// Поднять «amount» PV вверх по цепочке по стороне side.
+// На КАЖДОМ уровне: добавляем amount к текущему остатку по стороне,
+// конвертируем полностью кратные 330 в локальные +1 (dataset.localL/localR),
+// оставшийся остаток (<330) сохраняем в "Актив-заказы PV" этой фигуры,
+// а вверх передаём ИСХОДНЫЙ amount (PV реплицируется вверх, «баллы» — нет).
+function propagateActivePvUp(cardEl, side, amount) {
+  if (!amount || amount <= 0) return;
+
+  let curEl = cardEl;
+  let curSide = side; // 'L' | 'R'
+  let carry = amount; // входящий PV для каждого уровня (тиражируется вверх)
+
+  while (true) {
+    ensureActiveControls(curEl); // гарантируем наличие служебных контейнеров/строк
+
+    // Текущий остаток по стороне
+    const apv = parseActivePV(curEl);
+    let L = apv.L, R = apv.R;
+    const prev = (curSide === 'L') ? L : R;
+
+    // Складываем и конвертируем по 330
+    const s = prev + carry;
+    const units = Math.floor(s / 330);
+    const rem = s % 330;
+
+    if (curSide === 'L') L = rem; else R = rem;
+    setActivePV(curEl, L, R);
+
+    // Локальные «+1» к Балансу в ЭТОЙ фигуре (не поднимаются дальше)
+    const hidden = curEl.querySelector('.active-pv-hidden');
+    if (hidden && units > 0) {
+      if (curSide === 'L') hidden.dataset.locall = String((parseInt(hidden.dataset.locall || '0', 10) + units));
+      else                 hidden.dataset.localr = String((parseInt(hidden.dataset.localr || '0', 10) + units));
+    }
+
+    // Идём к родителю по текущей стороне
+    const curCard = findCardByElement(curEl);
+    if (!curCard) break;
+
+    const p = getParentInfo(curCard.id); // { parentId, side: 'L'|'R' } либо null
+    if (!p) break; // вершина — на этом остановились (никаких "abonus" не нужно)
+
+    const parentEl = findCardElementById(p.parentId);
+    if (!parentEl) break;
+
+    curEl = parentEl;
+    curSide = p.side;  // как эта ветка "подвешена" к родителю
+    // carry остаётся равным исходному amount (PV тиражируется на каждый уровень)
+  }
+}
+
+  function setActivePV(cardEl, L, R) {
+    const { row, valEl } = parseActivePV(cardEl);
+    if (row && valEl) valEl.textContent = `${L} / ${R}`;
+  }
+
+  function parseBalance(cardEl) {
+    const row = Array.from(cardEl.querySelectorAll('.card-row')).find(r => {
+      const lab = r.querySelector('.label');
+      return lab && (lab.textContent || '').trim().toLowerCase().startsWith('баланс');
+    });
+    if (!row) return { L: 0, R: 0, row: null, valEl: null };
+    const valEl = row.querySelector('.value');
+    const txt = (valEl?.textContent || '').trim();
+    const m = /^(\d+)\s*\/\s*(\d+)/.exec(txt);
+    const L = m ? parseInt(m[1], 10) : 0;
+    const R = m ? parseInt(m[2], 10) : 0;
+    return { L, R, row, valEl };
+  }
+
+  // Делегирование кликов по кнопкам +1/+10
+canvas.addEventListener('click', (e) => {
+  const btn = e.target.closest('.active-btn');
+  if (!btn) return;
+
+  const cardEl = btn.closest('.card');
+  if (!cardEl) return;
+  ensureActiveControls(cardEl);
+
+  // Кнопка "Очистить"
+  if (btn.classList.contains('active-clear')) {
+    setActivePV(cardEl, 0, 0);
+    const hidden = cardEl.querySelector('.active-pv-hidden');
+    if (hidden) {
+      hidden.dataset.btnL   = '0';
+      hidden.dataset.btnR   = '0';
+      hidden.dataset.locall = '0';
+      hidden.dataset.localr = '0';
+      // abonusl/abonusr не трогаем — это накопленные бонусы на вершине
+    }
+    saveState();
+    return;
+  }
+
+  // --- НАЧАЛО ИСПРАВЛЕНИЯ ---
+  const dir = btn.dataset.dir;
+  const step = parseInt(btn.dataset.step, 10);
+  if (!dir || !step) return;
+  // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
+  // Кнопки +1 / +10
+  // Счётчик на исходной карточке — только для статистики на кнопках
+  const hidden = cardEl.querySelector('.active-pv-hidden');
+  if (hidden) {
+    if (dir === 'L') hidden.dataset.btnL = String((parseInt(hidden.dataset.btnL || '0', 10) + step));
+    else             hidden.dataset.btnR = String((parseInt(hidden.dataset.btnR || '0', 10) + step));
+  }
+
+  // Поднимаем ВЕСЬ шаг PV вверх по цепочке, на каждом уровне конвертация → локальные +1
+  propagateActivePvUp(cardEl, dir, step);
+
+  // Перерисовка
+  saveState();
+});
+  // === /Active Orders helpers ===
+
+
+  
 // ============== НАЧАЛО ОБНОВЛЕННОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
   function hasAnyEntry(note) {
     if (!note) return false;
