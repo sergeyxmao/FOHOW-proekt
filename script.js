@@ -1417,7 +1417,7 @@ calGrid.innerHTML = `
   }
 // ============== КОНЕЦ ОБНОВЛЕННОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
 
-// ============== НАЧАЛО НОВОЙ ФУНКЦИИ ДЛЯ ПЕЧАТИ ==============
+// ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ ДЛЯ ПЕЧАТИ ==============
 async function prepareForPrint() {
     if (cards.length === 0) {
       alert("На доске нет элементов для печати.");
@@ -1442,7 +1442,6 @@ async function prepareForPrint() {
     
     const bodyStyle = getComputedStyle(document.body);
 
-    // --- START CHANGE: Added toggles to screenshot script ---
     const screenshotScript = `
       document.addEventListener('DOMContentLoaded', () => {
         const { jsPDF } = window.jspdf;
@@ -1570,7 +1569,6 @@ async function prepareForPrint() {
         });
       });
     `;
-    // --- END CHANGE ---
 
     const createPrintWindow = (cssText) => {
         const printWindow = window.open('', '_blank');
@@ -1580,7 +1578,6 @@ async function prepareForPrint() {
         }
 
         printWindow.document.open();
-        // --- START CHANGE: Added new styles and buttons for print window ---
         printWindow.document.write(`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати</title>
           
@@ -1623,12 +1620,20 @@ async function prepareForPrint() {
                 border-color: #0f62fe;
             }
 
-            /* Mode 1: Hide content */
-            .content-hidden .card-body {
+            /* --- START FIX 1: Hide only specific content --- */
+            .content-hidden .card-body .value,
+            .content-hidden .card-body .coin-icon {
                 visibility: hidden;
             }
-            /* Mode 2: Greyscale / Outline */
-            .outline-mode .card-header { background: none !important; color: #000 !important; }
+            /* --- END FIX 1 --- */
+
+            /* --- START FIX 2: Add border to header in outline mode --- */
+            .outline-mode .card-header { 
+                background: none !important; 
+                color: #000 !important;
+                border-bottom: 1px solid #000 !important;
+            }
+            /* --- END FIX 2 --- */
             .outline-mode .card-body { background: none !important; }
             .outline-mode .card { background: none !important; border: 1px solid #000 !important; }
             .outline-mode .line { color: #000 !important; stroke: #000 !important; }
@@ -1655,7 +1660,6 @@ async function prepareForPrint() {
             </div>
             <script>${screenshotScript}<\/script>
           </body></html>`);
-        // --- END CHANGE ---
         printWindow.document.close();
 
         printWindow.addEventListener('load', () => {
@@ -1717,7 +1721,7 @@ async function prepareForPrint() {
         createPrintWindow(minimalCss);
       });
 }
-// ============== КОНЕЦ НОВОЙ ФУНКЦИИ ==============
+// ============== КОНЕЦ ИСПРАВЛЕННОЙ ФУНКЦИИ ==============
 
     saveState();
 });
