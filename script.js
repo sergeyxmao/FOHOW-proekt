@@ -1417,7 +1417,7 @@ calGrid.innerHTML = `
   }
 // ============== КОНЕЦ ОБНОВЛЕННОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
 
-// ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ ДЛЯ ПЕЧАТИ ==============
+// ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ ДЛЯ ПЕЧАТИ (ВЕРСИЯ 2) ==============
 async function prepareForPrint() {
     if (cards.length === 0) {
       alert("На доске нет элементов для печати.");
@@ -1620,12 +1620,13 @@ async function prepareForPrint() {
                 border-color: #0f62fe;
             }
 
-            /* --- START FIX 1: Hide only specific content --- */
+            /* --- START FIX 1 (v2): Hide all editable content --- */
+            .content-hidden .card-header .card-title,
             .content-hidden .card-body .value,
             .content-hidden .card-body .coin-icon {
                 visibility: hidden;
             }
-            /* --- END FIX 1 --- */
+            /* --- END FIX 1 (v2) --- */
 
             /* --- START FIX 2: Add border to header in outline mode --- */
             .outline-mode .card-header { 
@@ -1721,7 +1722,7 @@ async function prepareForPrint() {
         createPrintWindow(minimalCss);
       });
 }
-// ============== КОНЕЦ ИСПРАВЛЕННОЙ ФУНКЦИИ ==============
+// ============== КОНЕЦ ИСПРАВЛЕННОЙ ФУНКЦИИ (ВЕРСИЯ 2) ==============
 
     saveState();
 });
