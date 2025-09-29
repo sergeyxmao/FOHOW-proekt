@@ -688,22 +688,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadTemplate() {
-    const templateCards = [
-      { key: 'lena', x: 1050, y: -140, title: 'ЛЕНА', pv: '330/330pv', coinFill: '#ffd700' },
-      { key: 'a', x: 630, y: 210, title: 'A', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'b', x: 1470, y: 210, title: 'B', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'c', x: 420, y: 560, title: 'C', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'd', x: 840, y: 560, title: 'D', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'e', x: 1260, y: 560, title: 'E', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'f', x: 1680, y: 560, title: 'F', pv: '30/30pv', coinFill: '#3d85c6' },
-    ];
-    const templateLines = [
-      { startKey: 'lena', startSide: 'left', endKey: 'a', endSide: 'top', thickness: 5 },
-      { startKey: 'lena', startSide: 'right', endKey: 'b', endSide: 'top', thickness: 5 },
-      { startKey: 'a', startSide: 'left', endKey: 'c', endSide: 'top', thickness: 3 },
-      { startKey: 'a', startSide: 'right', endKey: 'd', endSide: 'top', thickness: 3 },
-      { startKey: 'b', startSide: 'left', endKey: 'e', endSide: 'top', thickness: 3 },
-      { startKey: 'b', startSide: 'right', endKey: 'f', endSide: 'top', thickness: 3 },
+  const templateCards = [
+    { key: 'lena', x: 2240, y: -770, title: 'Елена', pv: '330/330pv', coinFill: '#ffd700' },
+    { key: 'a',    x: 1750, y: -420, title: 'A',     pv: '330/330pv', coinFill: '#ffd700' },
+    { key: 'c',    x: 1470, y:  -70, title: 'C',     pv: '30/330pv', coinFill: '#ffd700' },
+    { key: 'd',    x: 2030, y:  -70, title: 'D',     pv: '30/330pv', coinFill: '#ffd700' },
+    { key: 'b',    x: 2870, y: -420, title: 'B',     pv: '330/330pv', coinFill: '#ffd700' },
+    { key: 'e',    x: 2590, y:  -70, title: 'E',     pv: '30/330pv', coinFill: '#ffd700' },
+    { key: 'f',    x: 3150, y:  -70, title: 'F',     pv: '30/330pv', coinFill: '#ffd700' },
+  ];
+
+  const templateLines = [
+    // F (top) -> B (right)
+    { startKey: 'f',   startSide: 'top',  endKey: 'b',   endSide: 'right', thickness: 4 },
+    // E (top) -> B (left)
+    { startKey: 'e',   startSide: 'top',  endKey: 'b',   endSide: 'left',  thickness: 4 },
+    // A (right) -> D (top)
+    { startKey: 'a',   startSide: 'right',endKey: 'd',   endSide: 'top',   thickness: 4 },
+    // A (left) -> C (top)
+    { startKey: 'a',   startSide: 'left', endKey: 'c',   endSide: 'top',   thickness: 4 },
+    // Елена (left) -> A (top)
+    { startKey: 'lena',startSide: 'left', endKey: 'a',   endSide: 'top',   thickness: 4 },
+    // Елена (right) -> B (top)
+    { startKey: 'lena',startSide: 'right',endKey: 'b',   endSide: 'top',   thickness: 4 },
     ];
 
     const CARD_WIDTH = 380, CARD_HEIGHT = 280, PADDING = 50;
@@ -2005,4 +2012,5 @@ async function prepareForPrint() {
 // ============== КОНЕЦ ИСПРАВЛЕННОЙ ФУНКЦИИ (ВЕРСИЯ 2) ==============
 
     saveState();
+
 });
