@@ -354,58 +354,23 @@ document.addEventListener('DOMContentLoaded', () => {
       saveState();
     });
 
-    // --- START OF FIX: Corrected order of variable declaration and color application ---
-    const header = card.querySelector('.card-header');
     const headerColorBtn = card.querySelector('.header-color-picker-btn');
-    
-    // Set initial background from options, if provided
-    if (opts.headerBg) {
-        header.style.background = opts.headerBg;
-    }
+    const header = card.querySelector('.card-header');
     headerColorBtn.style.background = getComputedStyle(header).background;
-
     const hiddenColorInput = document.createElement('input');
     hiddenColorInput.type = 'color'; hiddenColorInput.style.display = 'none';
     card.appendChild(hiddenColorInput);
     headerColorBtn.addEventListener('click', (e) => { e.stopPropagation(); hiddenColorInput.click(); });
-    hiddenColorInput.addEventListener('input', (e) => { 
-      const c = e.target.value; 
-      header.style.background = c; 
-      headerColorBtn.style.background = c; 
-      // Unset colorIndex to give picker priority
-      card.querySelector('.color-changer').removeAttribute('data-color-index');
-      saveState(); 
-    });
+    hiddenColorInput.addEventListener('input', (e) => { const c = e.target.value; header.style.background = c; headerColorBtn.style.background = c; saveState(); });
 
     const coin = card.querySelector('.coin-icon circle');
     if (coin) coin.addEventListener('click', () => { coin.setAttribute('fill', coin.getAttribute('fill') === '#ffd700' ? '#3d85c6' : '#ffd700'); saveState(); });
 
     const colorChanger = card.querySelector('.color-changer');
-    const setHeaderColorByIndex = (idx) => { 
-      const c = cardColors[idx % cardColors.length]; 
-      colorChanger.style.backgroundColor = c; 
-      // Only apply if custom color is not set
-      if (!header.style.background.startsWith('rgb')) {
-          header.style.background = c;
-      }
-    };
-
-    if (opts.colorIndex != null && !opts.headerBg) {
-        const startIndex = parseInt(opts.colorIndex, 10);
-        setHeaderColorByIndex(startIndex);
-        colorChanger.dataset.colorIndex = String(startIndex);
-    }
-    
-    colorChanger.addEventListener('click', () => { 
-      let i = parseInt(colorChanger.dataset.colorIndex || '0', 10); 
-      i = (i + 1) % cardColors.length; 
-      colorChanger.dataset.colorIndex = String(i); 
-      const c = cardColors[i];
-      header.style.background = c;
-      headerColorBtn.style.background = c;
-      saveState(); 
-    });
-    // --- END OF FIX ---
+    const setHeaderColorByIndex = (idx) => { const c = cardColors[idx % cardColors.length]; colorChanger.style.backgroundColor = c; header.style.background = c; };
+    const startIndex = parseInt(colorChanger.dataset.colorIndex || '0', 10);
+    setHeaderColorByIndex(startIndex);
+    colorChanger.addEventListener('click', () => { let i = parseInt(colorChanger.dataset.colorIndex || '0', 10); i = (i + 1) % cardColors.length; colorChanger.dataset.colorIndex = String(i); setHeaderColorByIndex(i); saveState(); });
 
     const bodyColorChanger = card.querySelector('.body-color-changer');
     bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
@@ -1002,7 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (exportHtmlBtn) {
       exportHtmlBtn.addEventListener('click', () => {
         const bodyStyle = getComputedStyle(document.body);
-        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){e.preventDefault();p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
+        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
         
         const canvasClone = canvas.cloneNode(true);
         
@@ -1869,25 +1834,7 @@ async function prepareForPrint() {
       .then(response => response.ok ? response.text() : Promise.reject())
       .then(cssText => createPrintWindow(cssText))
       .catch(() => {
-        // --- START OF FIX: Improved fallback CSS for print preview ---
-        const minimalCss = `
-          :root { --card-width: 380px; --brand: #0f62fe; }
-          html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-          #canvas { position: relative; width: 100%; height: 100%; }
-          #svg-layer { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-          .line { fill: none; stroke: currentColor; stroke-linecap: round; }
-          .card { position: absolute; width: var(--card-width); background: #fff; border-radius: 16px; overflow: hidden; }
-          .card-header { color: #fff; height: 52px; padding: 10px 12px; display: grid; align-items: center; }
-          .card-title { text-align: center; font-weight: 700; font-size: 18px; }
-          .card-body { padding: 14px 16px; }
-          .card-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 8px 0; }
-          .label { color: #6b7280; font-weight: 600; }
-          .value { color: #111827; }
-          .coin-icon { width: 28px; height: 28px; }
-          .dark-mode, .dark-mode .card-body { background: #2b2b2b; }
-          .dark-mode .label, .dark-mode .value, .dark-mode .card-title { color: #e5e7eb; }
-        `;
-        // --- END OF FIX ---
+        const minimalCss = ':root{--card-width: 380px; --brand: #0f62fe;}';
         createPrintWindow(minimalCss);
       });
 }

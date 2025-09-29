@@ -3,7 +3,7 @@ class PasswordProtector {
     constructor() {
         // ЗДЕСЬ ВСТАВЬТЕ ХЭШИ ОТ ВАШИХ ПАРОЛЕЙ
         this.validHashes = [
-            "5b33003a928495b97792ac286d477b54dd20eb773c74ae2fb3653bc5950ad6dd", // Хэш от пароля
+            "9e4067ac93c6febda554d724d453d78bf3e28a7742cdec57ee47c5c706fbe940", // Хэш от пароля
             
         ];
         
@@ -160,5 +160,4 @@ class PasswordProtector {
 // Запускаем защиту при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
     new PasswordProtector();
-
 });
