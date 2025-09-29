@@ -317,3 +317,30 @@ html,body{
 /* Запрет ручного редактирования текста Актив-заказов */
 .card .active-pv-row .value{pointer-events:none; user-select:none;}
 
+/* --- Стили для умных направляющих --- */
+.guide-line {
+  position: fixed;
+  background-color: rgba(255, 0, 0, 0.7);
+  z-index: 9998; /* Чуть ниже курсора и перетаскиваемых элементов */
+  display: none; /* Скрыты по умолчанию */
+  pointer-events: none;
+  box-shadow: 0 0 3px rgba(0,0,0,0.5);
+}
+.guide-line.vertical {
+  width: 1px;
+  height: 100vh;
+  top: 0;
+}
+.guide-line.horizontal {
+  height: 1px;
+  width: 100vw;
+  left: 0;
+}
+/* Стиль для активной кнопки направляющих */
+#toggle-guides-btn.active {
+    background-color: #eaf1ff;
+    color: #0f62fe;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+
