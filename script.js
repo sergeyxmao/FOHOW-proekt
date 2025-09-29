@@ -175,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('keydown', (e) => {
       if (e.target.isContentEditable || ['TEXTAREA','INPUT'].includes(e.target.tagName)) return;
 
-      // --- START CHANGE: Updated Escape key behavior ---
       if (e.key === 'Escape') {
         if (activeState.isDrawingLine) cancelDrawing();
         if (activeState.isSelectionMode) {
@@ -189,7 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
             activeState.selectedLine = null;
         }
       }
-      // --- END CHANGE ---
       if (e.key === 'Delete') deleteSelection();
 
       if (e.ctrlKey && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -280,13 +278,11 @@ document.addEventListener('DOMContentLoaded', () => {
     card.className = 'card'; card.id = cardId;
     if (opts.isDarkMode) card.classList.add('dark-mode');
 
-    // --- START CHANGE: Increase large card width to +30% ---
     if (opts.isLarge) {
-        card.style.width = '494px'; // 380px * 1.3 = 494px
+        card.style.width = '494px';
     } else if (opts.width) {
         card.style.width = opts.width;
     }
-    // --- END CHANGE ---
 
     const CARD_WIDTH = card.offsetWidth || 380, CARD_HEIGHT = 280, PADDING = 50;
     let initialX, initialY;
@@ -317,7 +313,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-row"><span class="label">Цикл:</span><span class="value" contenteditable="true">0</span></div>
     `;
     
-    // --- START CHANGE: Modify card HTML to move color changer button ---
     card.innerHTML = `
       <div class="card-header" style="${opts.headerBg ? `background:${opts.headerBg}` : ''}">
         <span class="lock-btn" title="Заблокировать">🔓</span>
@@ -336,7 +331,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <button class="card-control-btn note-btn" title="Заметка">📝</button>
       </div>
     `;
-    // --- END CHANGE ---
 
     canvas.appendChild(card);
 	ensureActiveControls(card);
@@ -425,7 +419,6 @@ document.addEventListener('DOMContentLoaded', () => {
           element: selectedCard.element,
           startX: parseFloat(selectedCard.element.style.left),
           startY: parseFloat(selectedCard.element.style.top),
-          // Сохраняем начальную позицию окна заметки в координатах viewport
           noteStartX: (selectedCard.note && selectedCard.note.window) ? selectedCard.note.window.offsetLeft : 0,
           noteStartY: (selectedCard.note && selectedCard.note.window) ? selectedCard.note.window.offsetTop : 0,
         });
@@ -434,11 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const startMouseX = e.clientX, startMouseY = e.clientY;
 
       function onMouseMove(e2) {
-        // Дельта для перемещения карточки в пространстве холста
         const dx_canvas = (e2.clientX - startMouseX) / canvasState.scale;
         const dy_canvas = (e2.clientY - startMouseY) / canvasState.scale;
-        
-        // Дельта для перемещения окна заметки в пространстве viewport
         const dx_viewport = e2.clientX - startMouseX;
         const dy_viewport = e2.clientY - startMouseY;
 
@@ -452,7 +442,6 @@ document.addEventListener('DOMContentLoaded', () => {
           dragged.element.style.top  = `${snappedY}px`;
           updateLinesForCard(dragged.element.id);
 
-          // Обновляем позицию окна заметки
           if (dragged.card.note && dragged.card.note.window) {
             dragged.card.note.window.style.left = `${dragged.noteStartX + dx_viewport}px`;
             dragged.card.note.window.style.top  = `${dragged.noteStartY + dy_viewport}px`;
@@ -464,7 +453,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         
-        // Сохраняем финальную позицию окна заметки после перетаскивания
         draggedCards.forEach(dragged => {
             if (dragged.card.note && dragged.card.note.window) {
                 dragged.card.note.x = parseFloat(dragged.card.note.window.style.left);
@@ -526,7 +514,6 @@ document.addEventListener('DOMContentLoaded', () => {
     pathElement.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${finalP2.x} ${finalP2.y}`);
   }
 
-  // --- START CHANGE: Updated background selector logic ---
   function setupGradientSelector() {
     if (!gradientSelector) return;
     gradientSelector.querySelectorAll('.grad-btn[data-gradient]').forEach(btn => {
@@ -544,7 +531,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
   }
-  // --- END CHANGE ---
   
   function deleteCard(cardData) {
     lines = lines.filter(line => {
@@ -665,7 +651,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setSelectionSet(newSet);
   }
 
-  // --- START CHANGE: Updated selection logic to allow immediate dragging ---
   function endMarqueeSelection() {
     activeState.isSelecting = false;
     if (selectionBox) { 
@@ -674,14 +659,12 @@ document.addEventListener('DOMContentLoaded', () => {
         selectionBox.style.height = '0px'; 
     }
     
-    // If a selection was made, exit selection mode to allow dragging
     if (activeState.selectedCards.size > 0) {
         activeState.isSelectionMode = false;
         if (selectionModeBtn) selectionModeBtn.classList.remove('active');
         document.body.style.cursor = 'default';
     }
   }
-  // --- END CHANGE ---
 
   function getCanvasCoordinates(clientX, clientY) {
     return { x: (clientX - canvasState.x) / canvasState.scale, y: (clientY - canvasState.y) / canvasState.scale };
@@ -699,17 +682,11 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   const templateLines = [
-    // F (top) -> B (right)
     { startKey: 'f',   startSide: 'top',  endKey: 'b',   endSide: 'right', thickness: 4 },
-    // E (top) -> B (left)
     { startKey: 'e',   startSide: 'top',  endKey: 'b',   endSide: 'left',  thickness: 4 },
-    // A (right) -> D (top)
     { startKey: 'a',   startSide: 'right',endKey: 'd',   endSide: 'top',   thickness: 4 },
-    // A (left) -> C (top)
     { startKey: 'a',   startSide: 'left', endKey: 'c',   endSide: 'top',   thickness: 4 },
-    // Елена (left) -> A (top)
     { startKey: 'lena',startSide: 'left', endKey: 'a',   endSide: 'top',   thickness: 4 },
-    // Елена (right) -> B (top)
     { startKey: 'lena',startSide: 'right',endKey: 'b',   endSide: 'top',   thickness: 4 },
     ];
 
@@ -850,17 +827,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateNotesButtonState();
     if (pushHistory) saveState();
-    // Подправим UI по данным движка
     recalculateAndRender();
   }
 
-    function saveState() {
+  function saveState() {
     const snapshot = serializeState();
     if (undoStack.length === 0 && cards.length === 0 && lines.length === 0) return;
     undoStack.push(JSON.stringify(snapshot));
     if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
     redoStack = [];
-    // Обновим индикаторы после любого сохранения состояния
     recalculateAndRender();
   }
 
@@ -944,7 +919,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       saveState();
     }, 0);
-
   }
   
   function setupSaveButtons() {
@@ -994,11 +968,29 @@ document.addEventListener('DOMContentLoaded', () => {
       exportHtmlBtn.addEventListener('click', () => {
         const bodyStyle = getComputedStyle(document.body);
         const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
+        
         const canvasClone = canvas.cloneNode(true);
-        canvasClone.querySelectorAll('.note-resize-handle, .note-close-btn').forEach(el => el.remove());
-canvasClone.querySelectorAll('[contenteditable], .card-controls, .close-btn, .lock-btn, .header-color-picker-btn, .body-color-changer, .connection-point, .color-changer, .active-pv-controls').forEach(el => {            if (el.hasAttribute('contenteditable')) el.setAttribute('contenteditable','false');
+        
+        const selectorsToRemove = [
+            '.note-resize-handle', 
+            '.note-close-btn',
+            '.card-controls',
+            '.close-btn', 
+            '.lock-btn', 
+            '.header-color-picker-btn', 
+            '.body-color-changer',
+            '.connection-point',
+            '.color-changer',
+            '.active-pv-controls'
+        ];
+
+        canvasClone.querySelectorAll(selectorsToRemove.join(', ')).forEach(el => el.remove());
+        
+        canvasClone.querySelectorAll('[contenteditable]').forEach(el => {
+            el.setAttribute('contenteditable','false');
             el.style.pointerEvents = 'none';
         });
+
         const buildAndDownload = (cssText) => {
           const htmlContent = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Просмотр Схемы</title><style>${cssText}body{overflow:hidden}.card:hover{transform:none;box-shadow:0 8px 20px rgba(0,0,0,.15)}.card.selected{box-shadow:0 8px 20px rgba(0,0,0,.15)}</style></head><body style="background:${bodyStyle.background};">${canvasClone.outerHTML}${viewOnlyScript}</body></html>`;
           const blob = new Blob([htmlContent], {type:'text/html'});
@@ -1014,8 +1006,7 @@ canvasClone.querySelectorAll('[contenteditable], .card-controls, .close-btn, .lo
       });
     }
   }
-  
-  // === ENGINE HOOKS v3: пересчёт + учёт "бонусов сверху" от Актив-заказов ===
+
   function recalculateAndRender() {
     try {
       if (!window.Engine) return;
@@ -1027,17 +1018,14 @@ canvasClone.querySelectorAll('[contenteditable], .card-controls, .close-btn, .lo
       cards.forEach(cd => {
         const el = cd.element;
 
-        // Гарантируем, что есть контролы и скрытый контейнер данных
         ensureActiveControls(el);
 
-        // Монетка (330/330pv) — визуал, как раньше
         const circle = el.querySelector('.coin-icon circle');
         if (circle) {
           const full = meta.isFull[cd.id];
           circle.setAttribute('fill', full ? '#ffd700' : '#3d85c6');
         }
 
-        // Бонусы к Балансу, накопленные ИСКЛЮЧИТЕЛЬНО на верхнем уровне
         const hidden = el.querySelector('.active-pv-hidden');
         const aBonusL = hidden ? parseInt(hidden.dataset.abonusl || '0', 10) : 0;
         const aBonusR = hidden ? parseInt(hidden.dataset.abonusr || '0', 10) : 0;
@@ -1051,13 +1039,9 @@ canvasClone.querySelectorAll('[contenteditable], .card-controls, .close-btn, .lo
 
           if (name.startsWith('баланс')) {
             const r = result[cd.id] || { L: 0, R: 0, total: 0 };
-            // Показываем: структурные баллы (Engine) + бонусы от Актив-заказов, дошедших до верха
-            // плюс локальные «+1», которые начисляются в ЭТОЙ карточке при наборе 330
-const localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
-const localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
-
-value.textContent = `${(r.L || 0) + aBonusL + localL} / ${(r.R || 0) + aBonusR + localR}`;
-
+            const localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
+            const localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
+            value.textContent = `${(r.L || 0) + aBonusL + localL} / ${(r.R || 0) + aBonusR + localR}`;
           } else if (name.startsWith('цикл')) {
             const r = result[cd.id] || { L: 0, R: 0, total: 0 };
             const totalDisplay = (r.total || 0) + aBonusL + aBonusR;
@@ -1069,73 +1053,65 @@ value.textContent = `${(r.L || 0) + aBonusL + localL} / ${(r.R || 0) + aBonusR +
       console.warn('Recalc/render error:', e);
     }
   }
-  // === /ENGINE HOOKS v3 ===
 
+  function ensureActiveControls(cardEl) {
+    const rows = cardEl.querySelectorAll('.card-row');
+    let activeRow = null;
+    rows.forEach(r => {
+      const lab = r.querySelector('.label');
+      if (lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы')) activeRow = r;
+    });
+    if (!activeRow) return;
 
-  // === Active Orders helpers ===
-function ensureActiveControls(cardEl) {
-  // Ищем строку "Актив-заказы PV"
-  const rows = cardEl.querySelectorAll('.card-row');
-  let activeRow = null;
-  rows.forEach(r => {
-    const lab = r.querySelector('.label');
-    if (lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы')) activeRow = r;
-  });
-  if (!activeRow) return;
+    activeRow.classList.add('active-pv-row');
 
-  activeRow.classList.add('active-pv-row');
+    if (!cardEl.querySelector('.active-pv-controls')) {
+      const controls = document.createElement('div');
+      controls.className = 'active-pv-controls';
+      controls.innerHTML = `
+        <div class="left-controls">
+          <button class="active-btn" data-dir="L" data-step="1">+1</button>
+          <button class="active-btn" data-dir="L" data-step="10">+10</button>
+        </div>
+        <div class="mid-controls">
+          <button class="active-btn active-clear">Очистить</button>
+        </div>
+        <div class="right-controls">
+          <button class="active-btn" data-dir="R" data-step="10">+10</button>
+          <button class="active-btn" data-dir="R" data-step="1">+1</button>
+        </div>`;
+      activeRow.insertAdjacentElement('afterend', controls);
+    }
 
-  // Кнопки (+1/+10 слева и справа, посередине — Очистить)
-  if (!cardEl.querySelector('.active-pv-controls')) {
-    const controls = document.createElement('div');
-    controls.className = 'active-pv-controls';
-    controls.innerHTML = `
-      <div class="left-controls">
-        <button class="active-btn" data-dir="L" data-step="1">+1</button>
-        <button class="active-btn" data-dir="L" data-step="10">+10</button>
-      </div>
-      <div class="mid-controls">
-        <button class="active-btn active-clear">Очистить</button>
-      </div>
-      <div class="right-controls">
-        <button class="active-btn" data-dir="R" data-step="10">+10</button>
-        <button class="active-btn" data-dir="R" data-step="1">+1</button>
-      </div>`;
-    activeRow.insertAdjacentElement('afterend', controls);
+    let hidden = cardEl.querySelector('.active-pv-hidden');
+    if (!hidden) {
+      hidden = document.createElement('span');
+      hidden.className = 'active-pv-hidden';
+      hidden.style.display = 'none';
+      hidden.dataset.btnL    = '0';
+      hidden.dataset.btnR    = '0';
+      hidden.dataset.abonusl = '0';
+      hidden.dataset.abonusr = '0';
+      hidden.dataset.locall  = '0';
+      hidden.dataset.localr  = '0';
+      activeRow.insertAdjacentElement('afterend', hidden);
+    } else {
+      hidden.dataset.btnL    = hidden.dataset.btnL    || '0';
+      hidden.dataset.btnR    = hidden.dataset.btnR    || '0';
+      hidden.dataset.abonusl = hidden.dataset.abonusl || '0';
+      hidden.dataset.abonusr = hidden.dataset.abonusr || '0';
+      hidden.dataset.locall  = hidden.dataset.locall  || '0';
+      hidden.dataset.localr  = hidden.dataset.localr  || '0';
+    }
+
+    const valEl = activeRow.querySelector('.value');
+    if (valEl) {
+      valEl.setAttribute('contenteditable', 'false');
+      ['beforeinput','input','keydown','paste'].forEach(ev =>
+        activeRow.addEventListener(ev, (e) => { e.stopPropagation(); e.preventDefault(); }, { capture:true })
+      );
+    }
   }
-
-  // Скрытый контейнер данных
-  let hidden = cardEl.querySelector('.active-pv-hidden');
-  if (!hidden) {
-    hidden = document.createElement('span');
-    hidden.className = 'active-pv-hidden';
-    hidden.style.display = 'none';
-    hidden.dataset.btnL    = '0';
-    hidden.dataset.btnR    = '0';
-    hidden.dataset.abonusl = '0'; // бонусы от "дошедших до вершины" юнитов слева
-    hidden.dataset.abonusr = '0'; // бонусы от "дошедших до вершины" юнитов справа
-    hidden.dataset.locall  = '0'; // локальные +1 к Балансу за каждые 330 слева (внутри карточки)
-    hidden.dataset.localr  = '0'; // локальные +1 к Балансу справа
-    activeRow.insertAdjacentElement('afterend', hidden);
-  } else {
-    // Совместимость со старыми файлами
-    hidden.dataset.btnL    = hidden.dataset.btnL    || '0';
-    hidden.dataset.btnR    = hidden.dataset.btnR    || '0';
-    hidden.dataset.abonusl = hidden.dataset.abonusl || '0';
-    hidden.dataset.abonusr = hidden.dataset.abonusr || '0';
-    hidden.dataset.locall  = hidden.dataset.locall  || '0';
-    hidden.dataset.localr  = hidden.dataset.localr  || '0';
-  }
-
-  // Запрет ручного редактирования "Актив-заказы PV"
-  const valEl = activeRow.querySelector('.value');
-  if (valEl) {
-    valEl.setAttribute('contenteditable', 'false');
-    ['beforeinput','input','keydown','paste'].forEach(ev =>
-      activeRow.addEventListener(ev, (e) => { e.stopPropagation(); e.preventDefault(); }, { capture:true })
-    );
-  }
-}
 
   function parseActivePV(cardEl) {
     const row = Array.from(cardEl.querySelectorAll('.card-row')).find(r => {
@@ -1161,134 +1137,80 @@ function ensureActiveControls(cardEl) {
     return obj ? obj.element : null;
   }
 
-  // Получить parent и сторону (L/R) для childId по текущему состоянию
   function getParentInfo(childId) {
     if (!window.Engine) return null;
-    const { result, meta } = Engine.recalc(serializeState());
+    const { meta } = Engine.recalc(serializeState());
     const p = meta.parentOf[childId];
     if (!p) return null;
     return { parentId: p.parentId, side: (p.side === 'right' ? 'R' : 'L') };
   }
 
-// Поднять «amount» PV вверх по цепочке по стороне side.
-// На КАЖДОМ уровне: добавляем amount к текущему остатку по стороне,
-// конвертируем полностью кратные 330 в локальные +1 (dataset.localL/localR),
-// оставшийся остаток (<330) сохраняем в "Актив-заказы PV" этой фигуры,
-// а вверх передаём ИСХОДНЫЙ amount (PV реплицируется вверх, «баллы» — нет).
-function propagateActivePvUp(cardEl, side, amount) {
-  if (!amount || amount <= 0) return;
-
-  let curEl = cardEl;
-  let curSide = side; // 'L' | 'R'
-  let carry = amount; // входящий PV для каждого уровня (тиражируется вверх)
-
-  while (true) {
-    ensureActiveControls(curEl); // гарантируем наличие служебных контейнеров/строк
-
-    // Текущий остаток по стороне
-    const apv = parseActivePV(curEl);
-    let L = apv.L, R = apv.R;
-    const prev = (curSide === 'L') ? L : R;
-
-    // Складываем и конвертируем по 330
-    const s = prev + carry;
-    const units = Math.floor(s / 330);
-    const rem = s % 330;
-
-    if (curSide === 'L') L = rem; else R = rem;
-    setActivePV(curEl, L, R);
-
-    // Локальные «+1» к Балансу в ЭТОЙ фигуре (не поднимаются дальше)
-    const hidden = curEl.querySelector('.active-pv-hidden');
-    if (hidden && units > 0) {
-      if (curSide === 'L') hidden.dataset.locall = String((parseInt(hidden.dataset.locall || '0', 10) + units));
-      else                 hidden.dataset.localr = String((parseInt(hidden.dataset.localr || '0', 10) + units));
+  function propagateActivePvUp(cardEl, side, amount) {
+    if (!amount || amount <= 0) return;
+    let curEl = cardEl;
+    let curSide = side;
+    let carry = amount;
+    while (true) {
+      ensureActiveControls(curEl);
+      const apv = parseActivePV(curEl);
+      let L = apv.L, R = apv.R;
+      const prev = (curSide === 'L') ? L : R;
+      const s = prev + carry;
+      const units = Math.floor(s / 330);
+      const rem = s % 330;
+      if (curSide === 'L') L = rem; else R = rem;
+      setActivePV(curEl, L, R);
+      const hidden = curEl.querySelector('.active-pv-hidden');
+      if (hidden && units > 0) {
+        if (curSide === 'L') hidden.dataset.locall = String((parseInt(hidden.dataset.locall || '0', 10) + units));
+        else                 hidden.dataset.localr = String((parseInt(hidden.dataset.localr || '0', 10) + units));
+      }
+      const curCard = findCardByElement(curEl);
+      if (!curCard) break;
+      const p = getParentInfo(curCard.id);
+      if (!p) break;
+      const parentEl = findCardElementById(p.parentId);
+      if (!parentEl) break;
+      curEl = parentEl;
+      curSide = p.side;
     }
-
-    // Идём к родителю по текущей стороне
-    const curCard = findCardByElement(curEl);
-    if (!curCard) break;
-
-    const p = getParentInfo(curCard.id); // { parentId, side: 'L'|'R' } либо null
-    if (!p) break; // вершина — на этом остановились (никаких "abonus" не нужно)
-
-    const parentEl = findCardElementById(p.parentId);
-    if (!parentEl) break;
-
-    curEl = parentEl;
-    curSide = p.side;  // как эта ветка "подвешена" к родителю
-    // carry остаётся равным исходному amount (PV тиражируется на каждый уровень)
   }
-}
 
   function setActivePV(cardEl, L, R) {
-    const { row, valEl } = parseActivePV(cardEl);
-    if (row && valEl) valEl.textContent = `${L} / ${R}`;
+    const { valEl } = parseActivePV(cardEl);
+    if (valEl) valEl.textContent = `${L} / ${R}`;
   }
 
-  function parseBalance(cardEl) {
-    const row = Array.from(cardEl.querySelectorAll('.card-row')).find(r => {
-      const lab = r.querySelector('.label');
-      return lab && (lab.textContent || '').trim().toLowerCase().startsWith('баланс');
-    });
-    if (!row) return { L: 0, R: 0, row: null, valEl: null };
-    const valEl = row.querySelector('.value');
-    const txt = (valEl?.textContent || '').trim();
-    const m = /^(\d+)\s*\/\s*(\d+)/.exec(txt);
-    const L = m ? parseInt(m[1], 10) : 0;
-    const R = m ? parseInt(m[2], 10) : 0;
-    return { L, R, row, valEl };
-  }
-
-  // Делегирование кликов по кнопкам +1/+10
-canvas.addEventListener('click', (e) => {
-  const btn = e.target.closest('.active-btn');
-  if (!btn) return;
-
-  const cardEl = btn.closest('.card');
-  if (!cardEl) return;
-  ensureActiveControls(cardEl);
-
-  // Кнопка "Очистить"
-  if (btn.classList.contains('active-clear')) {
-    setActivePV(cardEl, 0, 0);
+  canvas.addEventListener('click', (e) => {
+    const btn = e.target.closest('.active-btn');
+    if (!btn) return;
+    const cardEl = btn.closest('.card');
+    if (!cardEl) return;
+    ensureActiveControls(cardEl);
+    if (btn.classList.contains('active-clear')) {
+      setActivePV(cardEl, 0, 0);
+      const hidden = cardEl.querySelector('.active-pv-hidden');
+      if (hidden) {
+        hidden.dataset.btnL   = '0';
+        hidden.dataset.btnR   = '0';
+        hidden.dataset.locall = '0';
+        hidden.dataset.localr = '0';
+      }
+      saveState();
+      return;
+    }
+    const dir = btn.dataset.dir;
+    const step = parseInt(btn.dataset.step, 10);
+    if (!dir || !step) return;
     const hidden = cardEl.querySelector('.active-pv-hidden');
     if (hidden) {
-      hidden.dataset.btnL   = '0';
-      hidden.dataset.btnR   = '0';
-      hidden.dataset.locall = '0';
-      hidden.dataset.localr = '0';
-      // abonusl/abonusr не трогаем — это накопленные бонусы на вершине
+      if (dir === 'L') hidden.dataset.btnL = String((parseInt(hidden.dataset.btnL || '0', 10) + step));
+      else             hidden.dataset.btnR = String((parseInt(hidden.dataset.btnR || '0', 10) + step));
     }
+    propagateActivePvUp(cardEl, dir, step);
     saveState();
-    return;
-  }
+  });
 
-  // --- НАЧАЛО ИСПРАВЛЕНИЯ ---
-  const dir = btn.dataset.dir;
-  const step = parseInt(btn.dataset.step, 10);
-  if (!dir || !step) return;
-  // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-
-  // Кнопки +1 / +10
-  // Счётчик на исходной карточке — только для статистики на кнопках
-  const hidden = cardEl.querySelector('.active-pv-hidden');
-  if (hidden) {
-    if (dir === 'L') hidden.dataset.btnL = String((parseInt(hidden.dataset.btnL || '0', 10) + step));
-    else             hidden.dataset.btnR = String((parseInt(hidden.dataset.btnR || '0', 10) + step));
-  }
-
-  // Поднимаем ВЕСЬ шаг PV вверх по цепочке, на каждом уровне конвертация → локальные +1
-  propagateActivePvUp(cardEl, dir, step);
-
-  // Перерисовка
-  saveState();
-});
-  // === /Active Orders helpers ===
-
-
-  
-// ============== НАЧАЛО ОБНОВЛЕННОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
   function hasAnyEntry(note) {
     if (!note) return false;
     if (note.entries && typeof note.entries === 'object') {
@@ -1309,33 +1231,21 @@ canvas.addEventListener('click', (e) => {
   }
 
    function toggleNote(cardData) {
-    // Если окно заметки уже существует, значит мы его закрываем.
     if (cardData.note && cardData.note.window) {
       cardData.note.window.remove();
       cardData.note.window = null;
       cardData.note.visible = false;
-    } else { // Окна нет, значит, открываем.
-
-      // Если объекта заметки нет в принципе, создаем его с начальными параметрами.
+    } else {
       if (!cardData.note) {
         const cardRect = cardData.element.getBoundingClientRect();
         cardData.note = {
-          text: '',
-          entries: {},
-          colors: {},
+          text: '', entries: {}, colors: {},
           selectedDate: new Date().toISOString().slice(0,10),
           highlightColor: '#f44336',
-          width: 260,
-          height: 380,
-          visible: false,
-          window: null,
-          // Позиция задается только один раз при создании
-          x: cardRect.right + 15,
-          y: cardRect.top
+          width: 260, height: 380, visible: false, window: null,
+          x: cardRect.right + 15, y: cardRect.top
         };
       }
-      
-      // Показываем окно и создаем его DOM-элемент, используя сохраненные размеры и позицию.
       cardData.note.visible = true;
       createNoteWindow(cardData);
     }
@@ -1350,15 +1260,12 @@ canvas.addEventListener('click', (e) => {
     const noteWindow = document.createElement('div');
     noteWindow.className = 'note-window';
     noteWindow.style.left = `${note.x}px`;
-noteWindow.style.top  = `${note.y}px`;
+    noteWindow.style.top  = `${note.y}px`;
 
-// Ставим сохранённые размеры только если они адекватные,
-// иначе даём сработать CSS (min-height, min-width)
-if (Number.isFinite(note.width)  && note.width  >= 200) noteWindow.style.width  = `${note.width}px`;
-if (Number.isFinite(note.height) && note.height >= 200) noteWindow.style.height = `${note.height}px`;
+    if (Number.isFinite(note.width)  && note.width  >= 200) noteWindow.style.width  = `${note.width}px`;
+    if (Number.isFinite(note.height) && note.height >= 200) noteWindow.style.height = `${note.height}px`;
 
-
-    const styles = `
+    noteWindow.innerHTML = `
       <style>
         .note-header .note-close-btn { font-size: 20px; cursor: pointer; padding: 0 8px; border: none; background: transparent; }
         .note-header{display:flex;align-items:center;gap:8px;justify-content:space-between}
@@ -1377,10 +1284,6 @@ if (Number.isFinite(note.height) && note.height >= 200) noteWindow.style.height 
         .clr-dot{width:18px;height:18px;border-radius:50%;border:2px solid #333;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)}
         .clr-dot.active{box-shadow:0 0 0 2px rgba(0,0,0,.25), inset 0 0 0 2px #fff}
       </style>
-    `;
-
-    noteWindow.innerHTML = `
-      ${styles}
       <div class="note-header">
         <button class="note-close-btn" title="Закрыть">×</button>
         <div class="note-tools">
@@ -1401,7 +1304,7 @@ if (Number.isFinite(note.height) && note.height >= 200) noteWindow.style.height 
             <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
           </div>
         </div>
-        <textarea class="note-textarea" placeholder="Введите текст заметки на выбранную дату..."></textarea>
+        <textarea class="note-textarea" placeholder="Введите текст заметки..."></textarea>
       </div>
       <div class="note-resize-handle"></div>
     `;
@@ -1418,9 +1321,7 @@ if (Number.isFinite(note.height) && note.height >= 200) noteWindow.style.height 
       dot.addEventListener('click', () => {
         const c = dot.getAttribute('data-color');
         note.colors[note.selectedDate] = c;
-        updateColorDotsActive();
-        renderCalendar();
-        saveState();
+        updateColorDotsActive(); renderCalendar(); saveState();
       });
     });
 
@@ -1434,21 +1335,17 @@ if (Number.isFinite(note.height) && note.height >= 200) noteWindow.style.height 
     function formatMonthYear(d) { return d.toLocaleDateString('ru-RU',{month:'long', year:'numeric'}); }
 
     function renderCalendar() {
-      // Полностью перерисовываем грид: сначала шапка дней недели, потом дни месяца
-calGrid.innerHTML = `
-  <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
-  <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
-`;
+      calGrid.innerHTML = `
+        <div class="cal-dow">Пн</div><div class="cal-dow">Вт</div><div class="cal-dow">Ср</div>
+        <div class="cal-dow">Чт</div><div class="cal-dow">Пт</div><div class="cal-dow">Сб</div><div class="cal-dow">Вс</div>
+      `;
       const first = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
       const last  = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 0);
       const startIndex = (first.getDay() + 6) % 7;
-
       calMonthEl.textContent = formatMonthYear(viewDate);
-
       const daysInPrev = new Date(viewDate.getFullYear(), viewDate.getMonth(), 0).getDate();
       for (let i=0;i<startIndex;i++){
-        const dayNum = daysInPrev - startIndex + 1 + i;
-        const d = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, dayNum);
+        const d = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, daysInPrev - startIndex + 1 + i);
         calGrid.appendChild(makeCell(d, true));
       }
       for (let day=1; day<=last.getDate(); day++){
@@ -1457,8 +1354,7 @@ calGrid.innerHTML = `
       }
       const totalCells = calGrid.querySelectorAll('.cal-cell').length;
       if (totalCells < 42) {
-          const rest = 42 - totalCells;
-          for (let i=1; i<=rest; i++){
+          for (let i=1; i<=42 - totalCells; i++){
             const d = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, i);
             calGrid.appendChild(makeCell(d, true));
           }
@@ -1471,7 +1367,6 @@ calGrid.innerHTML = `
       const dateStr = ymd(dateObj);
       cell.textContent = String(dateObj.getDate());
       if (dateStr === note.selectedDate) cell.classList.add('selected');
-
       const hasEntry = !!(note.entries[dateStr] && String(note.entries[dateStr]).trim().length > 0);
       if (hasEntry) {
         cell.classList.add('has-entry');
@@ -1479,7 +1374,6 @@ calGrid.innerHTML = `
         cell.style.background = dayColor;
         cell.style.color = '#fff';
       }
-
       cell.addEventListener('click', () => {
         note.selectedDate = dateStr;
         renderCalendar();
@@ -1489,15 +1383,8 @@ calGrid.innerHTML = `
       return cell;
     }
 
-    prevBtn.addEventListener('click', () => {
-      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
-      renderCalendar(); updateColorDotsActive();
-    });
-    nextBtn.addEventListener('click', () => {
-      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 1);
-      renderCalendar(); updateColorDotsActive();
-    });
-
+    prevBtn.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth() - 1); renderCalendar(); updateColorDotsActive(); });
+    nextBtn.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth() + 1); renderCalendar(); updateColorDotsActive(); });
     renderCalendar();
     updateColorDotsActive();
 
@@ -1508,10 +1395,8 @@ calGrid.innerHTML = `
       const val = textarea.value;
       if (val && val.trim()) note.entries[note.selectedDate] = val;
       else delete note.entries[note.selectedDate];
-
       if (hasAnyEntry(note)) { noteBtn.classList.add('has-text'); noteBtn.textContent = '❗'; }
       else { noteBtn.classList.remove('has-text'); noteBtn.textContent = '📝'; }
-
       renderCalendar();
       updateNotesButtonState();
     });
@@ -1529,33 +1414,25 @@ calGrid.innerHTML = `
       e.preventDefault();
       const startX = e.clientX, startY = e.clientY;
       const startNoteX = note.x, startNoteY = note.y;
-
       function onMove(e2) {
-        const dx = e2.clientX - startX;
-        const dy = e2.clientY - startY;
-        note.x = startNoteX + dx;
-        note.y = startNoteY + dy;
-        noteWindow.style.left = `${note.x}px`;
-        noteWindow.style.top = `${note.y}px`;
+        const dx = e2.clientX - startX; const dy = e2.clientY - startY;
+        note.x = startNoteX + dx; note.y = startNoteY + dy;
+        noteWindow.style.left = `${note.x}px`; noteWindow.style.top = `${note.y}px`;
       }
-
       function onUp() {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         saveState();
       }
-
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
      
     new ResizeObserver(() => {
-  const w = noteWindow.offsetWidth;
-  const h = noteWindow.offsetHeight;
-  if (w >= 200) note.width  = w;
-  if (h >= 200) note.height = h;
-}).observe(noteWindow);
-
+      const w = noteWindow.offsetWidth; const h = noteWindow.offsetHeight;
+      if (w >= 200) note.width  = w;
+      if (h >= 200) note.height = h;
+    }).observe(noteWindow);
   }
 
   function setupNoteAutoClose() {
@@ -1564,9 +1441,7 @@ calGrid.innerHTML = `
       cards.forEach(cd => {
         const n = cd.note;
         if (n && n.window && !hasAnyEntry(n)) {
-          n.visible = false;
-          n.window.remove();
-          n.window = null;
+          n.visible = false; n.window.remove(); n.window = null;
         }
       });
     });
@@ -1574,7 +1449,6 @@ calGrid.innerHTML = `
 
   function setupNotesDropdown() {
     if (!notesListBtn) return;
-
     let dropdown = document.querySelector('#notes-dropdown');
     if (!dropdown) {
       dropdown = document.createElement('div');
@@ -1600,7 +1474,7 @@ calGrid.innerHTML = `
       items.sort((a,b) => a.date > b.date ? -1 : 1);
 
       if (items.length === 0) {
-        dropdown.innerHTML = `<div class="note-item" style="cursor:default;opacity:.7">Заметок с текстом пока нет</div>`;
+        dropdown.innerHTML = `<div class="note-item" style="cursor:default;opacity:.7">Заметок нет</div>`;
         return;
       }
 
@@ -1613,7 +1487,7 @@ calGrid.innerHTML = `
               <div class="note-text-preview">${escapeHtml(it.firstLine).slice(0,80)}</div>
             </div>
           </div>
-          <button class="note-delete-btn" title="Удалить заметку">×</button>
+          <button class="note-delete-btn" title="Удалить">×</button>
         </div>
       `).join('');
 
@@ -1622,18 +1496,14 @@ calGrid.innerHTML = `
           const cardData = cards.find(c => c.id === el.dataset.card);
           if (!cardData) return;
           if (cardData.note && cardData.note.window) {
-            cardData.note.window.remove();
-            cardData.note.window = null;
+            cardData.note.window.remove(); cardData.note.window = null;
           }
           const cardRect = cardData.element.getBoundingClientRect();
-          if (!cardData.note) {
-              toggleNote(cardData); // Создаст заметку с правильной структурой
-          }
+          if (!cardData.note) toggleNote(cardData);
           const note = cardData.note;
           ensureNoteStructure(note);
           note.selectedDate = el.dataset.date;
-          note.x = cardRect.right + 15;
-          note.y = cardRect.top;
+          note.x = cardRect.right + 15; note.y = cardRect.top;
           note.visible = true;
           createNoteWindow(cardData);
           saveState();
@@ -1647,26 +1517,19 @@ calGrid.innerHTML = `
             delete cardData.note.entries[el.dataset.date];
             const noteBtn = cardData.element.querySelector('.note-btn');
             if (!hasAnyEntry(cardData.note)) {
-              noteBtn.classList.remove('has-text');
-              noteBtn.textContent = '📝';
+              noteBtn.classList.remove('has-text'); noteBtn.textContent = '📝';
             }
-            saveState();
-            buildList();
-            updateNotesButtonState();
+            saveState(); buildList(); updateNotesButtonState();
           }
         });
       });
     }
 
-    function escapeHtml(s){
-      return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-    }
-
+    function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
     function show() {
       buildList();
       const r = notesListBtn.getBoundingClientRect();
-      dropdown.style.left = `${r.left}px`;
-      dropdown.style.top  = `${r.bottom + 6}px`;
+      dropdown.style.left = `${r.left}px`; dropdown.style.top  = `${r.bottom + 6}px`;
       dropdown.style.display = 'block';
     }
     function hide(){ dropdown.style.display = 'none'; }
@@ -1688,11 +1551,9 @@ calGrid.innerHTML = `
         const noteBtn = cardData.element.querySelector('.note-btn');
         if (noteBtn) {
             if (hasAnyEntry(cardData.note)) {
-                noteBtn.classList.add('has-text');
-                noteBtn.textContent = '❗';
+                noteBtn.classList.add('has-text'); noteBtn.textContent = '❗';
             } else {
-                noteBtn.classList.remove('has-text');
-                noteBtn.textContent = '📝';
+                noteBtn.classList.remove('has-text'); noteBtn.textContent = '📝';
             }
         }
     });
@@ -1701,9 +1562,7 @@ calGrid.innerHTML = `
       notesListBtn.disabled = !hasAnyNoteWithText;
     }
   }
-// ============== КОНЕЦ ОБНОВЛЕННОГО КОДА ДЛЯ ФУНКЦИОНАЛА ЗАМЕТОК ==============
 
-// ============== НАЧАЛО ИСПРАВЛЕННОЙ ФУНКЦИИ ДЛЯ ПЕЧАТИ (ВЕРСИЯ 2) ==============
 async function prepareForPrint() {
     if (cards.length === 0) {
       alert("На доске нет элементов для печати.");
@@ -1777,7 +1636,7 @@ async function prepareForPrint() {
         });
 
         pdfBtn.addEventListener('click', () => {
-          const input = prompt("Введите желаемые размеры для печати в сантиметрах (Ширина x Высота), например: 150x120. Или напишите 'оригинал', чтобы использовать текущий размер.", "оригинал");
+          const input = prompt("Введите желаемые размеры для печати (ШxВ см), например: 150x120. Или 'оригинал'.", "оригинал");
           if (input === null) return;
 
           pngBtn.disabled = true;
@@ -1802,12 +1661,12 @@ async function prepareForPrint() {
                           targetWidthPx = Math.round((reqWidthCm / CM_PER_INCH) * DPI);
                           targetHeightPx = Math.round((reqHeightCm / CM_PER_INCH) * DPI);
                       } else {
-                          alert("Неверный формат. Пожалуйста, введите размеры как '150x120'.");
+                          alert("Неверный формат. Введите размеры как '150x120'.");
                           pdfBtn.disabled = false; pngBtn.disabled = false; pdfBtn.textContent = 'Сохранить для печати (PDF)';
                           return;
                       }
                   } else {
-                      alert("Неверный формат. Пожалуйста, введите размеры как '150x120'.");
+                      alert("Неверный формат. Введите размеры как '150x120'.");
                       pdfBtn.disabled = false; pngBtn.disabled = false; pdfBtn.textContent = 'Сохранить для печати (PDF)';
                       return;
                   }
@@ -1859,17 +1718,15 @@ async function prepareForPrint() {
     const createPrintWindow = (cssText) => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
-            alert("Не удалось открыть новое окно. Пожалуйста, разрешите всплывающие окна для этого сайта.");
+            alert("Не удалось открыть новое окно. Пожалуйста, разрешите всплывающие окна.");
             return;
         }
 
         printWindow.document.open();
         printWindow.document.write(`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати</title>
-          
           <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
-
           <style>
             ${cssText}
             html, body { 
@@ -1878,64 +1735,31 @@ async function prepareForPrint() {
               height: ${contentHeight + PADDING * 2}px;
             }
             #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
-            
-            /* Styles for PNG/PDF output */
-            .card {
-                box-shadow: none !important;
-                border: 1px solid #a9a9a9;
-            }
-            .card:hover { 
-                transform: none !important; 
-                box-shadow: none !important;
-            }
-            
+            .card { box-shadow: none !important; border: 1px solid #a9a9a9; }
+            .card:hover { transform: none !important; box-shadow: none !important; }
             #controls { position: fixed; top: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
             .control-btn { padding: 12px 20px; font-size: 16px; font-weight: bold; background-color: #0f62fe; color: white; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.2); transition: background-color 0.2s; }
             .control-btn:hover:not(:disabled) { background-color: #0042d6; }
             .control-btn:disabled { background-color: #6b7280; cursor: not-allowed; }
-            
-            .toggle-btn {
-                width: 40px; height: 40px; border-radius: 50%;
-                border: 2px solid #ccc; background-color: #fff;
-                cursor: pointer; font-size: 20px;
-                display: grid; place-items: center;
-                transition: .2s;
-            }
-            .toggle-btn.active {
-                background-color: #eaf1ff;
-                border-color: #0f62fe;
-            }
-
-            /* --- START FIX 1 (v2): Hide all editable content --- */
+            .toggle-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc; background-color: #fff; cursor: pointer; font-size: 20px; display: grid; place-items: center; transition: .2s; }
+            .toggle-btn.active { background-color: #eaf1ff; border-color: #0f62fe; }
             .content-hidden .card-header .card-title,
             .content-hidden .card-body .value,
-            .content-hidden .card-body .coin-icon {
-                visibility: hidden;
-            }
-            /* --- END FIX 1 (v2) --- */
-
-            /* --- START FIX 2: Add border to header in outline mode --- */
-            .outline-mode .card-header { 
-                background: none !important; 
-                color: #000 !important;
-                border-bottom: 1px solid #000 !important;
-            }
-            /* --- END FIX 2 --- */
-            .outline-mode .card-body { background: none !important; }
-            .outline-mode .card { background: none !important; border: 1px solid #000 !important; }
+            .content-hidden .card-body .coin-icon { visibility: hidden; }
+            .outline-mode .card-header { background: none !important; color: #000 !important; border-bottom: 1px solid #000 !important; }
+            .outline-mode .card-body, .outline-mode .card { background: none !important; border: 1px solid #000 !important; }
             .outline-mode .line { color: #000 !important; stroke: #000 !important; }
             .outline-mode .value, .outline-mode .label, .outline-mode .card-title { color: #000 !important; }
             .outline-mode .coin-icon circle { fill: none !important; stroke: #000 !important; }
             .outline-mode [style*="background"] { background: none !important; }
-
           </style></head>
           <body style="background: ${bodyStyle.background};">
             <div id="controls">
-              <button id="do-screenshot-btn" class="control-btn">Сохранить как картинку (PNG)</button>
-              <button id="do-pdf-btn" class="control-btn">Сохранить для печати (PDF)</button>
+              <button id="do-screenshot-btn" class="control-btn">Сохранить PNG</button>
+              <button id="do-pdf-btn" class="control-btn">Сохранить PDF</button>
               <div id="print-toggles" style="margin-top: 10px; display: flex; gap: 10px;">
                 <button id="toggle-content-btn" class="toggle-btn" title="Скрыть/показать содержимое">👁️</button>
-                <button id="toggle-color-btn" class="toggle-btn" title="Включить/выключить цвета">🎨</button>
+                <button id="toggle-color-btn" class="toggle-btn" title="Вкл/выкл цвета">🎨</button>
               </div>
             </div>
             <div id="canvas">
@@ -1956,13 +1780,19 @@ async function prepareForPrint() {
 
             const cardElements = new Map();
             state.cards.forEach(cardData => {
+                const tempBody = printWindow.document.createElement('div');
+                tempBody.innerHTML = cardData.bodyHTML;
+                const pvControls = tempBody.querySelector('.active-pv-controls');
+                if (pvControls) pvControls.remove();
+                const cleanedBodyHTML = tempBody.innerHTML;
+
                 const cardEl = printWindow.document.createElement('div');
                 cardEl.className = 'card';
                 if(cardData.isDarkMode) cardEl.classList.add('dark-mode');
                 cardEl.style.width = cardData.width || '380px';
                 cardEl.style.left = `${cardData.x - minX + PADDING}px`;
                 cardEl.style.top = `${cardData.y - minY + PADDING}px`;
-                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cardData.bodyHTML}</div>`;
+                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>`;
                 printCanvas.appendChild(cardEl);
                 cardElements.set(cardData.id, cardEl);
             });
@@ -2008,10 +1838,5 @@ async function prepareForPrint() {
         createPrintWindow(minimalCss);
       });
 }
-// ============== КОНЕЦ ИСПРАВЛЕННОЙ ФУНКЦИИ (ВЕРСИЯ 2) ==============
-
-    saveState();
 
 });
-
-
