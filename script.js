@@ -353,7 +353,10 @@ document.addEventListener('DOMContentLoaded', () => {
       card.querySelectorAll('[contenteditable]').forEach(el => el.setAttribute('contenteditable', cardData.locked ? 'false' : 'true'));
       saveState();
     });
-
+    if (opts.headerBg) {
+        header.style.background = opts.headerBg;
+        headerColorBtn.style.background = opts.headerBg;
+    }
     const headerColorBtn = card.querySelector('.header-color-picker-btn');
     const header = card.querySelector('.card-header');
     headerColorBtn.style.background = getComputedStyle(header).background;
@@ -1840,3 +1843,4 @@ async function prepareForPrint() {
 }
 
 });
+
