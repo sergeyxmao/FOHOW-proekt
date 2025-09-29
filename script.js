@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportHtmlBtn = document.getElementById('export-html-btn');
   const notesListBtn = document.getElementById('notes-list-btn');
   const preparePrintBtn = document.getElementById('prepare-print-btn');
+  const toggleGuidesBtn = document.getElementById('toggle-guides-btn'); // Новая кнопка
 
   const thicknessSlider = document.getElementById('thickness-slider');
   const thicknessValue = document.getElementById('thickness-value');
@@ -25,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const GRID_SIZE = 70;
   const MARKER_OFFSET = 12;
   const HISTORY_LIMIT = 50;
+  const SNAP_TOLERANCE = 5; // Допуск для прилипания направляющих
 
   let canvasState = { x: 0, y: 0, scale: 1, isPanning: false, lastMouseX: 0, lastMouseY: 0 };
   let activeState = {
@@ -36,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     isSelecting: false,
     isSelectionMode: false,
     isGlobalLineMode: false,
+    guidesEnabled: true, // Направляющие включены по умолчанию
     lineStart: null,
     previewLine: null
   };
@@ -46,6 +49,16 @@ document.addEventListener('DOMContentLoaded', () => {
   let undoStack = [];
   let redoStack = [];
   let clipboard = null;
+
+  // --- Элементы для направляющих ---
+  const vGuide = document.createElement('div');
+  vGuide.className = 'guide-line vertical';
+  document.body.appendChild(vGuide);
+
+  const hGuide = document.createElement('div');
+  hGuide.className = 'guide-line horizontal';
+  document.body.appendChild(hGuide);
+  // ------------------------------------
 
   if (!canvas || !svgLayer) return;
 
@@ -62,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSaveButtons();
   setupNotesDropdown();
   setupNoteAutoClose();
+  setupGuides(); // Новая функция настройки
 
   const numPop = document.createElement('div');
   numPop.className = 'num-color-pop';
@@ -197,6 +211,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.ctrlKey && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteSelection(); }
     });
   }
+  
+  // --- Новая функция для настройки направляющих ---
+  function setupGuides() {
+    if (!toggleGuidesBtn) return;
+    toggleGuidesBtn.classList.toggle('active', activeState.guidesEnabled);
+    toggleGuidesBtn.addEventListener('click', () => {
+        activeState.guidesEnabled = !activeState.guidesEnabled;
+        toggleGuidesBtn.classList.toggle('active', activeState.guidesEnabled);
+    });
+  }
 
   function setupSelectionMode() {
     if (!selectionModeBtn) return;
@@ -279,12 +303,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (opts.isDarkMode) card.classList.add('dark-mode');
 
     if (opts.isLarge) {
-        card.style.width = '494px';
+        card.style.width = '494px'; // 380 * 1.3
     } else if (opts.width) {
         card.style.width = opts.width;
     }
 
-    const CARD_WIDTH = card.offsetWidth || 380, CARD_HEIGHT = 280, PADDING = 50;
+    const CARD_WIDTH = card.offsetWidth || (opts.isLarge ? 494 : 380);
+    const CARD_HEIGHT = 280, PADDING = 50;
     let initialX, initialY;
 
     if (opts.x != null) { initialX = opts.x; initialY = opts.y; }
@@ -401,7 +426,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateNotesButtonState();
     return cardData;
   }
-
+  
+  // --- Функция перетаскивания ОБНОВЛЕНА для поддержки направляющих ---
   function makeDraggable(element, cardData) {
     const header = element.querySelector('.card-header');
     header.addEventListener('mousedown', (e) => {
@@ -425,18 +451,59 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       const startMouseX = e.clientX, startMouseY = e.clientY;
+      const staticCards = cards.filter(c => !activeState.selectedCards.has(c));
 
       function onMouseMove(e2) {
-        const dx_canvas = (e2.clientX - startMouseX) / canvasState.scale;
-        const dy_canvas = (e2.clientY - startMouseY) / canvasState.scale;
+        let dx_canvas = (e2.clientX - startMouseX) / canvasState.scale;
+        let dy_canvas = (e2.clientY - startMouseY) / canvasState.scale;
         const dx_viewport = e2.clientX - startMouseX;
         const dy_viewport = e2.clientY - startMouseY;
 
+        // --- Логика умных направляющих ---
+        if (activeState.guidesEnabled) {
+          let snapX = null, snapY = null;
+
+          const draggedBounds = {
+            left:   Math.min(...draggedCards.map(d => d.startX + dx_canvas)),
+            top:    Math.min(...draggedCards.map(d => d.startY + dy_canvas)),
+            right:  Math.max(...draggedCards.map(d => d.startX + d.element.offsetWidth + dx_canvas)),
+            bottom: Math.max(...draggedCards.map(d => d.startY + d.element.offsetHeight + dy_canvas))
+          };
+          draggedBounds.centerX = draggedBounds.left + (draggedBounds.right - draggedBounds.left) / 2;
+          draggedBounds.centerY = draggedBounds.top + (draggedBounds.bottom - draggedBounds.top) / 2;
+
+          for (const staticCard of staticCards) {
+            const sElem = staticCard.element;
+            const s = {
+              left: parseFloat(sElem.style.left), top: parseFloat(sElem.style.top),
+              width: sElem.offsetWidth, height: sElem.offsetHeight
+            };
+            s.right = s.left + s.width; s.bottom = s.top + s.height;
+            s.centerX = s.left + s.width / 2; s.centerY = s.top + s.height / 2;
+
+            // Проверка по Y
+            if (Math.abs(draggedBounds.top - s.top) < SNAP_TOLERANCE) { snapY = s.top; dy_canvas = s.top - Math.min(...draggedCards.map(d => d.startY)); }
+            else if (Math.abs(draggedBounds.bottom - s.bottom) < SNAP_TOLERANCE) { snapY = s.bottom; dy_canvas = s.bottom - Math.max(...draggedCards.map(d => d.startY + d.element.offsetHeight)); }
+            else if (Math.abs(draggedBounds.centerY - s.centerY) < SNAP_TOLERANCE) { snapY = s.centerY; dy_canvas = s.centerY - (Math.min(...draggedCards.map(d => d.startY)) + (draggedBounds.bottom - draggedBounds.top) / 2); }
+
+            // Проверка по X
+            if (Math.abs(draggedBounds.left - s.left) < SNAP_TOLERANCE) { snapX = s.left; dx_canvas = s.left - Math.min(...draggedCards.map(d => d.startX)); }
+            else if (Math.abs(draggedBounds.right - s.right) < SNAP_TOLERANCE) { snapX = s.right; dx_canvas = s.right - Math.max(...draggedCards.map(d => d.startX + d.element.offsetWidth)); }
+            else if (Math.abs(draggedBounds.centerX - s.centerX) < SNAP_TOLERANCE) { snapX = s.centerX; dx_canvas = s.centerX - (Math.min(...draggedCards.map(d => d.startX)) + (draggedBounds.right - draggedBounds.left) / 2); }
+          }
+          
+          if (snapX !== null) { vGuide.style.left = `${(snapX * canvasState.scale) + canvasState.x}px`; vGuide.style.display = 'block'; } else { vGuide.style.display = 'none'; }
+          if (snapY !== null) { hGuide.style.top = `${(snapY * canvasState.scale) + canvasState.y}px`; hGuide.style.display = 'block'; } else { hGuide.style.display = 'none'; }
+        }
+        // --- Конец логики направляющих ---
+
         draggedCards.forEach(dragged => {
-          const newX = dragged.startX + dx_canvas;
-          const newY = dragged.startY + dy_canvas;
-          const snappedX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
-          const snappedY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
+          let newX = dragged.startX + dx_canvas;
+          let newY = dragged.startY + dy_canvas;
+
+          // Привязка к сетке, если нет привязки к направляющей
+          const snappedX = (activeState.guidesEnabled && vGuide.style.display === 'block') ? newX : Math.round(newX / GRID_SIZE) * GRID_SIZE;
+          const snappedY = (activeState.guidesEnabled && hGuide.style.display === 'block') ? newY : Math.round(newY / GRID_SIZE) * GRID_SIZE;
 
           dragged.element.style.left = `${snappedX}px`;
           dragged.element.style.top  = `${snappedY}px`;
@@ -452,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function onMouseUp() {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+        vGuide.style.display = 'none'; hGuide.style.display = 'none'; // Скрыть направляющие
         
         draggedCards.forEach(dragged => {
             if (dragged.card.note && dragged.card.note.window) {
@@ -670,13 +738,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return { x: (clientX - canvasState.x) / canvasState.scale, y: (clientY - canvasState.y) / canvasState.scale };
   }
 
-    function loadTemplate() {
+  function loadTemplate() {
   const templateCards = [
     { key: 'lena', x: 2240, y: -770, title: 'Елена', pv: '330/330pv', coinFill: '#ffd700', isLarge: true },
-    { key: 'a',    x: 1750, y: -420, title: 'A',     pv: '330/330pv', coinFill: '#ffd700'},
+    { key: 'a',    x: 1750, y: -420, title: 'A',     pv: '330/330pv', coinFill: '#ffd700' },
     { key: 'c',    x: 1470, y:  -70, title: 'C',     pv: '30/330pv', coinFill: '#ffd700' },
     { key: 'd',    x: 2030, y:  -70, title: 'D',     pv: '30/330pv', coinFill: '#ffd700' },
-    { key: 'b',    x: 2870, y: -420, title: 'B',     pv: '330/330pv', coinFill: '#ffd700'},
+    { key: 'b',    x: 2870, y: -420, title: 'B',     pv: '330/330pv', coinFill: '#ffd700' },
     { key: 'e',    x: 2590, y:  -70, title: 'E',     pv: '30/330pv', coinFill: '#ffd700' },
     { key: 'f',    x: 3150, y:  -70, title: 'F',     pv: '30/330pv', coinFill: '#ffd700' },
   ];
@@ -690,9 +758,12 @@ document.addEventListener('DOMContentLoaded', () => {
     { startKey: 'lena',startSide: 'right',endKey: 'b',   endSide: 'top',   thickness: 4 },
     ];
 
-    const CARD_WIDTH = 380, CARD_HEIGHT = 280, PADDING = 50;
+    const CARD_WIDTH = 380, LARGE_CARD_WIDTH = 494, CARD_HEIGHT = 280, PADDING = 50;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    templateCards.forEach(c => { minX = Math.min(minX, c.x); minY = Math.min(minY, c.y); maxX = Math.max(maxX, c.x + (c.isLarge ? 494 : CARD_WIDTH)); maxY = Math.max(maxY, c.y + CARD_HEIGHT); });
+    templateCards.forEach(c => {
+        const width = c.isLarge ? LARGE_CARD_WIDTH : CARD_WIDTH;
+        minX = Math.min(minX, c.x); minY = Math.min(minY, c.y); maxX = Math.max(maxX, c.x + width); maxY = Math.max(maxY, c.y + CARD_HEIGHT);
+    });
     const templateWidth = maxX - minX, templateHeight = maxY - minY;
 
     const canvasViewLeft = -canvasState.x / canvasState.scale;
@@ -794,6 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.cards.forEach(cd => {
       const cardData = createCard({
         ...cd,
+        isLarge: (parseInt(cd.width, 10) === 494),
         isTemplate: true
       });
       idMap.set(cd.id, cardData);
@@ -872,10 +944,11 @@ document.addEventListener('DOMContentLoaded', () => {
     clipboard = { cards: copiedCards, lines: copiedLines };
   }
 
+  // --- Функция вставки ОБНОВЛЕНА для корректного смещения ---
   function pasteSelection() {
     if (!clipboard || !clipboard.cards || clipboard.cards.length === 0) return;
 
-    const OFFSET = 40;
+    const OFFSET = GRID_SIZE; // ИЗМЕНЕНО: Смещение теперь равно размеру сетки
     const idMap = new Map();
     const newSelection = new Set();
 
@@ -884,6 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ...cd,
         x: cd.x + OFFSET,
         y: cd.y + OFFSET,
+        isLarge: (parseInt(cd.width, 10) === 494), // Добавлена проверка для больших карточек
         note: cd.note ? { ...cd.note, x: cd.note.x + OFFSET, y: cd.note.y + OFFSET, visible: false } : null,
       });
       idMap.set(cd.id, newCard);
@@ -1840,5 +1914,3 @@ async function prepareForPrint() {
 }
 
 });
-
-
