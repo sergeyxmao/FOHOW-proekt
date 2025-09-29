@@ -600,11 +600,10 @@ document.addEventListener('DOMContentLoaded', () => {
     activeState.selectedLine = lineData;
     lineData.element.classList.add('selected');
 
-    if (thicknessSlider) thicknessSlider.value = lineData.thickness;
-if (thicknessValue)  thicknessValue.textContent = lineData.thickness;
-if (hiddenLineColorPicker) hiddenLineColorPicker.value = lineData.color;
-if (lineColorTrigger) lineColorTrigger.style.backgroundColor = lineData.color;
-
+    thicknessSlider.value = lineData.thickness;
+    thicknessValue.textContent = lineData.thickness;
+    hiddenLineColorPicker.value = lineData.color;
+    lineColorTrigger.style.backgroundColor = lineData.color;
     activeState.currentThickness = lineData.thickness;
     activeState.currentColor = lineData.color;
     setupLineControls();
@@ -689,30 +688,23 @@ if (lineColorTrigger) lineColorTrigger.style.backgroundColor = lineData.color;
   }
 
   function loadTemplate() {
-  const templateCards = [
-    { key: 'lena', x: 2240, y: -770, title: 'Елена', pv: '330/330pv', coinFill: '#ffd700' },
-    { key: 'a',    x: 1750, y: -420, title: 'A',     pv: '330/330pv', coinFill: '#ffd700' },
-    { key: 'c',    x: 1470, y:  -70, title: 'C',     pv: '30/330pv', coinFill: '#ffd700' },
-    { key: 'd',    x: 2030, y:  -70, title: 'D',     pv: '30/330pv', coinFill: '#ffd700' },
-    { key: 'b',    x: 2870, y: -420, title: 'B',     pv: '330/330pv', coinFill: '#ffd700' },
-    { key: 'e',    x: 2590, y:  -70, title: 'E',     pv: '30/330pv', coinFill: '#ffd700' },
-    { key: 'f',    x: 3150, y:  -70, title: 'F',     pv: '30/330pv', coinFill: '#ffd700' },
-  ];
-
-  const templateLines = [
-    // F (top) -> B (right)
-    { startKey: 'f',   startSide: 'top',  endKey: 'b',   endSide: 'right', thickness: 4 },
-    // E (top) -> B (left)
-    { startKey: 'e',   startSide: 'top',  endKey: 'b',   endSide: 'left',  thickness: 4 },
-    // A (right) -> D (top)
-    { startKey: 'a',   startSide: 'right',endKey: 'd',   endSide: 'top',   thickness: 4 },
-    // A (left) -> C (top)
-    { startKey: 'a',   startSide: 'left', endKey: 'c',   endSide: 'top',   thickness: 4 },
-    // Елена (left) -> A (top)
-    { startKey: 'lena',startSide: 'left', endKey: 'a',   endSide: 'top',   thickness: 4 },
-    // Елена (right) -> B (top)
-    { startKey: 'lena',startSide: 'right',endKey: 'b',   endSide: 'top',   thickness: 4 },
-  ];
+    const templateCards = [
+      { key: 'lena', x: 1050, y: -140, title: 'ЛЕНА', pv: '330/330pv', coinFill: '#ffd700' },
+      { key: 'a', x: 630, y: 210, title: 'A', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'b', x: 1470, y: 210, title: 'B', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'c', x: 420, y: 560, title: 'C', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'd', x: 840, y: 560, title: 'D', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'e', x: 1260, y: 560, title: 'E', pv: '30/30pv', coinFill: '#3d85c6' },
+      { key: 'f', x: 1680, y: 560, title: 'F', pv: '30/30pv', coinFill: '#3d85c6' },
+    ];
+    const templateLines = [
+      { startKey: 'lena', startSide: 'left', endKey: 'a', endSide: 'top', thickness: 5 },
+      { startKey: 'lena', startSide: 'right', endKey: 'b', endSide: 'top', thickness: 5 },
+      { startKey: 'a', startSide: 'left', endKey: 'c', endSide: 'top', thickness: 3 },
+      { startKey: 'a', startSide: 'right', endKey: 'd', endSide: 'top', thickness: 3 },
+      { startKey: 'b', startSide: 'left', endKey: 'e', endSide: 'top', thickness: 3 },
+      { startKey: 'b', startSide: 'right', endKey: 'f', endSide: 'top', thickness: 3 },
+    ];
 
     const CARD_WIDTH = 380, CARD_HEIGHT = 280, PADDING = 50;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -817,9 +809,9 @@ if (lineColorTrigger) lineColorTrigger.style.backgroundColor = lineData.color;
     const idMap = new Map();
     state.cards.forEach(cd => {
       const cardData = createCard({
-  ...cd,
-  isTemplate: true
-});
+        ...cd,
+        isTemplate: true
+      });
       idMap.set(cd.id, cardData);
     });
 
@@ -883,7 +875,6 @@ if (lineColorTrigger) lineColorTrigger.style.backgroundColor = lineData.color;
     if (activeState.selectedCards.size === 0) return;
     const selectedIds = new Set([...activeState.selectedCards].map(c => c.id));
 
-
     const copiedCards = [];
     activeState.selectedCards.forEach(cd => {
       const state = serializeState().cards.find(c => c.id === cd.id);
@@ -899,67 +890,56 @@ if (lineColorTrigger) lineColorTrigger.style.backgroundColor = lineData.color;
     clipboard = { cards: copiedCards, lines: copiedLines };
   }
 
-function pasteSelection() {
-  if (!clipboard || !clipboard.cards || clipboard.cards.length === 0) return;
+  function pasteSelection() {
+    if (!clipboard || !clipboard.cards || clipboard.cards.length === 0) return;
 
-  const OFFSET = 40;
-  const idMap = new Map();        // старыйID -> новый cardData
-  const newSelection = new Set(); // набор нововставленных карточек (cardData)
+    const OFFSET = 40;
+    const idMap = new Map();
+    const newSelection = new Set();
 
-  // 1) Копируем карточки со смещением и собираем соответствия id
-  clipboard.cards.forEach(cd => {
-    const newCard = createCard({
-      ...cd,
-      x: cd.x + OFFSET,
-      y: cd.y + OFFSET,
-      // окно заметки сдвигаем визуально и не открываем сразу
-      note: cd.note ? { ...cd.note, x: (cd.note.x ?? 0) + OFFSET, y: (cd.note.y ?? 0) + OFFSET, visible: false, window: null } : null,
-      // не тащим старый id — createCard сам создаёт новый
-      id: undefined
+    clipboard.cards.forEach(cd => {
+      const newCard = createCard({
+        ...cd,
+        x: cd.x + OFFSET,
+        y: cd.y + OFFSET,
+        note: cd.note ? { ...cd.note, x: cd.note.x + OFFSET, y: cd.note.y + OFFSET, visible: false } : null,
+      });
+      idMap.set(cd.id, newCard);
+      newSelection.add(newCard);
     });
+    setSelectionSet(newSelection);
 
-    idMap.set(cd.id, newCard);    // запомним соответствие
-    newSelection.add(newCard);    // соберём выделение новой группы
-  });
+    setTimeout(() => {
+      clipboard.lines.forEach(ld => {
+        const startCard = idMap.get(ld.startId);
+        const endCard = idMap.get(ld.endId);
+        if (!startCard || !endCard) return;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('class', 'line');
+        path.setAttribute('stroke', ld.color);
+        path.setAttribute('stroke-width', ld.thickness);
+        path.style.setProperty('--line-color', ld.color);
+        path.setAttribute('marker-start', 'url(#marker-dot)');
+        path.setAttribute('marker-end', 'url(#marker-dot)');
+        svgLayer.appendChild(path);
 
-  // 2) Перестраиваем линии только между скопированными карточками
-  clipboard.lines.forEach(ld => {
-    const startCard = idMap.get(ld.startId);
-    const endCard   = idMap.get(ld.endId);
-    if (!startCard || !endCard) return;
+        const lineData = {
+          id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+          startCard, startSide: ld.startSide,
+          endCard,   endSide: ld.endSide,
+          color: ld.color, thickness: ld.thickness, element: path
+        };
+        lines.push(lineData);
+        path.addEventListener('click', (e) => { e.stopPropagation(); selectLine(lineData); });
+        const p1 = getPointCoords(startCard, ld.startSide);
+        const p2 = getPointCoords(endCard, ld.endSide);
+        updateLinePath(path, p1, p2, ld.startSide, ld.endSide);
+      });
+      saveState();
+    }, 0);
 
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('class', 'line');
-    path.setAttribute('stroke', ld.color);
-    path.setAttribute('stroke-width', ld.thickness);
-    path.style.setProperty('--line-color', ld.color);
-    path.setAttribute('marker-start', 'url(#marker-dot)');
-    path.setAttribute('marker-end', 'url(#marker-dot)');
-    svgLayer.appendChild(path);
-
-    const lineData = {
-      id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
-      startCard, startSide: ld.startSide,
-      endCard,   endSide:   ld.endSide,
-      color: ld.color, thickness: ld.thickness, element: path
-    };
-    lines.push(lineData);
-    path.addEventListener('click', (e) => { e.stopPropagation(); selectLine(lineData); });
-
-    // начальная геометрия
-    const p1 = getPointCoords(startCard, ld.startSide);
-    const p2 = getPointCoords(endCard,   ld.endSide);
-    updateLinePath(path, p1, p2, ld.startSide, ld.endSide);
-  });
-
-  // 3) Оставляем нововставленную группу выделенной
-  setSelectionSet(newSelection);
-
-  // 4) Сохраняем состояние
-  saveState();
-}
-
-
+  }
+  
   function setupSaveButtons() {
     if (saveProjectBtn) {
       saveProjectBtn.addEventListener('click', () => {
