@@ -670,10 +670,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return { x: (clientX - canvasState.x) / canvasState.scale, y: (clientY - canvasState.y) / canvasState.scale };
   }
 
-  function loadTemplate() {
+    function loadTemplate() {
   const templateCards = [
     { key: 'lena', x: 2240, y: -770, title: 'Елена', pv: '330/330pv', coinFill: '#ffd700' },
-    { key: 'a',    x: 1750, y: -420, title: 'A',     pv: '330/330pv', coinFill: '#ffd700' },
+    { key: 'a',    x: 1750, y: -420, title: 'A',     pv: '330/330pv', coinFill: '#ffd700', isLarge: true },
     { key: 'c',    x: 1470, y:  -70, title: 'C',     pv: '30/330pv', coinFill: '#ffd700' },
     { key: 'd',    x: 2030, y:  -70, title: 'D',     pv: '30/330pv', coinFill: '#ffd700' },
     { key: 'b',    x: 2870, y: -420, title: 'B',     pv: '330/330pv', coinFill: '#ffd700' },
@@ -692,7 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const CARD_WIDTH = 380, CARD_HEIGHT = 280, PADDING = 50;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    templateCards.forEach(c => { minX = Math.min(minX, c.x); minY = Math.min(minY, c.y); maxX = Math.max(maxX, c.x + CARD_WIDTH); maxY = Math.max(maxY, c.y + CARD_HEIGHT); });
+    templateCards.forEach(c => { minX = Math.min(minX, c.x); minY = Math.min(minY, c.y); maxX = Math.max(maxX, c.x + (c.isLarge ? 494 : CARD_WIDTH)); maxY = Math.max(maxY, c.y + CARD_HEIGHT); });
     const templateWidth = maxX - minX, templateHeight = maxY - minY;
 
     const canvasViewLeft = -canvasState.x / canvasState.scale;
@@ -721,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       const cardData = createCard({
         x: cardDef.x + offsetX, y: cardDef.y + offsetY, title: cardDef.title,
-        bodyHTML, headerBg: 'rgb(93, 139, 244)', colorIndex: 0, isTemplate: true
+        bodyHTML, headerBg: 'rgb(93, 139, 244)', colorIndex: 0, isTemplate: true, isLarge: cardDef.isLarge
       });
       createdCardsMap.set(cardDef.key, cardData);
     });
@@ -1840,3 +1840,4 @@ async function prepareForPrint() {
 }
 
 });
+
