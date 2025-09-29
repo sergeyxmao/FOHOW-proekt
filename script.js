@@ -687,24 +687,63 @@ document.addEventListener('DOMContentLoaded', () => {
     return { x: (clientX - canvasState.x) / canvasState.scale, y: (clientY - canvasState.y) / canvasState.scale };
   }
 
-  function loadTemplate() {
-    const templateCards = [
-      { key: 'lena', x: 1050, y: -140, title: 'ЛЕНА', pv: '330/330pv', coinFill: '#ffd700' },
-      { key: 'a', x: 630, y: 210, title: 'A', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'b', x: 1470, y: 210, title: 'B', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'c', x: 420, y: 560, title: 'C', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'd', x: 840, y: 560, title: 'D', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'e', x: 1260, y: 560, title: 'E', pv: '30/30pv', coinFill: '#3d85c6' },
-      { key: 'f', x: 1680, y: 560, title: 'F', pv: '30/30pv', coinFill: '#3d85c6' },
-    ];
-    const templateLines = [
-      { startKey: 'lena', startSide: 'left', endKey: 'a', endSide: 'top', thickness: 5 },
-      { startKey: 'lena', startSide: 'right', endKey: 'b', endSide: 'top', thickness: 5 },
-      { startKey: 'a', startSide: 'left', endKey: 'c', endSide: 'top', thickness: 3 },
-      { startKey: 'a', startSide: 'right', endKey: 'd', endSide: 'top', thickness: 3 },
-      { startKey: 'b', startSide: 'left', endKey: 'e', endSide: 'top', thickness: 3 },
-      { startKey: 'b', startSide: 'right', endKey: 'f', endSide: 'top', thickness: 3 },
-    ];
+async function loadTemplate() {
+  try {
+    // 1) тянем JSON-шаблон с диска
+    const res = await fetch('3+4.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const rawState = await res.json();
+
+    // 2) простая валидация структуры
+    if (!rawState || !Array.isArray(rawState.cards) || !Array.isArray(rawState.lines)) {
+      throw new Error('Файл не похож на проект (нужны поля cards и lines).');
+    }
+
+    // 3) аккуратно сдвигаем шаблон в текущую видимую область
+    const CARD_DEFAULT_W = 380;
+    const CARD_DEFAULT_H = 280;
+    const PADDING = 50;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    rawState.cards.forEach(c => {
+      const w = c.width ? parseInt(c.width, 10) : CARD_DEFAULT_W;
+      const h = CARD_DEFAULT_H; // высота карточки у вас фиксированная стилями
+      minX = Math.min(minX, c.x);
+      minY = Math.min(minY, c.y);
+      maxX = Math.max(maxX, c.x + w);
+      maxY = Math.max(maxY, c.y + h);
+    });
+    const tplW = maxX - minX;
+    const tplH = maxY - minY;
+
+    const viewL = -canvasState.x / canvasState.scale;
+    const viewT = -canvasState.y / canvasState.scale;
+    const viewR = (window.innerWidth  - canvasState.x) / canvasState.scale;
+    const viewB = (window.innerHeight - canvasState.y) / canvasState.scale;
+
+    const targetX = Math.max(viewL + PADDING, viewR - tplW - PADDING);
+    const targetY = Math.max(viewT + PADDING, viewB - tplH - PADDING);
+    const dx = targetX - minX;
+    const dy = targetY - minY;
+
+    const shiftedState = {
+      cards: rawState.cards.map(c => ({
+        ...c,
+        x: c.x + dx,
+        y: c.y + dy,
+        note: c.note ? { ...c.note, x: (c.note.x ?? 0) + dx, y: (c.note.y ?? 0) + dy } : c.note
+      })),
+      lines: rawState.lines.slice()
+    };
+
+    // 4) загружаем как обычное состояние проекта
+    loadState(shiftedState, true);
+  } catch (err) {
+    console.error(err);
+    alert('Не удалось загрузить шаблон из 3+4.json: ' + err.message);
+  }
+}
+
 
     const CARD_WIDTH = 380, CARD_HEIGHT = 280, PADDING = 50;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
