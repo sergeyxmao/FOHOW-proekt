@@ -316,3 +316,4 @@ html,body{
 .active-btn:hover{filter:brightness(.96)}
 /* Запрет ручного редактирования текста Актив-заказов */
 .card .active-pv-row .value{pointer-events:none; user-select:none;}
+
