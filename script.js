@@ -427,18 +427,83 @@ document.addEventListener('DOMContentLoaded', () => {
     return cardData;
   }
   
-  // --- Функция перетаскивания ОБНОВЛЕНА для поддержки направляющих ---
+    // --- Функция перетаскивания ОБНОВЛЕНА для поддержки иерархии и направляющих ---
   function makeDraggable(element, cardData) {
-    const header = element.querySelector('.card-header');
-    header.addEventListener('mousedown', (e) => {
+    // Вешаем обработчик на всю карточку, а не только на заголовок
+    element.addEventListener('mousedown', (e) => {
+      // Стандартные проверки: не левая кнопка, зажат Ctrl, режим выделения, карточка заблокирована
       if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
       if (cardData.locked) return;
+      
+      // Определяем зону клика для "умного" перетаскивания
+      let dragMode = null;
+      const target = e.target;
+
+      if (target.closest('.card-header')) {
+        dragMode = 'all'; // Клик в шапке - двигаем всё дерево
+      } else if (target.closest('.card-body')) {
+        const bodyRect = target.closest('.card-body').getBoundingClientRect();
+        const clickXInBody = e.clientX - bodyRect.left;
+        // Клик в левой части тела - двигаем левую ветку
+        if (clickXInBody < bodyRect.width / 2) {
+          dragMode = 'left';
+        } else {
+        // Клик в правой части тела - двигаем правую ветку
+          dragMode = 'right';
+        }
+      }
+
+      // Если клик был не на зоне для перетаскивания (например, на кнопках), выходим
+      if (!dragMode) return;
       e.stopPropagation();
 
-      if (!activeState.selectedCards.has(cardData)) { clearSelection(); toggleCardSelection(cardData); }
+      // Функция для рекурсивного поиска всех дочерних элементов в ветке
+      function getBranchDescendants(startCard, branch) {
+        const descendants = new Set();
+        const queue = [];
+
+        // 1. Находим прямых потомков, соответствующих условию ветки
+        const initialChildLines = lines.filter(line => line.startCard.id === startCard.id);
+        for (const line of initialChildLines) {
+            // Для режима 'all' подходят ветки 'left', 'right' и 'bottom'
+            const isBranchMatch = (branch === 'all' && ['left', 'right', 'bottom'].includes(line.startSide)) || (line.startSide === branch);
+
+            if (isBranchMatch) {
+                const childCard = line.endCard;
+                if (!descendants.has(childCard)) {
+                    descendants.add(childCard);
+                    queue.push(childCard);
+                }
+            }
+        }
+        
+        // 2. Для найденных потомков и их потомков ищем всех детей, уже без оглядки на ветку
+        let head = 0;
+        while(head < queue.length) {
+          const currentCard = queue[head++]; // Используем эффективный обход очереди
+          const childLines = lines.filter(line => line.startCard.id === currentCard.id);
+          for (const line of childLines) {
+            const childCard = line.endCard;
+            if (!descendants.has(childCard)) {
+                descendants.add(childCard);
+                queue.push(childCard);
+            }
+          }
+        }
+        return descendants;
+      }
+
+      // Формируем новую группу для перетаскивания
+      clearSelection();
+      const cardsToDrag = getBranchDescendants(cardData, dragMode);
+      cardsToDrag.add(cardData); // Добавляем саму карточку, на которой кликнули
+      setSelectionSet(cardsToDrag); // Используем существующий механизм выделения
+
+      // --- Дальнейший код почти идентичен старому, но работает с новой динамической группой ---
 
       const draggedCards = [];
       activeState.selectedCards.forEach(selectedCard => {
+        // Дочерние элементы в ветке могут быть заблокированы, их не двигаем
         if (selectedCard.locked) return;
         draggedCards.push({
           card: selectedCard,
@@ -449,6 +514,12 @@ document.addEventListener('DOMContentLoaded', () => {
           noteStartY: (selectedCard.note && selectedCard.note.window) ? selectedCard.note.window.offsetTop : 0,
         });
       });
+      
+      // Если двигать нечего (например, сама карточка заблокирована), выходим
+      if (draggedCards.length === 0) {
+        clearSelection();
+        return;
+      }
 
       const startMouseX = e.clientX, startMouseY = e.clientY;
       const staticCards = cards.filter(c => !activeState.selectedCards.has(c));
@@ -459,7 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dx_viewport = e2.clientX - startMouseX;
         const dy_viewport = e2.clientY - startMouseY;
 
-        // --- Логика умных направляющих ---
+        // Логика умных направляющих (остается без изменений)
         if (activeState.guidesEnabled) {
           let snapX = null, snapY = null;
 
@@ -481,12 +552,10 @@ document.addEventListener('DOMContentLoaded', () => {
             s.right = s.left + s.width; s.bottom = s.top + s.height;
             s.centerX = s.left + s.width / 2; s.centerY = s.top + s.height / 2;
 
-            // Проверка по Y
             if (Math.abs(draggedBounds.top - s.top) < SNAP_TOLERANCE) { snapY = s.top; dy_canvas = s.top - Math.min(...draggedCards.map(d => d.startY)); }
             else if (Math.abs(draggedBounds.bottom - s.bottom) < SNAP_TOLERANCE) { snapY = s.bottom; dy_canvas = s.bottom - Math.max(...draggedCards.map(d => d.startY + d.element.offsetHeight)); }
             else if (Math.abs(draggedBounds.centerY - s.centerY) < SNAP_TOLERANCE) { snapY = s.centerY; dy_canvas = s.centerY - (Math.min(...draggedCards.map(d => d.startY)) + (draggedBounds.bottom - draggedBounds.top) / 2); }
 
-            // Проверка по X
             if (Math.abs(draggedBounds.left - s.left) < SNAP_TOLERANCE) { snapX = s.left; dx_canvas = s.left - Math.min(...draggedCards.map(d => d.startX)); }
             else if (Math.abs(draggedBounds.right - s.right) < SNAP_TOLERANCE) { snapX = s.right; dx_canvas = s.right - Math.max(...draggedCards.map(d => d.startX + d.element.offsetWidth)); }
             else if (Math.abs(draggedBounds.centerX - s.centerX) < SNAP_TOLERANCE) { snapX = s.centerX; dx_canvas = s.centerX - (Math.min(...draggedCards.map(d => d.startX)) + (draggedBounds.right - draggedBounds.left) / 2); }
@@ -495,13 +564,11 @@ document.addEventListener('DOMContentLoaded', () => {
           if (snapX !== null) { vGuide.style.left = `${(snapX * canvasState.scale) + canvasState.x}px`; vGuide.style.display = 'block'; } else { vGuide.style.display = 'none'; }
           if (snapY !== null) { hGuide.style.top = `${(snapY * canvasState.scale) + canvasState.y}px`; hGuide.style.display = 'block'; } else { hGuide.style.display = 'none'; }
         }
-        // --- Конец логики направляющих ---
 
         draggedCards.forEach(dragged => {
           let newX = dragged.startX + dx_canvas;
           let newY = dragged.startY + dy_canvas;
 
-          // Привязка к сетке, если нет привязки к направляющей
           const snappedX = (activeState.guidesEnabled && vGuide.style.display === 'block') ? newX : Math.round(newX / GRID_SIZE) * GRID_SIZE;
           const snappedY = (activeState.guidesEnabled && hGuide.style.display === 'block') ? newY : Math.round(newY / GRID_SIZE) * GRID_SIZE;
 
@@ -519,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function onMouseUp() {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
-        vGuide.style.display = 'none'; hGuide.style.display = 'none'; // Скрыть направляющие
+        vGuide.style.display = 'none'; hGuide.style.display = 'none';
         
         draggedCards.forEach(dragged => {
             if (dragged.card.note && dragged.card.note.window) {
@@ -1914,3 +1981,4 @@ async function prepareForPrint() {
 }
 
 });
+
