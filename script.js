@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectionModeBtn = document.getElementById('selection-mode-btn');
   const saveProjectBtn = document.getElementById('save-project-btn');
   const exportHtmlBtn = document.getElementById('export-html-btn');
-  const exportSvgBtn = document.getElementById('export-svg-btn'); // Новая кнопка для SVG
+  const exportSvgBtn = document.getElementById('export-svg-btn');
   const notesListBtn = document.getElementById('notes-list-btn');
   const preparePrintBtn = document.getElementById('prepare-print-btn');
   const toggleGuidesBtn = document.getElementById('toggle-guides-btn');
@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (addLargeCardBtn) addLargeCardBtn.addEventListener('click', () => { createCard({ isLarge: true }); saveState(); });
   if (addTemplateBtn) addTemplateBtn.addEventListener('click', loadTemplate);
   if (preparePrintBtn) preparePrintBtn.addEventListener('click', prepareForPrint);
-  if (exportSvgBtn) exportSvgBtn.addEventListener('click', exportToSvg); // Новый обработчик
+  if (exportSvgBtn) exportSvgBtn.addEventListener('click', exportToSvg);
 
   setupLineControls();
   setupGlobalEventListeners();
@@ -201,9 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeState.isSelectionMode || activeState.isHierarchicalDragMode) {
           activeState.isSelectionMode = false;
           activeState.isHierarchicalDragMode = false;
-          if (selectionModeBtn) selectionModeBtn.classList.remove('active');
-          if (hierarchicalDragModeBtn) hierarchicalDragModeBtn.classList.remove('active');
-          document.body.style.cursor = 'default';
+          updateDragModeButtons();
         }
         clearSelection();
         if (activeState.selectedLine) {
@@ -260,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       document.body.style.cursor = activeState.isSelectionMode ? 'crosshair' : 'default';
   }
-
 
   function setupLineControls() {
     if (!thicknessSlider || !lineColorTrigger || !hiddenLineColorPicker || !applyAllToggle) return;
@@ -842,8 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (activeState.selectedCards.size > 0) {
         activeState.isSelectionMode = false;
-        if (selectionModeBtn) selectionModeBtn.classList.remove('active');
-        document.body.style.cursor = 'default';
+        updateDragModeButtons();
     }
   }
 
@@ -1749,7 +1745,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-// --- НОВАЯ ФУНКЦИЯ для экспорта в SVG ---
 async function exportToSvg() {
     if (cards.length === 0) {
         alert("На доске нет элементов для экспорта.");
@@ -1772,29 +1767,34 @@ async function exportToSvg() {
     const contentWidth = maxX - minX;
     const contentHeight = maxY - minY;
     const viewBox = `0 0 ${contentWidth + PADDING * 2} ${contentHeight + PADDING * 2}`;
-
-    let cssText = '';
-    try {
-        const response = await fetch('style.css');
-        if (response.ok) cssText = await response.text();
-    } catch (e) {
-        console.warn("Не удалось загрузить style.css для SVG, используются минимальные стили.");
-    }
-
-    // Очистка HTML для встраивания в SVG
+    
     const getCleanedCardHtml = (cardData) => {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = `<div class="card" style="width:${cardData.width || '380px'};">${cardData.bodyHTML}</div>`;
+        
+        const tempBody = document.createElement('div');
+        tempBody.innerHTML = cardData.bodyHTML;
+        const pvControls = tempBody.querySelector('.active-pv-controls');
+        if (pvControls) pvControls.remove();
+        
         const cardHeader = document.createElement('div');
         cardHeader.className = 'card-header';
         cardHeader.style.background = cardData.headerBg;
         cardHeader.innerHTML = `<span class="card-title">${cardData.title}</span>`;
-        tempDiv.firstChild.prepend(cardHeader);
-        if (cardData.isDarkMode) tempDiv.firstChild.classList.add('dark-mode');
-        return tempDiv.innerHTML;
+
+        const finalCard = document.createElement('div');
+        finalCard.className = 'card';
+        if (cardData.isDarkMode) finalCard.classList.add('dark-mode');
+        finalCard.style.width = cardData.width || '380px';
+        finalCard.appendChild(cardHeader);
+        const cardBody = document.createElement('div');
+        cardBody.className = `card-body ${cardData.bodyClass || ''}`;
+        cardBody.innerHTML = tempBody.innerHTML;
+        finalCard.appendChild(cardBody);
+        
+        return finalCard.outerHTML;
     };
     
-    // Формирование SVG строк
     const cardObjects = state.cards.map(card => 
         `<foreignObject x="${card.x - minX + PADDING}" y="${card.y - minY + PADDING}" width="${parseInt(card.width, 10) || 380}" height="280">
             <div xmlns="http://www.w3.org/1999/xhtml">
@@ -1833,14 +1833,12 @@ async function exportToSvg() {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${contentWidth + PADDING * 2}" height="${contentHeight + PADDING * 2}">
             <defs>
                 <style>
-                    /* Встроенные стили для корректного отображения SVG */
-                    :root { --card-width: 380px; }
-                    .card { position: relative; display:inline-block; width: var(--card-width); background: #ffffff; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,.12); overflow: hidden; font-family: Inter, system-ui, sans-serif; }
-                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; border-radius: 16px 16px 0 0; display: grid; grid-template-columns: 1fr; align-items: center; }
-                    .card-title { text-align: center; font-size: 20px; line-height: 1; font-weight: 800; }
+                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: hidden; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; }
+                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; display: flex; align-items: center; justify-content: center; }
+                    .card-title { font-size: 20px; line-height: 1; font-weight: 800; }
                     .card-body { padding: 15px; text-align: center; }
                     .card-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px; }
-                    .label { font-weight: 700; color: #374151; }
+                    .label { font-weight: 700; color: #374151; font-size: 16px; }
                     .value { color: #111827; font-weight: 800; font-size: 20px; }
                     .coin-icon { width: 28px; height: 28px; }
                     .card.dark-mode, .card.dark-mode .card-body { background: #2b2b2b; }
@@ -1850,11 +1848,11 @@ async function exportToSvg() {
                     .card.dark-mode .card-title { color: #f3f4f6; }
                     .line { fill:none; }
                 </style>
-                <marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
-                  <circle cx="5" cy="5" r="4" fill="currentColor"/>
+                <marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" fill="currentColor">
+                  <circle cx="5" cy="5" r="4"/>
                 </marker>
             </defs>
-            <g>${lineObjects}</g>
+            <g style="color: black;">${lineObjects}</g>
             ${cardObjects}
         </svg>`;
 
@@ -1867,7 +1865,6 @@ async function exportToSvg() {
     URL.revokeObjectURL(url);
 }
 
-// --- ПОЛНОСТЬЮ ПЕРЕРАБОТАННАЯ ФУНКЦИЯ для печати в A0 ---
 async function prepareForPrint() {
     if (cards.length === 0) {
       alert("На доске нет элементов для печати.");
@@ -1969,16 +1966,16 @@ async function prepareForPrint() {
         }
 
         printWindow.document.open();
-        printWindow.document.write(\`
+        printWindow.document.write(`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати A0</title>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
           <style>
-            \${cssText}
+            ${cssText}
             html, body { 
               overflow: auto !important; margin: 0; padding: 0;
-              width: \${contentWidth + PADDING * 2}px;
-              height: \${contentHeight + PADDING * 2}px;
+              width: ${contentWidth + PADDING * 2}px;
+              height: ${contentHeight + PADDING * 2}px;
             }
             #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
             .card { box-shadow: none !important; border: 1px solid #a9a9a9; }
@@ -1988,7 +1985,7 @@ async function prepareForPrint() {
             .control-btn:hover:not(:disabled) { background-color: #0042d6; }
             .control-btn:disabled { background-color: #6b7280; cursor: not-allowed; }
           </style></head>
-          <body style="background: \${bodyStyle.background};">
+          <body style="background: ${bodyStyle.background};">
             <div id="controls">
               <button id="do-screenshot-btn" class="control-btn">Сохранить PNG (A0)</button>
               <button id="do-pdf-btn" class="control-btn">Сохранить PDF (A0)</button>
@@ -2000,8 +1997,8 @@ async function prepareForPrint() {
                     </marker></defs>
                 </svg>
             </div>
-            <script>\${screenshotScript}<\/script>
-          </body></html>\`);
+            <script>${screenshotScript}<\/script>
+          </body></html>`);
         printWindow.document.close();
 
         printWindow.addEventListener('load', () => {
@@ -2021,9 +2018,9 @@ async function prepareForPrint() {
                 cardEl.className = 'card';
                 if(cardData.isDarkMode) cardEl.classList.add('dark-mode');
                 cardEl.style.width = cardData.width || '380px';
-                cardEl.style.left = `\${cardData.x - minX + PADDING}px`;
-                cardEl.style.top = `\${cardData.y - minY + PADDING}px`;
-                cardEl.innerHTML = \`<div class="card-header" style="background:\${cardData.headerBg};"><span class="card-title">\${cardData.title}</span></div><div class="card-body \${cardData.bodyClass}">\${cleanedBodyHTML}</div>\`;
+                cardEl.style.left = `${cardData.x - minX + PADDING}px`;
+                cardEl.style.top = `${cardData.y - minY + PADDING}px`;
+                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>`;
                 printCanvas.appendChild(cardEl);
                 cardElements.set(cardData.id, cardEl);
             });
@@ -2055,7 +2052,7 @@ async function prepareForPrint() {
                 path.setAttribute('marker-end', 'url(#marker-dot)');
                 
                 let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
-                path.setAttribute('d', `M \${p1.x} \${p1.y} L \${midP1.x} \${midP1.y} L \${p2.x} \${p2.y}`);
+                path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
                 printSvgLayer.appendChild(path);
             });
         });
