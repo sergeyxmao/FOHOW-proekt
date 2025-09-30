@@ -421,16 +421,48 @@ document.addEventListener('DOMContentLoaded', () => {
     hiddenColorInput.type = 'color'; hiddenColorInput.style.display = 'none';
     card.appendChild(hiddenColorInput);
     headerColorBtn.addEventListener('click', (e) => { e.stopPropagation(); hiddenColorInput.click(); });
-    hiddenColorInput.addEventListener('input', (e) => { const c = e.target.value; header.style.background = c; headerColorBtn.style.background = c; saveState(); });
+    
+    // --- ИЗМЕНЕНИЕ 1 ---
+    hiddenColorInput.addEventListener('input', (e) => { 
+        const c = e.target.value; 
+        header.style.background = c; 
+        headerColorBtn.style.background = c; 
+        card.querySelector('.color-changer').dataset.colorIndex = '-1'; // Помечаем, что цвет кастомный
+        saveState(); 
+    });
 
     const coin = card.querySelector('.coin-icon circle');
     if (coin) coin.addEventListener('click', () => { coin.setAttribute('fill', coin.getAttribute('fill') === '#ffd700' ? '#3d85c6' : '#ffd700'); saveState(); });
 
     const colorChanger = card.querySelector('.color-changer');
-    const setHeaderColorByIndex = (idx) => { const c = cardColors[idx % cardColors.length]; colorChanger.style.backgroundColor = c; header.style.background = c; };
-    const startIndex = parseInt(colorChanger.dataset.colorIndex || '0', 10);
-    setHeaderColorByIndex(startIndex);
-    colorChanger.addEventListener('click', () => { let i = parseInt(colorChanger.dataset.colorIndex || '0', 10); i = (i + 1) % cardColors.length; colorChanger.dataset.colorIndex = String(i); setHeaderColorByIndex(i); saveState(); });
+    const setHeaderColorByIndex = (idx) => { 
+        const c = cardColors[idx % cardColors.length]; 
+        colorChanger.style.backgroundColor = c; 
+        header.style.background = c; 
+    };
+    
+    // --- ИЗМЕНЕНИЕ 2 ---
+    // Логика применения цвета при создании/загрузке карточки
+    const savedColorIndex = opts.colorIndex;
+    if (savedColorIndex !== -1) {
+        // Если индекс НЕ -1, значит это цвет из стандартного набора
+        const startIndex = parseInt(savedColorIndex || '0', 10);
+        setHeaderColorByIndex(startIndex);
+    }
+    // Если индекс РАВЕН -1, ничего не делаем. Кастомный цвет уже применился через `opts.headerBg` в `innerHTML`.
+
+    // --- ИЗМЕНЕНИЕ 3 ---
+    colorChanger.addEventListener('click', () => { 
+        let i = parseInt(colorChanger.dataset.colorIndex || '0', 10);
+        if (i < 0) { // Если был кастомный цвет (-1)
+            i = 0; // Начинаем цикл с первого цвета
+        } else {
+            i = (i + 1) % cardColors.length; 
+        }
+        colorChanger.dataset.colorIndex = String(i); 
+        setHeaderColorByIndex(i); 
+        saveState(); 
+    });
 
     const bodyColorChanger = card.querySelector('.body-color-changer');
     bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
@@ -843,6 +875,8 @@ document.addEventListener('DOMContentLoaded', () => {
     { key: 'f',    x: 3150, y:  -70, title: 'F',     pv: '30/330pv', coinFill: '#ffd700' },
   ];
 
+  // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+  // Линии теперь идут от родительских карточек к дочерним
   const templateLines = [
     { startKey: 'b', startSide: 'right', endKey: 'f', endSide: 'top', thickness: 4 },
     { startKey: 'b', startSide: 'left',  endKey: 'e', endSide: 'top', thickness: 4 },
@@ -2007,3 +2041,4 @@ async function prepareForPrint() {
 }
 
 });
+
