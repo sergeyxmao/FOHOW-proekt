@@ -79,7 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNoteAutoClose();
   setupGuides();
 
-  // Инициализация нового модуля для карточек
   if (window.initializeCardFeatures) {
     initializeCardFeatures(() => cards, saveState);
   }
@@ -133,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.target.closest('.ui-panel-left') ||
         e.target.closest('.ui-panel-right') ||
         e.target.closest('.note-window') ||
-        e.target.closest('.card-context-menu') // Игнорируем клики по контекстному меню
+        e.target.closest('.card-context-menu')
       ) return;
 
       if (e.button === 1) {
@@ -399,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cardData = { 
         id: cardId, 
         element: card, 
-        locked: false, // Функция замка удалена
+        locked: false,
         note: opts.note || null,
         badges: opts.badges || { fendou: false, slf: false, rank: null }
     };
@@ -955,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headerBg: c.element.querySelector('.card-header')?.style.background ?? '',
         colorIndex: parseInt(c.element.querySelector('.color-changer')?.dataset.colorIndex || '0', 10),
         note: c.note ? { ...c.note, window: null } : null,
-        badges: c.badges, // Сохраняем значки
+        badges: c.badges,
       })),
       lines: lines.map(l => ({
         startId: l.startCard.id,
@@ -1714,7 +1713,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function show() {
       buildList();
       const r = notesListBtn.getBoundingClientRect();
-      dropdown.style.left = `${r.left}px`; dropdown.style.top  = `${r.bottom + 6}px`;
+      dropdown.style.left = `${r.left}px`;
+      dropdown.style.top  = `${r.bottom + 6}px`;
       dropdown.style.display = 'block';
     }
     function hide(){ dropdown.style.display = 'none'; }
@@ -2011,13 +2011,20 @@ async function prepareForPrint() {
             .toggle-btn.active { background-color: #eaf1ff; border-color: #0f62fe; }
             .content-hidden .card-header .card-title,
             .content-hidden .card-body .value,
-            .content-hidden .card-body .coin-icon { visibility: hidden; }
+            .content-hidden .card-body .coin-icon,
+            .content-hidden .slf-badge,
+            .content-hidden .fendou-badge,
+            .content-hidden .rank-badge { 
+                visibility: hidden !important; 
+            }
             .outline-mode .card-header { background: none !important; color: #000 !important; border-bottom: 1px solid #000 !important; }
             .outline-mode .card-body, .outline-mode .card { background: none !important; border: 1px solid #000 !important; }
             .outline-mode .line { color: #000 !important; stroke: #000 !important; }
             .outline-mode .value, .outline-mode .label, .outline-mode .card-title { color: #000 !important; }
             .outline-mode .coin-icon circle { fill: none !important; stroke: #000 !important; }
             .outline-mode [style*="background"] { background: none !important; }
+            .outline-mode .fendou-badge, .outline-mode .slf-badge { color: #000 !important; text-shadow: none !important; }
+            .outline-mode .rank-badge { opacity: 0.5; filter: grayscale(1); }
           </style></head>
           <body style="background: \${bodyStyle.background};">
             <div id="controls">
@@ -2090,7 +2097,7 @@ async function prepareForPrint() {
                 path.setAttribute('marker-end', 'url(#marker-dot)');
                 
                 let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
-                path.setAttribute('d', `M \${p1.x} \${p1.y} L \${midP1.x} \${midP1.y} L \${p2.x} \${p2.y}`);
+                path.setAttribute('d', \`M \${p1.x} \${p1.y} L \${midP1.x} \${midP1.y} L \${p2.x} \${p2.y}\`);
                 printSvgLayer.appendChild(path);
             });
         });
@@ -2106,3 +2113,4 @@ async function prepareForPrint() {
 }
 
 });
+```
