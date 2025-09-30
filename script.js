@@ -79,6 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNoteAutoClose();
   setupGuides();
 
+  // Инициализация нового модуля для карточек
+  if (window.initializeCardFeatures) {
+    initializeCardFeatures(() => cards, saveState);
+  }
+
   const numPop = document.createElement('div');
   numPop.className = 'num-color-pop';
   numPop.innerHTML = `
@@ -127,7 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (
         e.target.closest('.ui-panel-left') ||
         e.target.closest('.ui-panel-right') ||
-        e.target.closest('.note-window')
+        e.target.closest('.note-window') ||
+        e.target.closest('.card-context-menu') // Игнорируем клики по контекстному меню
       ) return;
 
       if (e.button === 1) {
@@ -368,8 +374,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     card.innerHTML = `
       <div class="card-header" style="${opts.headerBg ? `background:${opts.headerBg}` : ''}">
-        <span class="lock-btn" title="Заблокировать">🔓</span>
+        <div class="slf-badge">SLF</div>
         <span class="card-title" contenteditable="true">${titleText}</span>
+        <div class="fendou-badge">FENDOU</div>
+        <img class="rank-badge" src="" alt="Rank">
         <span class="close-btn" title="Удалить">×</span>
       </div>
       <button class="header-color-picker-btn" title="Выбрать цвет заголовка"></button>
@@ -379,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="connection-point right" data-side="right"></div>
       <div class="connection-point bottom" data-side="bottom"></div>
       <div class="connection-point left" data-side="left"></div>
-      <button class="card-control-btn body-color-changer" title="Сменить фон">🖌️</button>
+      ${!opts.isLarge ? `<button class="card-control-btn body-color-changer" title="Сменить фон">🖌️</button>` : ''}
       <div class="card-controls">
         <button class="card-control-btn note-btn" title="Заметка">📝</button>
       </div>
@@ -388,9 +396,18 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.appendChild(card);
 	ensureActiveControls(card);
 
-    const cardData = { id: cardId, element: card, locked: !!opts.locked, note: opts.note || null };
-    if (cardData.locked) card.classList.add('locked');
+    const cardData = { 
+        id: cardId, 
+        element: card, 
+        locked: false, // Функция замка удалена
+        note: opts.note || null,
+        badges: opts.badges || { fendou: false, slf: false, rank: null }
+    };
     cards.push(cardData);
+
+    if (window.applyCardBadges) {
+        applyCardBadges(cardData);
+    }
 
     card.addEventListener('mousedown', (e) => { 
         if (e.ctrlKey) { 
@@ -400,17 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     card.querySelector('.close-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteCard(cardData); saveState(); });
     makeDraggable(card, cardData);
-
-    const lockBtn = card.querySelector('.lock-btn');
-    lockBtn.textContent = cardData.locked ? '🔒' : '🔓';
-    lockBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      cardData.locked = !cardData.locked;
-      lockBtn.textContent = cardData.locked ? '🔒' : '🔓';
-      card.classList.toggle('locked', cardData.locked);
-      card.querySelectorAll('[contenteditable]').forEach(el => el.setAttribute('contenteditable', cardData.locked ? 'false' : 'true'));
-      saveState();
-    });
 
     const headerColorBtn = card.querySelector('.header-color-picker-btn');
     const header = card.querySelector('.card-header');
@@ -458,7 +464,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const bodyColorChanger = card.querySelector('.body-color-changer');
-    bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
+    if (bodyColorChanger) {
+      bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
+    }
 
     const noteBtn = card.querySelector('.note-btn');
     if (cardData.note && hasAnyEntry(cardData.note)) {
@@ -477,7 +485,6 @@ document.addEventListener('DOMContentLoaded', () => {
     card.querySelectorAll('.connection-point').forEach(point => {
       point.addEventListener('mousedown', (e) => {
         e.stopPropagation();
-        if (cardData.locked) return;
         if (!activeState.isDrawingLine) startDrawingLine(cardData, point.dataset.side);
         else { endDrawingLine(cardData, point.dataset.side); saveState(); }
       });
@@ -500,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const childLines = lines.filter(line => line.startCard.id === currentCard.id);
 
       for (const line of childLines) {
-        if (isInitialCard) { // Для первой карточки применяем фильтр
+        if (isInitialCard) {
             const isBranchMatch = 
                 (branchFilter === 'all' && ['left', 'right', 'bottom'].includes(line.startSide)) || 
                 (line.startSide === branchFilter);
@@ -522,8 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function makeDraggable(element, cardData) {
     element.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
-      if (cardData.locked) return;
-
+      
       let dragSet = new Set();
 
       if (activeState.isHierarchicalDragMode) {
@@ -942,14 +948,14 @@ document.addEventListener('DOMContentLoaded', () => {
         x: parseFloat(c.element.style.left),
         y: parseFloat(c.element.style.top),
         width: c.element.style.width || null,
-        locked: c.locked,
         title: c.element.querySelector('.card-title')?.innerText ?? '',
         bodyHTML: c.element.querySelector('.card-body')?.innerHTML ?? '',
         isDarkMode: c.element.classList.contains('dark-mode'),
         bodyClass: c.element.querySelector('.card-body')?.className.replace('card-body', '').trim() ?? '',
         headerBg: c.element.querySelector('.card-header')?.style.background ?? '',
         colorIndex: parseInt(c.element.querySelector('.color-changer')?.dataset.colorIndex || '0', 10),
-        note: c.note ? { ...c.note, window: null } : null
+        note: c.note ? { ...c.note, window: null } : null,
+        badges: c.badges, // Сохраняем значки
       })),
       lines: lines.map(l => ({
         startId: l.startCard.id,
@@ -1155,8 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '.note-resize-handle', 
             '.note-close-btn',
             '.card-controls',
-            '.close-btn', 
-            '.lock-btn', 
+            '.close-btn',
             '.header-color-picker-btn', 
             '.body-color-changer',
             '.connection-point',
@@ -1984,16 +1989,16 @@ async function prepareForPrint() {
         }
 
         printWindow.document.open();
-        printWindow.document.write(`
+        printWindow.document.write(\`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати A0</title>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
           <style>
-            ${cssText}
+            \${cssText}
             html, body { 
               overflow: auto !important; margin: 0; padding: 0;
-              width: ${contentWidth + PADDING * 2}px;
-              height: ${contentHeight + PADDING * 2}px;
+              width: \${contentWidth + PADDING * 2}px;
+              height: \${contentHeight + PADDING * 2}px;
             }
             #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
             .card { box-shadow: none !important; border: 1px solid #a9a9a9; }
@@ -2014,7 +2019,7 @@ async function prepareForPrint() {
             .outline-mode .coin-icon circle { fill: none !important; stroke: #000 !important; }
             .outline-mode [style*="background"] { background: none !important; }
           </style></head>
-          <body style="background: ${bodyStyle.background};">
+          <body style="background: \${bodyStyle.background};">
             <div id="controls">
               <button id="do-screenshot-btn" class="control-btn">Сохранить PNG (A0)</button>
               <button id="do-pdf-btn" class="control-btn">Сохранить PDF (A0)</button>
@@ -2030,8 +2035,8 @@ async function prepareForPrint() {
                     </marker></defs>
                 </svg>
             </div>
-            <script>${screenshotScript}<\/script>
-          </body></html>`);
+            <script>\${screenshotScript}<\/script>
+          </body></html>\`);
         printWindow.document.close();
 
         printWindow.addEventListener('load', () => {
@@ -2051,9 +2056,9 @@ async function prepareForPrint() {
                 cardEl.className = 'card';
                 if(cardData.isDarkMode) cardEl.classList.add('dark-mode');
                 cardEl.style.width = cardData.width || '380px';
-                cardEl.style.left = `${cardData.x - minX + PADDING}px`;
-                cardEl.style.top = `${cardData.y - minY + PADDING}px`;
-                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>`;
+                cardEl.style.left = \`\${cardData.x - minX + PADDING}px\`;
+                cardEl.style.top = \`\${cardData.y - minY + PADDING}px\`;
+                cardEl.innerHTML = \`<div class="card-header" style="background:\${cardData.headerBg};"><span class="card-title">\${cardData.title}</span></div><div class="card-body \${cardData.bodyClass}">\${cleanedBodyHTML}</div>\`;
                 printCanvas.appendChild(cardEl);
                 cardElements.set(cardData.id, cardEl);
             });
@@ -2085,7 +2090,7 @@ async function prepareForPrint() {
                 path.setAttribute('marker-end', 'url(#marker-dot)');
                 
                 let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
-                path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
+                path.setAttribute('d', `M \${p1.x} \${p1.y} L \${midP1.x} \${midP1.y} L \${p2.x} \${p2.y}`);
                 printSvgLayer.appendChild(path);
             });
         });

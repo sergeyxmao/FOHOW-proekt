@@ -267,7 +267,80 @@ html,body{
   position:absolute; border:2px dashed #0f62fe; background:rgba(15,98,254,.08); pointer-events:none;
 }
 
-/* --- START CHANGE: Fix for dark mode bug and button hiding --- */
+/* --- START: Стили для значков и темной темы --- */
+
+/* Стили для значков (бейджей) на карточке */
+.slf-badge, .fendou-badge, .rank-badge {
+  position: absolute;
+  display: none; /* Скрыты по умолчанию */
+  user-select: none;
+}
+.slf-badge.visible, .fendou-badge.visible, .rank-badge.visible {
+  display: block;
+}
+.slf-badge {
+  top: 15px;
+  left: 15px;
+  color: #ffc700;
+  font-weight: 900;
+  font-size: 24px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+.fendou-badge {
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: red;
+  font-weight: 900;
+  font-size: 36px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+.rank-badge {
+  top: -15px;
+  right: 15px;
+  width: 80px;
+  height: auto;
+  transform: rotate(15deg);
+}
+
+/* Стили для контекстного меню */
+.card-context-menu {
+  position: fixed;
+  z-index: 10000;
+  display: none;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  padding: 5px 0;
+  min-width: 180px;
+}
+.context-menu-section {
+  border-bottom: 1px solid #eee;
+  padding: 5px 0;
+}
+.context-menu-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.context-menu-section:first-child {
+  padding-top: 0;
+}
+.context-menu-item {
+  padding: 8px 15px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.context-menu-item:hover {
+  background-color: #f0f0f0;
+}
+.context-menu-item.active {
+  background-color: #e0eafc;
+  font-weight: bold;
+}
+
+
+/* Исправления для темной темы */
 .card.dark-mode,
 .card.dark-mode .card-body{ background:#2b2b2b; }
 .card.dark-mode .label{ color:#e5e7eb; }
@@ -277,15 +350,23 @@ html,body{
 .card.dark-mode .note-btn,
 .card.dark-mode .color-changer{ background:#374151 !important; border-color:#4b5563; color:#e5e7eb; }
 
-/* Use visibility:hidden instead of display:none to prevent layout collapse */
+/* Скрываем элементы в темном режиме через visibility */
 .card.dark-mode .header-color-picker-btn,
 .card.dark-mode .color-changer {
   visibility: hidden;
 }
-.card.dark-mode .card-row .coin-icon {
+.card.dark-mode .coin-icon {
   visibility: hidden;
 }
-/* --- END CHANGE --- */
+
+/* Скрытие значков при печати в режиме "скрыть содержимое" */
+.content-hidden .slf-badge,
+.content-hidden .fendou-badge,
+.content-hidden .rank-badge {
+  display: none !important;
+}
+
+/* --- END: Стили для значков и темной темы --- */
 
 .num-color-pop{
   position:fixed; z-index:3000; display:none; background:#fff; border:1px solid #e5e7eb; border-radius:10px;
