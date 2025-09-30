@@ -16,13 +16,13 @@
 
     <button id="save-project-btn" class="ui-btn" title="Сохранить проект (JSON)">💾</button>
     <button id="export-html-btn" class="ui-btn" title="Экспорт в HTML (просмотр)">📄</button>
-	<button id="export-svg-btn" class="ui-btn" title="Экспорт в SVG (вектор)">🖋️</button> <!-- НОВАЯ КНОПКА -->
-    <button id="prepare-print-btn" class="ui-btn" title="Подготовить к печати (создать полный снимок)">🖨️</button>
+    <button id="export-svg-btn" class="ui-btn" title="Экспорт в SVG (вектор)">🖋️</button>
+    <button id="prepare-print-btn" class="ui-btn" title="Печать в A0 (PNG/PDF)">🖨️</button>
     <button id="load-project-btn" class="ui-btn" title="Загрузить проект из JSON">📂</button>
 
     <button id="notes-list-btn" class="ui-btn" title="Список заметок" disabled>🗒️</button>
     <button id="selection-mode-btn" class="ui-btn" title="Режим выделения (Esc)">⬚</button>
-	<button id="hierarchical-drag-mode-btn" class="ui-btn" title="Режим иерархии">🌳</button> <!-- НОВАЯ КНОПКА -->  
+	<button id="hierarchical-drag-mode-btn" class="ui-btn" title="Режим иерархии">🌳</button>
 	<button id="toggle-guides-btn" class="ui-btn" title="Показать/скрыть направляющие">📐</button>
     <a id="help-btn" class="ui-btn" title="Открыть инструкцию (DOCX)"
        href="Описание.docx" download="Инструкция по проекту.docx">📘</a>
@@ -32,7 +32,6 @@
 
   <!-- Правая панель -->
   <div class="ui-panel-right">
-    <!-- Обновленная панель управления линиями -->
     <div id="line-controls-panel" class="line-controls-panel">
       <div id="line-color-trigger" class="line-color-trigger" title="Выбрать цвет линии"></div>
       <input type="color" id="hidden-line-color-picker" value="#0f62fe" style="display:none;">
@@ -45,7 +44,6 @@
       </button>
     </div>
 	
-    <!-- --- START CHANGE: Updated background selector --- -->
     <div id="gradient-selector" class="gradient-selector">
       <div class="gradient-title">Фон</div>
       <button class="grad-btn" data-gradient="#f5f7fb" title="Светлый"></button>
@@ -53,15 +51,12 @@
       <button id="custom-bg-btn" class="grad-btn" title="Выбрать цвет">🎨</button>
       <input type="color" id="custom-bg-input" value="#f5f7fb" style="display:none;">
     </div>
-    <!-- --- END CHANGE --- -->
 		
-    <!-- --- START CHANGE: Updated button icons --- -->
     <div class="row">
       <button id="add-card-btn" class="add-btn" title="Добавить карточку">□</button>
       <button id="add-large-card-btn" class="add-btn add-btn--large" title="Добавить большую карточку">⧠</button>
       <button id="add-template-btn" class="add-btn" title="Добавить шаблон">⧉</button>
     </div>
-    <!-- --- END CHANGE --- -->
   </div>
 
   <div id="canvas">
@@ -74,17 +69,10 @@
     </svg>
   </div>
   
-  <!-- Подключаем библиотеку для создания скриншотов -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  
-  <!-- Подключаем библиотеку для создания PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   
   <script src="engine.js"></script>
   <script src="script.js"></script>
 </body>
-
 </html>
-
-
-
