@@ -1,4 +1,4 @@
-// ============== НАЧАЛО ФИНАЛЬНОЙ ВЕРСИИ SCRIPT.JS ==============
+// ============== НАЧАЛО ИСПРАВЛЕННОЙ ВЕРСИИ SCRIPT.JS ==============
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('canvas');
   const svgLayer = document.getElementById('svg-layer');
@@ -223,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.ctrlKey && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteSelection(); }
     });
   }
-  
+
   function setupGuides() {
     if (!toggleGuidesBtn) return;
     toggleGuidesBtn.classList.toggle('active', activeState.guidesEnabled);
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setupLineControls() {
     if (!thicknessSlider || !lineColorTrigger || !hiddenLineColorPicker || !applyAllToggle) return;
-    
+
     lineColorTrigger.style.backgroundColor = activeState.currentColor;
     hiddenLineColorPicker.value = activeState.currentColor;
     thicknessValue.textContent = activeState.currentThickness;
@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="card-row"><span class="label">Актив-заказы PV:</span><span class="value" contenteditable="true">0 / 0</span></div>
         <div class="card-row"><span class="label">Цикл:</span><span class="value" contenteditable="true">0</span></div>
     `;
-    
+
     card.innerHTML = `
       <div class="card-header" style="${opts.headerBg ? `background:${opts.headerBg}` : ''}">
         <div class="slf-badge">SLF</div>
@@ -395,9 +395,9 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.appendChild(card);
 	ensureActiveControls(card);
 
-    const cardData = { 
-        id: cardId, 
-        element: card, 
+    const cardData = {
+        id: cardId,
+        element: card,
         locked: false,
         note: opts.note || null,
         badges: opts.badges || { fendou: false, slf: false, rank: null }
@@ -408,11 +408,11 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCardBadges(cardData);
     }
 
-    card.addEventListener('mousedown', (e) => { 
-        if (e.ctrlKey) { 
-            e.stopPropagation(); 
-            toggleCardSelection(cardData); 
-        } 
+    card.addEventListener('mousedown', (e) => {
+        if (e.ctrlKey) {
+            e.stopPropagation();
+            toggleCardSelection(cardData);
+        }
     });
     card.querySelector('.close-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteCard(cardData); saveState(); });
     makeDraggable(card, cardData);
@@ -420,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerColorBtn = card.querySelector('.header-color-picker-btn');
     const header = card.querySelector('.card-header');
     const colorChanger = card.querySelector('.color-changer');
-    
+
     if (opts.headerBg) {
         headerColorBtn.style.background = opts.headerBg;
     } else {
@@ -431,35 +431,35 @@ document.addEventListener('DOMContentLoaded', () => {
     hiddenColorInput.type = 'color'; hiddenColorInput.style.display = 'none';
     card.appendChild(hiddenColorInput);
     headerColorBtn.addEventListener('click', (e) => { e.stopPropagation(); hiddenColorInput.click(); });
-    
-    hiddenColorInput.addEventListener('input', (e) => { 
-        const c = e.target.value; 
-        header.style.background = c; 
-        headerColorBtn.style.background = c; 
+
+    hiddenColorInput.addEventListener('input', (e) => {
+        const c = e.target.value;
+        header.style.background = c;
+        headerColorBtn.style.background = c;
         colorChanger.dataset.colorIndex = '-1';
-        saveState(); 
+        saveState();
     });
 
     const coin = card.querySelector('.coin-icon circle');
     if (coin) coin.addEventListener('click', () => { coin.setAttribute('fill', coin.getAttribute('fill') === '#ffd700' ? '#3d85c6' : '#ffd700'); saveState(); });
 
-    const setHeaderColorByIndex = (idx) => { 
-        const c = cardColors[idx % cardColors.length]; 
-        colorChanger.style.backgroundColor = c; 
-        header.style.background = c; 
+    const setHeaderColorByIndex = (idx) => {
+        const c = cardColors[idx % cardColors.length];
+        colorChanger.style.backgroundColor = c;
+        header.style.background = c;
     };
-    
+
     const savedColorIndex = parseInt(opts.colorIndex ?? '0', 10);
     if (savedColorIndex > -1) {
         setHeaderColorByIndex(savedColorIndex);
     }
 
-    colorChanger.addEventListener('click', () => { 
+    colorChanger.addEventListener('click', () => {
         let i = parseInt(colorChanger.dataset.colorIndex || '0', 10);
         i = (i < 0) ? 0 : (i + 1) % cardColors.length;
-        colorChanger.dataset.colorIndex = String(i); 
-        setHeaderColorByIndex(i); 
-        saveState(); 
+        colorChanger.dataset.colorIndex = String(i);
+        setHeaderColorByIndex(i);
+        saveState();
     });
 
     const bodyColorChanger = card.querySelector('.body-color-changer');
@@ -492,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateNotesButtonState();
     return cardData;
   }
-  
+
   function getBranchDescendants(startCard, branchFilter) {
     const descendants = new Set();
     const queue = [startCard];
@@ -507,8 +507,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (const line of childLines) {
         if (isInitialCard) {
-            const isBranchMatch = 
-                (branchFilter === 'all' && ['left', 'right', 'bottom'].includes(line.startSide)) || 
+            const isBranchMatch =
+                (branchFilter === 'all' && ['left', 'right', 'bottom'].includes(line.startSide)) ||
                 (line.startSide === branchFilter);
             if (!isBranchMatch) continue;
         }
@@ -528,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function makeDraggable(element, cardData) {
     element.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
-      
+
       let dragSet = new Set();
 
       if (activeState.isHierarchicalDragMode) {
@@ -540,13 +540,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const bodyRect = target.closest('.card-body').getBoundingClientRect();
             dragMode = (e.clientX - bodyRect.left < bodyRect.width / 2) ? 'left' : 'right';
         }
-        
+
         if (!dragMode) return;
         e.stopPropagation();
 
         dragSet = getBranchDescendants(cardData, dragMode);
         dragSet.add(cardData);
-      
+
       } else {
         e.stopPropagation();
         if (activeState.selectedCards.has(cardData)) {
@@ -556,9 +556,9 @@ document.addEventListener('DOMContentLoaded', () => {
             dragSet.add(cardData);
         }
       }
-      
+
       setSelectionSet(dragSet);
-      
+
       const draggedCards = [];
       activeState.selectedCards.forEach(selectedCard => {
         if (selectedCard.locked) return;
@@ -571,7 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
           noteStartY: (selectedCard.note && selectedCard.note.window) ? selectedCard.note.window.offsetTop : 0,
         });
       });
-      
+
       if (draggedCards.length === 0) {
         clearSelection();
         return;
@@ -712,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
   }
-  
+
   function deleteCard(cardData) {
     lines = lines.filter(line => {
       if (line.startCard.id === cardData.id || line.endCard.id === cardData.id) { line.element.remove(); return false; }
@@ -834,12 +834,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function endMarqueeSelection() {
     activeState.isSelecting = false;
-    if (selectionBox) { 
-        selectionBox.style.display = 'none'; 
-        selectionBox.style.width = '0px'; 
-        selectionBox.style.height = '0px'; 
+    if (selectionBox) {
+        selectionBox.style.display = 'none';
+        selectionBox.style.width = '0px';
+        selectionBox.style.height = '0px';
     }
-    
+
     if (activeState.selectedCards.size > 0) {
         activeState.isSelectionMode = false;
         updateDragModeButtons();
@@ -1105,7 +1105,7 @@ document.addEventListener('DOMContentLoaded', () => {
       saveState();
     }, 0);
   }
-  
+
   function setupSaveButtons() {
     if (saveProjectBtn) {
       saveProjectBtn.addEventListener('click', () => {
@@ -1123,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadProjectBtn && loadProjectInput) {
       loadProjectBtn.addEventListener('click', () => loadProjectInput.click());
       loadProjectInput.addEventListener('change', async (e) => {
-        const file = e.target.files && e.target.files[0];
+        const file = e.target.files && e.target.files;
         if (!file) return;
 
         try {
@@ -1152,16 +1152,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (exportHtmlBtn) {
       exportHtmlBtn.addEventListener('click', () => {
         const bodyStyle = getComputedStyle(document.body);
-        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\\\`translate(\\\${x}px,\\\${y}px) scale(\\\${s})\\\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;        
-        
-		const canvasClone = canvas.cloneNode(true);
-        
+        // ИСПРАВЛЕНИЕ: Экранируем внутренние ` и $ для встраиваемого скрипта
+        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\\\`translate(\\\${x}px,\\\${y}px) scale(\\\${s})\\\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
+
+        const canvasClone = canvas.cloneNode(true);
+
         const selectorsToRemove = [
-            '.note-resize-handle', 
+            '.note-resize-handle',
             '.note-close-btn',
             '.card-controls',
             '.close-btn',
-            '.header-color-picker-btn', 
+            '.header-color-picker-btn',
             '.body-color-changer',
             '.connection-point',
             '.color-changer',
@@ -1169,7 +1170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
 
         canvasClone.querySelectorAll(selectorsToRemove.join(', ')).forEach(el => el.remove());
-        
+
         canvasClone.querySelectorAll('[contenteditable]').forEach(el => {
             el.setAttribute('contenteditable','false');
             el.style.pointerEvents = 'none';
@@ -1592,7 +1593,7 @@ document.addEventListener('DOMContentLoaded', () => {
       note.window = null;
       saveState();
     });
-    
+
     const header = noteWindow.querySelector('.note-header');
     header.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -1611,7 +1612,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
-     
+
     new ResizeObserver(() => {
       const w = noteWindow.offsetWidth; const h = noteWindow.offsetHeight;
       if (w >= 200) note.width  = w;
@@ -1772,16 +1773,16 @@ async function exportToSvg() {
     const contentWidth = maxX - minX;
     const contentHeight = maxY - minY;
     const viewBox = `0 0 ${contentWidth + PADDING * 2} ${contentHeight + PADDING * 2}`;
-    
+
     const getCleanedCardHtml = (cardData) => {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = `<div class="card" style="width:${cardData.width || '380px'};">${cardData.bodyHTML}</div>`;
-        
+
         const tempBody = document.createElement('div');
         tempBody.innerHTML = cardData.bodyHTML;
         const pvControls = tempBody.querySelector('.active-pv-controls');
         if (pvControls) pvControls.remove();
-        
+
         const cardHeader = document.createElement('div');
         cardHeader.className = 'card-header';
         cardHeader.style.background = cardData.headerBg;
@@ -1796,18 +1797,18 @@ async function exportToSvg() {
         cardBody.className = `card-body ${cardData.bodyClass || ''}`;
         cardBody.innerHTML = tempBody.innerHTML;
         finalCard.appendChild(cardBody);
-        
+
         return finalCard.outerHTML;
     };
-    
-    const cardObjects = state.cards.map(card => 
+
+    const cardObjects = state.cards.map(card =>
         `<foreignObject x="${card.x - minX + PADDING}" y="${card.y - minY + PADDING}" width="${parseInt(card.width, 10) || 380}" height="280">
             <div xmlns="http://www.w3.org/1999/xhtml">
                 ${getCleanedCardHtml(card)}
             </div>
         </foreignObject>`
     ).join('\n');
-    
+
     const lineObjects = state.lines.map(line => {
         const startCard = state.cards.find(c => c.id === line.startId);
         const endCard = state.cards.find(c => c.id === line.endId);
@@ -1829,7 +1830,7 @@ async function exportToSvg() {
         const p2 = getCoords(endCard, line.endSide);
         const midP1 = (line.startSide === 'left' || line.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
         const d = `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`;
-        
+
         return `<path d="${d}" stroke="${line.color}" stroke-width="${line.thickness}" fill="none" class="line" marker-start="url(#marker-dot)" marker-end="url(#marker-dot)" />`;
     }).join('\n');
 
@@ -1892,7 +1893,7 @@ async function prepareForPrint() {
 
     const contentWidth = maxX - minX;
     const contentHeight = maxY - minY;
-    
+
     const bodyStyle = getComputedStyle(document.body);
 
     const screenshotScript = `
@@ -1936,7 +1937,7 @@ async function prepareForPrint() {
 
             html2canvas(target, { scale: 2, useCORS: true }).then(canvas => {
                 btn.textContent = 'Масштабирование...';
-                
+
                 const originalWidth = canvas.width;
                 const originalHeight = canvas.height;
                 const scale = Math.min(A0_WIDTH_PX / originalWidth, A0_HEIGHT_PX / originalHeight);
@@ -1989,16 +1990,17 @@ async function prepareForPrint() {
         }
 
         printWindow.document.open();
-        printWindow.document.write(\`
+        // ИСПРАВЛЕНИЕ: Удалены некорректные обратные слэши перед ${...}
+        printWindow.document.write(`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати A0</title>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
           <style>
-            \${cssText}
-            html, body { 
+            ${cssText}
+            html, body {
               overflow: auto !important; margin: 0; padding: 0;
-              width: \${contentWidth + PADDING * 2}px;
-              height: \${contentHeight + PADDING * 2}px;
+              width: ${contentWidth + PADDING * 2}px;
+              height: ${contentHeight + PADDING * 2}px;
             }
             #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
             .card { box-shadow: none !important; border: 1px solid #a9a9a9; }
@@ -2014,8 +2016,8 @@ async function prepareForPrint() {
             .content-hidden .card-body .coin-icon,
             .content-hidden .slf-badge,
             .content-hidden .fendou-badge,
-            .content-hidden .rank-badge { 
-                visibility: hidden !important; 
+            .content-hidden .rank-badge {
+                visibility: hidden !important;
             }
             .outline-mode .card-header { background: none !important; color: #000 !important; border-bottom: 1px solid #000 !important; }
             .outline-mode .card-body, .outline-mode .card { background: none !important; border: 1px solid #000 !important; }
@@ -2026,7 +2028,7 @@ async function prepareForPrint() {
             .outline-mode .fendou-badge, .outline-mode .slf-badge { color: #000 !important; text-shadow: none !important; }
             .outline-mode .rank-badge { opacity: 0.5; filter: grayscale(1); }
           </style></head>
-          <body style="background: \${bodyStyle.background};">
+          <body style="background: ${bodyStyle.background};">
             <div id="controls">
               <button id="do-screenshot-btn" class="control-btn">Сохранить PNG (A0)</button>
               <button id="do-pdf-btn" class="control-btn">Сохранить PDF (A0)</button>
@@ -2042,8 +2044,8 @@ async function prepareForPrint() {
                     </marker></defs>
                 </svg>
             </div>
-            <script>\${screenshotScript}<\/script>
-          </body></html>\`);
+            <script>${screenshotScript}<\/script>
+          </body></html>`);
         printWindow.document.close();
 
         printWindow.addEventListener('load', () => {
@@ -2063,9 +2065,9 @@ async function prepareForPrint() {
                 cardEl.className = 'card';
                 if(cardData.isDarkMode) cardEl.classList.add('dark-mode');
                 cardEl.style.width = cardData.width || '380px';
-                cardEl.style.left = \`\${cardData.x - minX + PADDING}px\`;
-                cardEl.style.top = \`\${cardData.y - minY + PADDING}px\`;
-                cardEl.innerHTML = \`<div class="card-header" style="background:\${cardData.headerBg};"><span class="card-title">\${cardData.title}</span></div><div class="card-body \${cardData.bodyClass}">\${cleanedBodyHTML}</div>\`;
+                cardEl.style.left = `${cardData.x - minX + PADDING}px`;
+                cardEl.style.top = `${cardData.y - minY + PADDING}px`;
+                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>`;
                 printCanvas.appendChild(cardEl);
                 cardElements.set(cardData.id, cardEl);
             });
@@ -2074,7 +2076,7 @@ async function prepareForPrint() {
                 const startEl = cardElements.get(lineData.startId);
                 const endEl = cardElements.get(lineData.endId);
                 if (!startEl || !endEl) return;
-                
+
                 const getPrintCoords = (el, side) => {
                   const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
                   const w = parseInt(el.style.width, 10) || 380, h = 280;
@@ -2085,7 +2087,7 @@ async function prepareForPrint() {
                     case 'right': return { x: x + w, y: y + h / 2 };
                   }
                 };
-                
+
                 const p1 = getPrintCoords(startEl, lineData.startSide);
                 const p2 = getPrintCoords(endEl, lineData.endSide);
                 const path = printWindow.document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -2095,14 +2097,14 @@ async function prepareForPrint() {
                 path.style.setProperty('--line-color', lineData.color);
                 path.setAttribute('marker-start', 'url(#marker-dot)');
                 path.setAttribute('marker-end', 'url(#marker-dot)');
-                
+
                 let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
-                path.setAttribute('d', \`M \${p1.x} \${p1.y} L \${midP1.x} \${midP1.y} L \${p2.x} \${p2.y}\`);
+                path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
                 printSvgLayer.appendChild(path);
             });
         });
     };
-    
+
     fetch('style.css')
       .then(response => response.ok ? response.text() : Promise.reject())
       .then(cssText => createPrintWindow(cssText))
@@ -2113,4 +2115,3 @@ async function prepareForPrint() {
 }
 
 });
-```
