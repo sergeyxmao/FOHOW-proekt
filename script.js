@@ -1896,6 +1896,26 @@ async function prepareForPrint() {
         const pngBtn = document.getElementById('do-screenshot-btn');
         const pdfBtn = document.getElementById('do-pdf-btn');
         const target = document.getElementById('canvas');
+        // --- ВОССТАНОВЛЕНО ---
+        const toggleContentBtn = document.getElementById('toggle-content-btn');
+        const toggleColorBtn = document.getElementById('toggle-color-btn');
+
+        if (!pngBtn || !pdfBtn || !target || !toggleContentBtn || !toggleColorBtn) {
+            console.error('Необходимые элементы для печати не найдены!');
+            return;
+        }
+
+        // --- ВОССТАНОВЛЕНО ---
+        toggleContentBtn.addEventListener('click', () => {
+            target.classList.toggle('content-hidden');
+            toggleContentBtn.classList.toggle('active');
+        });
+
+        toggleColorBtn.addEventListener('click', () => {
+            target.classList.toggle('outline-mode');
+            toggleColorBtn.classList.toggle('active');
+        });
+        // --- КОНЕЦ ВОССТАНОВЛЕНИЯ ---
 
         const A0_WIDTH_MM = 841;
         const A0_HEIGHT_MM = 1189;
@@ -1966,16 +1986,16 @@ async function prepareForPrint() {
         }
 
         printWindow.document.open();
-        printWindow.document.write(`
+        printWindow.document.write(\`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати A0</title>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
           <style>
-            ${cssText}
+            \${cssText}
             html, body { 
               overflow: auto !important; margin: 0; padding: 0;
-              width: ${contentWidth + PADDING * 2}px;
-              height: ${contentHeight + PADDING * 2}px;
+              width: \${contentWidth + PADDING * 2}px;
+              height: \${contentHeight + PADDING * 2}px;
             }
             #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
             .card { box-shadow: none !important; border: 1px solid #a9a9a9; }
@@ -1984,12 +2004,33 @@ async function prepareForPrint() {
             .control-btn { padding: 12px 20px; font-size: 16px; font-weight: bold; background-color: #0f62fe; color: white; border: none; border-radius: 10px; cursor: pointer; }
             .control-btn:hover:not(:disabled) { background-color: #0042d6; }
             .control-btn:disabled { background-color: #6b7280; cursor: not-allowed; }
+            
+            /* --- СТИЛИ ДЛЯ КНОПОК И РЕЖИМОВ (ВОССТАНОВЛЕНО) --- */
+            .toggle-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc; background-color: #fff; cursor: pointer; font-size: 20px; display: grid; place-items: center; transition: .2s; }
+            .toggle-btn.active { background-color: #eaf1ff; border-color: #0f62fe; }
+            .content-hidden .card-header .card-title,
+            .content-hidden .card-body .value,
+            .content-hidden .card-body .coin-icon { visibility: hidden; }
+            .outline-mode .card-header { background: none !important; color: #000 !important; border-bottom: 1px solid #000 !important; }
+            .outline-mode .card-body, .outline-mode .card { background: none !important; border: 1px solid #000 !important; }
+            .outline-mode .line { color: #000 !important; stroke: #000 !important; }
+            .outline-mode .value, .outline-mode .label, .outline-mode .card-title { color: #000 !important; }
+            .outline-mode .coin-icon circle { fill: none !important; stroke: #000 !important; }
+            .outline-mode [style*="background"] { background: none !important; }
+            /* --- КОНЕЦ СТИЛЕЙ --- */
+
           </style></head>
-          <body style="background: ${bodyStyle.background};">
+          <body style="background: \${bodyStyle.background};">
+            <!-- --- HTML КНОПОК ВОССТАНОВЛЕН --- -->
             <div id="controls">
               <button id="do-screenshot-btn" class="control-btn">Сохранить PNG (A0)</button>
               <button id="do-pdf-btn" class="control-btn">Сохранить PDF (A0)</button>
+              <div id="print-toggles" style="margin-top: 10px; display: flex; gap: 10px;">
+                <button id="toggle-content-btn" class="toggle-btn" title="Скрыть/показать содержимое">👁️</button>
+                <button id="toggle-color-btn" class="toggle-btn" title="Вкл/выкл цвета">🎨</button>
+              </div>
             </div>
+            <!-- --- КОНЕЦ HTML --- -->
             <div id="canvas">
                <svg id="svg-layer" style="width:100%; height:100%;"><defs>
                     <marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
@@ -1997,8 +2038,8 @@ async function prepareForPrint() {
                     </marker></defs>
                 </svg>
             </div>
-            <script>${screenshotScript}<\/script>
-          </body></html>`);
+            <script>\${screenshotScript}<\/script>
+          </body></html>\`);
         printWindow.document.close();
 
         printWindow.addEventListener('load', () => {
@@ -2018,9 +2059,9 @@ async function prepareForPrint() {
                 cardEl.className = 'card';
                 if(cardData.isDarkMode) cardEl.classList.add('dark-mode');
                 cardEl.style.width = cardData.width || '380px';
-                cardEl.style.left = `${cardData.x - minX + PADDING}px`;
-                cardEl.style.top = `${cardData.y - minY + PADDING}px`;
-                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>`;
+                cardEl.style.left = \`\${cardData.x - minX + PADDING}px\`;
+                cardEl.style.top = \`\${cardData.y - minY + PADDING}px\`;
+                cardEl.innerHTML = \`<div class="card-header" style="background:\${cardData.headerBg};"><span class="card-title">\${cardData.title}</span></div><div class="card-body \${cardData.bodyClass}">\${cleanedBodyHTML}</div>\`;
                 printCanvas.appendChild(cardEl);
                 cardElements.set(cardData.id, cardEl);
             });
@@ -2052,7 +2093,7 @@ async function prepareForPrint() {
                 path.setAttribute('marker-end', 'url(#marker-dot)');
                 
                 let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
-                path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
+                path.setAttribute('d', `M \${p1.x} \${p1.y} L \${midP1.x} \${midP1.y} L \${p2.x} \${p2.y}`);
                 printSvgLayer.appendChild(path);
             });
         });
@@ -2067,4 +2108,3 @@ async function prepareForPrint() {
       });
 }
 
-});
