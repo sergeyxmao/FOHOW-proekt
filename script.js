@@ -15,7 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportHtmlBtn = document.getElementById('export-html-btn');
   const notesListBtn = document.getElementById('notes-list-btn');
   const preparePrintBtn = document.getElementById('prepare-print-btn');
-  const toggleGuidesBtn = document.getElementById('toggle-guides-btn'); // Новая кнопка
+  const toggleGuidesBtn = document.getElementById('toggle-guides-btn');
+  const hierarchicalDragModeBtn = document.getElementById('hierarchical-drag-mode-btn'); // Кнопка иерархии
 
   const thicknessSlider = document.getElementById('thickness-slider');
   const thicknessValue = document.getElementById('thickness-value');
@@ -26,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const GRID_SIZE = 70;
   const MARKER_OFFSET = 12;
   const HISTORY_LIMIT = 50;
-  const SNAP_TOLERANCE = 5; // Допуск для прилипания направляющих
+  const SNAP_TOLERANCE = 5;
 
   let canvasState = { x: 0, y: 0, scale: 1, isPanning: false, lastMouseX: 0, lastMouseY: 0 };
   let activeState = {
@@ -37,8 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
     isDrawingLine: false,
     isSelecting: false,
     isSelectionMode: false,
+    isHierarchicalDragMode: false, // Новый режим
     isGlobalLineMode: false,
-    guidesEnabled: true, // Направляющие включены по умолчанию
+    guidesEnabled: true,
     lineStart: null,
     previewLine: null
   };
@@ -50,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let redoStack = [];
   let clipboard = null;
 
-  // --- Элементы для направляющих ---
   const vGuide = document.createElement('div');
   vGuide.className = 'guide-line vertical';
   document.body.appendChild(vGuide);
@@ -58,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const hGuide = document.createElement('div');
   hGuide.className = 'guide-line horizontal';
   document.body.appendChild(hGuide);
-  // ------------------------------------
 
   if (!canvas || !svgLayer) return;
 
@@ -71,11 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupGlobalEventListeners();
   setupGradientSelector();
   setupHistoryButtons();
-  setupSelectionMode();
+  setupDragModes(); // ИЗМЕНЕНО: Новая функция для настройки режимов
   setupSaveButtons();
   setupNotesDropdown();
   setupNoteAutoClose();
-  setupGuides(); // Новая функция настройки
+  setupGuides();
 
   const numPop = document.createElement('div');
   numPop.className = 'num-color-pop';
@@ -138,18 +138,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (e.button === 0) {
-        if (e.target.closest('.card')) {
-          if (activeState.selectedLine) {
-            activeState.selectedLine.element.classList.remove('selected');
-            activeState.selectedLine = null;
-          }
-          return;
+        // Логика клика на пустом месте
+        if (!e.target.closest('.card')) {
+             if (activeState.selectedLine) {
+                activeState.selectedLine.element.classList.remove('selected');
+                activeState.selectedLine = null;
+            }
+            if (activeState.isSelectionMode) {
+                startMarqueeSelection(e);
+            } else if (!e.ctrlKey) {
+                clearSelection();
+            }
+        } else { // Логика клика на карточке
+            if (activeState.selectedLine) {
+                activeState.selectedLine.element.classList.remove('selected');
+                activeState.selectedLine = null;
+            }
         }
-        if (activeState.selectedLine) {
-          activeState.selectedLine.element.classList.remove('selected');
-          activeState.selectedLine = null;
-        }
-        if (activeState.isSelectionMode) startMarqueeSelection(e);
       }
     });
 
@@ -191,9 +196,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (e.key === 'Escape') {
         if (activeState.isDrawingLine) cancelDrawing();
-        if (activeState.isSelectionMode) {
+        if (activeState.isSelectionMode || activeState.isHierarchicalDragMode) {
           activeState.isSelectionMode = false;
+          activeState.isHierarchicalDragMode = false;
           if (selectionModeBtn) selectionModeBtn.classList.remove('active');
+          if (hierarchicalDragModeBtn) hierarchicalDragModeBtn.classList.remove('active');
           document.body.style.cursor = 'default';
         }
         clearSelection();
@@ -212,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // --- Новая функция для настройки направляющих ---
   function setupGuides() {
     if (!toggleGuidesBtn) return;
     toggleGuidesBtn.classList.toggle('active', activeState.guidesEnabled);
@@ -222,14 +228,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function setupSelectionMode() {
-    if (!selectionModeBtn) return;
-    selectionModeBtn.addEventListener('click', () => {
-      activeState.isSelectionMode = !activeState.isSelectionMode;
-      selectionModeBtn.classList.toggle('active', activeState.isSelectionMode);
-      document.body.style.cursor = activeState.isSelectionMode ? 'crosshair' : 'default';
-    });
+  // --- НОВАЯ ФУНКЦИЯ для управления взаимоисключающими режимами ---
+  function setupDragModes() {
+    if (selectionModeBtn) {
+        selectionModeBtn.addEventListener('click', () => {
+            activeState.isSelectionMode = !activeState.isSelectionMode;
+            if (activeState.isSelectionMode) {
+                activeState.isHierarchicalDragMode = false;
+            }
+            updateDragModeButtons();
+        });
+    }
+    if (hierarchicalDragModeBtn) {
+        hierarchicalDragModeBtn.addEventListener('click', () => {
+            activeState.isHierarchicalDragMode = !activeState.isHierarchicalDragMode;
+            if (activeState.isHierarchicalDragMode) {
+                activeState.isSelectionMode = false;
+            }
+            updateDragModeButtons();
+        });
+    }
   }
+
+  function updateDragModeButtons() {
+      if (selectionModeBtn) {
+          selectionModeBtn.classList.toggle('active', activeState.isSelectionMode);
+      }
+      if (hierarchicalDragModeBtn) {
+          hierarchicalDragModeBtn.classList.toggle('active', activeState.isHierarchicalDragMode);
+      }
+      document.body.style.cursor = activeState.isSelectionMode ? 'crosshair' : 'default';
+  }
+
 
   function setupLineControls() {
     if (!thicknessSlider || !lineColorTrigger || !hiddenLineColorPicker || !applyAllToggle) return;
@@ -303,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (opts.isDarkMode) card.classList.add('dark-mode');
 
     if (opts.isLarge) {
-        card.style.width = '494px'; // 380 * 1.3
+        card.style.width = '494px';
     } else if (opts.width) {
         card.style.width = opts.width;
     }
@@ -364,7 +394,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cardData.locked) card.classList.add('locked');
     cards.push(cardData);
 
-    card.addEventListener('mousedown', (e) => { if (e.ctrlKey) { e.stopPropagation(); toggleCardSelection(cardData); } });
+    card.addEventListener('mousedown', (e) => { 
+        if (e.ctrlKey) { 
+            e.stopPropagation(); 
+            toggleCardSelection(cardData); 
+        } 
+    });
     card.querySelector('.close-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteCard(cardData); saveState(); });
     makeDraggable(card, cardData);
 
@@ -427,83 +462,86 @@ document.addEventListener('DOMContentLoaded', () => {
     return cardData;
   }
   
-    // --- Функция перетаскивания ОБНОВЛЕНА для поддержки иерархии и направляющих ---
-  function makeDraggable(element, cardData) {
-    // Вешаем обработчик на всю карточку, а не только на заголовок
-    element.addEventListener('mousedown', (e) => {
-      // Стандартные проверки: не левая кнопка, зажат Ctrl, режим выделения, карточка заблокирована
-      if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
-      if (cardData.locked) return;
-      
-      // Определяем зону клика для "умного" перетаскивания
-      let dragMode = null;
-      const target = e.target;
+  // --- ИСПРАВЛЕННАЯ функция для корректного поиска дочерних элементов ---
+  function getBranchDescendants(startCard, branchFilter) {
+    const descendants = new Set();
+    const queue = [];
 
-      if (target.closest('.card-header')) {
-        dragMode = 'all'; // Клик в шапке - двигаем всё дерево
-      } else if (target.closest('.card-body')) {
-        const bodyRect = target.closest('.card-body').getBoundingClientRect();
-        const clickXInBody = e.clientX - bodyRect.left;
-        // Клик в левой части тела - двигаем левую ветку
-        if (clickXInBody < bodyRect.width / 2) {
-          dragMode = 'left';
-        } else {
-        // Клик в правой части тела - двигаем правую ветку
-          dragMode = 'right';
-        }
-      }
+    // 1. Находим прямых потомков, соответствующих условию ветки
+    const initialChildLines = lines.filter(line => line.startCard.id === startCard.id);
 
-      // Если клик был не на зоне для перетаскивания (например, на кнопках), выходим
-      if (!dragMode) return;
-      e.stopPropagation();
+    for (const line of initialChildLines) {
+        const isBranchMatch = 
+            (branchFilter === 'all' && ['left', 'right', 'bottom'].includes(line.startSide)) || 
+            (line.startSide === branchFilter);
 
-      // Функция для рекурсивного поиска всех дочерних элементов в ветке
-      function getBranchDescendants(startCard, branch) {
-        const descendants = new Set();
-        const queue = [];
-
-        // 1. Находим прямых потомков, соответствующих условию ветки
-        const initialChildLines = lines.filter(line => line.startCard.id === startCard.id);
-        for (const line of initialChildLines) {
-            // Для режима 'all' подходят ветки 'left', 'right' и 'bottom'
-            const isBranchMatch = (branch === 'all' && ['left', 'right', 'bottom'].includes(line.startSide)) || (line.startSide === branch);
-
-            if (isBranchMatch) {
-                const childCard = line.endCard;
-                if (!descendants.has(childCard)) {
-                    descendants.add(childCard);
-                    queue.push(childCard);
-                }
-            }
-        }
-        
-        // 2. Для найденных потомков и их потомков ищем всех детей, уже без оглядки на ветку
-        let head = 0;
-        while(head < queue.length) {
-          const currentCard = queue[head++]; // Используем эффективный обход очереди
-          const childLines = lines.filter(line => line.startCard.id === currentCard.id);
-          for (const line of childLines) {
+        if (isBranchMatch) {
             const childCard = line.endCard;
             if (!descendants.has(childCard)) {
                 descendants.add(childCard);
                 queue.push(childCard);
             }
-          }
         }
-        return descendants;
+    }
+    
+    // 2. BFS/Обход в ширину для поиска всех остальных потомков
+    let head = 0;
+    while(head < queue.length) {
+      const currentCard = queue[head++];
+      const childLines = lines.filter(line => line.startCard.id === currentCard.id);
+      for (const line of childLines) {
+        const childCard = line.endCard;
+        if (!descendants.has(childCard)) {
+            descendants.add(childCard);
+            queue.push(childCard);
+        }
       }
+    }
+    return descendants;
+  }
 
-      // Формируем новую группу для перетаскивания
-      clearSelection();
-      const cardsToDrag = getBranchDescendants(cardData, dragMode);
-      cardsToDrag.add(cardData); // Добавляем саму карточку, на которой кликнули
-      setSelectionSet(cardsToDrag); // Используем существующий механизм выделения
 
-      // --- Дальнейший код почти идентичен старому, но работает с новой динамической группой ---
+  // --- ПОЛНОСТЬЮ ПЕРЕРАБОТАННАЯ функция перетаскивания с поддержкой режимов ---
+  function makeDraggable(element, cardData) {
+    element.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
+      if (cardData.locked) return;
 
+      let dragSet = new Set();
+
+      // РЕЖИМ ИЕРАРХИИ
+      if (activeState.isHierarchicalDragMode) {
+        let dragMode = null;
+        const target = e.target;
+        if (target.closest('.card-header')) {
+            dragMode = 'all';
+        } else if (target.closest('.card-body')) {
+            const bodyRect = target.closest('.card-body').getBoundingClientRect();
+            dragMode = (e.clientX - bodyRect.left < bodyRect.width / 2) ? 'left' : 'right';
+        }
+        
+        if (!dragMode) return;
+        e.stopPropagation();
+
+        dragSet = getBranchDescendants(cardData, dragMode);
+        dragSet.add(cardData);
+      
+      // СТАНДАРТНЫЙ РЕЖИМ
+      } else {
+        e.stopPropagation();
+        if (activeState.selectedCards.has(cardData)) {
+            dragSet = new Set(activeState.selectedCards);
+        } else {
+            clearSelection();
+            dragSet.add(cardData);
+        }
+      }
+      
+      setSelectionSet(dragSet);
+      
+      // --- Общая логика перемещения для любого режима ---
       const draggedCards = [];
       activeState.selectedCards.forEach(selectedCard => {
-        // Дочерние элементы в ветке могут быть заблокированы, их не двигаем
         if (selectedCard.locked) return;
         draggedCards.push({
           card: selectedCard,
@@ -515,7 +553,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
       
-      // Если двигать нечего (например, сама карточка заблокирована), выходим
       if (draggedCards.length === 0) {
         clearSelection();
         return;
@@ -530,10 +567,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const dx_viewport = e2.clientX - startMouseX;
         const dy_viewport = e2.clientY - startMouseY;
 
-        // Логика умных направляющих (остается без изменений)
         if (activeState.guidesEnabled) {
           let snapX = null, snapY = null;
-
           const draggedBounds = {
             left:   Math.min(...draggedCards.map(d => d.startX + dx_canvas)),
             top:    Math.min(...draggedCards.map(d => d.startY + dy_canvas)),
@@ -551,16 +586,13 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             s.right = s.left + s.width; s.bottom = s.top + s.height;
             s.centerX = s.left + s.width / 2; s.centerY = s.top + s.height / 2;
-
             if (Math.abs(draggedBounds.top - s.top) < SNAP_TOLERANCE) { snapY = s.top; dy_canvas = s.top - Math.min(...draggedCards.map(d => d.startY)); }
             else if (Math.abs(draggedBounds.bottom - s.bottom) < SNAP_TOLERANCE) { snapY = s.bottom; dy_canvas = s.bottom - Math.max(...draggedCards.map(d => d.startY + d.element.offsetHeight)); }
             else if (Math.abs(draggedBounds.centerY - s.centerY) < SNAP_TOLERANCE) { snapY = s.centerY; dy_canvas = s.centerY - (Math.min(...draggedCards.map(d => d.startY)) + (draggedBounds.bottom - draggedBounds.top) / 2); }
-
             if (Math.abs(draggedBounds.left - s.left) < SNAP_TOLERANCE) { snapX = s.left; dx_canvas = s.left - Math.min(...draggedCards.map(d => d.startX)); }
             else if (Math.abs(draggedBounds.right - s.right) < SNAP_TOLERANCE) { snapX = s.right; dx_canvas = s.right - Math.max(...draggedCards.map(d => d.startX + d.element.offsetWidth)); }
             else if (Math.abs(draggedBounds.centerX - s.centerX) < SNAP_TOLERANCE) { snapX = s.centerX; dx_canvas = s.centerX - (Math.min(...draggedCards.map(d => d.startX)) + (draggedBounds.right - draggedBounds.left) / 2); }
           }
-          
           if (snapX !== null) { vGuide.style.left = `${(snapX * canvasState.scale) + canvasState.x}px`; vGuide.style.display = 'block'; } else { vGuide.style.display = 'none'; }
           if (snapY !== null) { hGuide.style.top = `${(snapY * canvasState.scale) + canvasState.y}px`; hGuide.style.display = 'block'; } else { hGuide.style.display = 'none'; }
         }
@@ -568,14 +600,11 @@ document.addEventListener('DOMContentLoaded', () => {
         draggedCards.forEach(dragged => {
           let newX = dragged.startX + dx_canvas;
           let newY = dragged.startY + dy_canvas;
-
           const snappedX = (activeState.guidesEnabled && vGuide.style.display === 'block') ? newX : Math.round(newX / GRID_SIZE) * GRID_SIZE;
           const snappedY = (activeState.guidesEnabled && hGuide.style.display === 'block') ? newY : Math.round(newY / GRID_SIZE) * GRID_SIZE;
-
           dragged.element.style.left = `${snappedX}px`;
           dragged.element.style.top  = `${snappedY}px`;
           updateLinesForCard(dragged.element.id);
-
           if (dragged.card.note && dragged.card.note.window) {
             dragged.card.note.window.style.left = `${dragged.noteStartX + dx_viewport}px`;
             dragged.card.note.window.style.top  = `${dragged.noteStartY + dy_viewport}px`;
@@ -587,14 +616,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         vGuide.style.display = 'none'; hGuide.style.display = 'none';
-        
         draggedCards.forEach(dragged => {
             if (dragged.card.note && dragged.card.note.window) {
                 dragged.card.note.x = parseFloat(dragged.card.note.window.style.left);
                 dragged.card.note.y = parseFloat(dragged.card.note.window.style.top);
             }
         });
-        
         saveState();
       }
       document.addEventListener('mousemove', onMouseMove);
@@ -817,12 +844,12 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   const templateLines = [
-    { startKey: 'f',   startSide: 'top',  endKey: 'b',   endSide: 'right', thickness: 4 },
-    { startKey: 'e',   startSide: 'top',  endKey: 'b',   endSide: 'left',  thickness: 4 },
-    { startKey: 'a',   startSide: 'right',endKey: 'd',   endSide: 'top',   thickness: 4 },
-    { startKey: 'a',   startSide: 'left', endKey: 'c',   endSide: 'top',   thickness: 4 },
-    { startKey: 'lena',startSide: 'left', endKey: 'a',   endSide: 'top',   thickness: 4 },
-    { startKey: 'lena',startSide: 'right',endKey: 'b',   endSide: 'top',   thickness: 4 },
+    { startKey: 'b', startSide: 'right', endKey: 'f', endSide: 'top', thickness: 4 },
+    { startKey: 'b', startSide: 'left',  endKey: 'e', endSide: 'top', thickness: 4 },
+    { startKey: 'a', startSide: 'right', endKey: 'd', endSide: 'top', thickness: 4 },
+    { startKey: 'a', startSide: 'left',  endKey: 'c', endSide: 'top', thickness: 4 },
+    { startKey: 'lena', startSide: 'left',  endKey: 'a', endSide: 'top', thickness: 4 },
+    { startKey: 'lena', startSide: 'right', endKey: 'b', endSide: 'top', thickness: 4 },
     ];
 
     const CARD_WIDTH = 380, LARGE_CARD_WIDTH = 494, CARD_HEIGHT = 280, PADDING = 50;
@@ -1011,11 +1038,10 @@ document.addEventListener('DOMContentLoaded', () => {
     clipboard = { cards: copiedCards, lines: copiedLines };
   }
 
-  // --- Функция вставки ОБНОВЛЕНА для корректного смещения ---
   function pasteSelection() {
     if (!clipboard || !clipboard.cards || clipboard.cards.length === 0) return;
 
-    const OFFSET = GRID_SIZE; // ИЗМЕНЕНО: Смещение теперь равно размеру сетки
+    const OFFSET = GRID_SIZE;
     const idMap = new Map();
     const newSelection = new Set();
 
@@ -1024,7 +1050,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ...cd,
         x: cd.x + OFFSET,
         y: cd.y + OFFSET,
-        isLarge: (parseInt(cd.width, 10) === 494), // Добавлена проверка для больших карточек
+        isLarge: (parseInt(cd.width, 10) === 494),
         note: cd.note ? { ...cd.note, x: cd.note.x + OFFSET, y: cd.note.y + OFFSET, visible: false } : null,
       });
       idMap.set(cd.id, newCard);
@@ -1981,4 +2007,3 @@ async function prepareForPrint() {
 }
 
 });
-
