@@ -1,4 +1,3 @@
-```javascript
 // ============== НАЧАЛО ИСПРАВЛЕННОЙ ВЕРСИИ SCRIPT.JS ==============
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('canvas');
@@ -2138,4 +2137,3 @@ async function prepareForPrint() {
 }
 
 });
-```
