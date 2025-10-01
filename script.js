@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const MARKER_OFFSET = 12;
   const HISTORY_LIMIT = 50;
   const SNAP_TOLERANCE = 5;
+  const ACTIVE_PV_BASE = 330;
 
   let canvasState = { x: 0, y: 0, scale: 1, isPanning: false, lastMouseX: 0, lastMouseY: 0 };
   let activeState = {
@@ -1335,7 +1336,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function propagateActivePvUp(cardEl, side, amount) {
     if (!amount) return;
-    const BASE = 330;
+    const BASE = ACTIVE_PV_BASE;
     let curEl = cardEl;
     let curSide = side;
     let carry = amount;
@@ -1347,19 +1348,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const curCard = findCardByElement(curEl);
       const parentInfo = curCard ? getParentInfo(curCard.id) : null;
 
-      let total = prev + carry;
-      if (total < 0 && !parentInfo) total = 0;
-      const rem = ((total % BASE) + BASE) % BASE;
-      const units = (total - rem) / BASE;
-      const applied = (rem - prev) + units * BASE;
+      const hidden = curEl.querySelector('.active-pv-hidden');
+      const localKey = curSide === 'L' ? 'locall' : 'localr';
+      let storedUnits = hidden ? parseInt(hidden.dataset[localKey] || '0', 10) : 0;
+      if (!Number.isFinite(storedUnits)) storedUnits = 0;
+
+      const beforeTotal = prev + storedUnits * BASE;
+      let totalValue = beforeTotal + carry;
+      if (totalValue < 0) totalValue = 0;
+
+      const newUnits = Math.floor(totalValue / BASE);
+      const rem = totalValue - newUnits * BASE;
+      const applied = totalValue - beforeTotal;
 
       if (curSide === 'L') L = rem; else R = rem;
       setActivePV(curEl, L, R);
 
-      const hidden = curEl.querySelector('.active-pv-hidden');
-      if (hidden && units !== 0) {
-        if (curSide === 'L') hidden.dataset.locall = String((parseInt(hidden.dataset.locall || '0', 10) + units));
-        else                 hidden.dataset.localr = String((parseInt(hidden.dataset.localr || '0', 10) + units));
+      if (hidden) {
+        hidden.dataset[localKey] = String(newUnits);
       }
 
       if (!parentInfo || applied === 0) break;
@@ -1395,9 +1401,27 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const dir = btn.dataset.dir;
-    const step = parseInt(btn.dataset.step, 10);
-    if (!dir || !step) return;
+    const rawStep = parseInt(btn.dataset.step, 10);
+    if (!dir || Number.isNaN(rawStep)) return;
+
+    const apv = parseActivePV(cardEl);
     const hidden = cardEl.querySelector('.active-pv-hidden');
+
+    let step = rawStep;
+    if (step < 0) {
+      const current = dir === 'L' ? apv.L : apv.R;
+      let localUnits = 0;
+      if (hidden) {
+        const localKey = dir === 'L' ? 'locall' : 'localr';
+        const parsedUnits = parseInt(hidden.dataset[localKey] || '0', 10);
+        if (!Number.isNaN(parsedUnits)) localUnits = parsedUnits;
+      }
+      const totalAvailable = Math.max(0, current + localUnits * ACTIVE_PV_BASE);
+      if (-step > totalAvailable) step = -totalAvailable;
+    }
+
+    if (step === 0) return;
+
     if (hidden) {
       if (dir === 'L') hidden.dataset.btnL = String((parseInt(hidden.dataset.btnL || '0', 10) + step));
       else             hidden.dataset.btnR = String((parseInt(hidden.dataset.btnR || '0', 10) + step));
@@ -2157,4 +2181,5 @@ async function prepareForPrint() {
 
 
 });
+
 
