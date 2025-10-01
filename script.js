@@ -2067,8 +2067,39 @@ async function prepareForPrint() {
                 cardEl.style.width = cardData.width || '380px';
                 cardEl.style.left = `${cardData.x - minX + PADDING}px`;
                 cardEl.style.top = `${cardData.y - minY + PADDING}px`;
-                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>`;
+                cardEl.innerHTML = `
+                    <div class="card-header" style="background:${cardData.headerBg};">
+                        <div class="slf-badge">SLF</div>
+                        <span class="card-title">${cardData.title}</span>
+                        <div class="fendou-badge">FENDOU</div>
+                        <img class="rank-badge" src="" alt="Rank">
+                    </div>
+                    <div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>
+                `;
                 printCanvas.appendChild(cardEl);
+
+                const badges = cardData.badges || {};
+                const slfBadge = cardEl.querySelector('.slf-badge');
+                const fendouBadge = cardEl.querySelector('.fendou-badge');
+                const rankBadge = cardEl.querySelector('.rank-badge');
+
+                if (slfBadge) {
+                    slfBadge.classList.toggle('visible', !!badges.slf);
+                }
+
+                if (fendouBadge) {
+                    fendouBadge.classList.toggle('visible', !!badges.fendou);
+                }
+
+                if (rankBadge) {
+                    if (badges.rank) {
+                        rankBadge.src = `rank-${badges.rank}.png`;
+                        rankBadge.classList.add('visible');
+                    } else {
+                        rankBadge.classList.remove('visible');
+                        rankBadge.removeAttribute('src');
+                    }
+                }
                 cardElements.set(cardData.id, cardEl);
             });
 
@@ -2113,5 +2144,6 @@ async function prepareForPrint() {
         createPrintWindow(minimalCss);
       });
 }
+
 
 });
