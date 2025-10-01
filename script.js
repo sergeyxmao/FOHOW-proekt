@@ -1257,11 +1257,15 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="left-controls">
           <button class="active-btn" data-dir="L" data-step="1">+1</button>
           <button class="active-btn" data-dir="L" data-step="10">+10</button>
+          <button class="active-btn" data-dir="L" data-step="-10">-10</button>
+          <button class="active-btn" data-dir="L" data-step="-1">-1</button>
         </div>
         <div class="mid-controls">
           <button class="active-btn active-clear">Очистить</button>
         </div>
         <div class="right-controls">
+          <button class="active-btn" data-dir="R" data-step="-1">-1</button>
+          <button class="active-btn" data-dir="R" data-step="-10">-10</button>
           <button class="active-btn" data-dir="R" data-step="10">+10</button>
           <button class="active-btn" data-dir="R" data-step="1">+1</button>
         </div>`;
@@ -1329,38 +1333,44 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!p) return null;
     return { parentId: p.parentId, side: (p.side === 'right' ? 'R' : 'L') };
   }
-
   function propagateActivePvUp(cardEl, side, amount) {
-    if (!amount || amount <= 0) return;
+    if (!amount) return;
+    const BASE = 330;
     let curEl = cardEl;
     let curSide = side;
     let carry = amount;
-    while (true) {
+    while (curEl) {
       ensureActiveControls(curEl);
       const apv = parseActivePV(curEl);
       let L = apv.L, R = apv.R;
       const prev = (curSide === 'L') ? L : R;
-      const s = prev + carry;
-      const units = Math.floor(s / 330);
-      const rem = s % 330;
+      const curCard = findCardByElement(curEl);
+      const parentInfo = curCard ? getParentInfo(curCard.id) : null;
+
+      let total = prev + carry;
+      if (total < 0 && !parentInfo) total = 0;
+      const rem = ((total % BASE) + BASE) % BASE;
+      const units = (total - rem) / BASE;
+      const applied = (rem - prev) + units * BASE;
+
       if (curSide === 'L') L = rem; else R = rem;
       setActivePV(curEl, L, R);
+
       const hidden = curEl.querySelector('.active-pv-hidden');
-      if (hidden && units > 0) {
+      if (hidden && units !== 0) {
         if (curSide === 'L') hidden.dataset.locall = String((parseInt(hidden.dataset.locall || '0', 10) + units));
         else                 hidden.dataset.localr = String((parseInt(hidden.dataset.localr || '0', 10) + units));
       }
-      const curCard = findCardByElement(curEl);
-      if (!curCard) break;
-      const p = getParentInfo(curCard.id);
-      if (!p) break;
-      const parentEl = findCardElementById(p.parentId);
+
+      if (!parentInfo || applied === 0) break;
+
+      const parentEl = findCardElementById(parentInfo.parentId);
       if (!parentEl) break;
       curEl = parentEl;
-      curSide = p.side;
+      curSide = parentInfo.side;
+      carry = applied;
     }
   }
-
   function setActivePV(cardEl, L, R) {
     const { valEl } = parseActivePV(cardEl);
     if (valEl) valEl.textContent = `${L} / ${R}`;
@@ -2147,3 +2157,4 @@ async function prepareForPrint() {
 
 
 });
+
