@@ -83,6 +83,49 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeCardFeatures(() => cards, saveState);
   }
 
+  const numPop = document.createElement('div');
+  numPop.className = 'num-color-pop';
+  numPop.innerHTML = `
+    <div class="dot red"    data-color="#e53935" title="Красный"></div>
+    <div class="dot yellow" data-color="#ffeb3b" title="Жёлтый"></div>
+    <div class="dot green"  data-color="#43a047" title="Зелёный"></div>
+  `;
+  document.body.appendChild(numPop);
+  let lastRange = null;
+
+  function showNumPop() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return hideNumPop();
+    const range = sel.getRangeAt(0);
+    const common = range.commonAncestorContainer;
+    const valueEl = (common.nodeType === 1 ? common : common.parentElement)?.closest('.value[contenteditable="true"]');
+    if (!valueEl || sel.isCollapsed) { hideNumPop(); return; }
+    const rect = range.getBoundingClientRect();
+    numPop.style.left = `${Math.max(8, rect.left)}px`;
+    numPop.style.top  = `${rect.bottom + 6}px`;
+    numPop.style.display = 'flex';
+    lastRange = range;
+  }
+  function hideNumPop(){ numPop.style.display='none'; lastRange = null; }
+  document.addEventListener('selectionchange', () => requestAnimationFrame(showNumPop));
+  document.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('.num-color-pop') && !e.target.closest('.value[contenteditable="true"]')) hideNumPop();
+  });
+  numPop.addEventListener('click', (e) => {
+    const btn = e.target.closest('.dot');
+    if (!btn || !lastRange) return;
+    const color = btn.dataset.color;
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(lastRange);
+    const span = document.createElement('span');
+    span.setAttribute('data-num-color', color);
+    span.style.color = color;
+    try { lastRange.surroundContents(span); }
+    catch(_) { const frag = lastRange.extractContents(); span.appendChild(frag); lastRange.insertNode(span); }
+    hideNumPop(); saveState();
+  });
+
   function setupGlobalEventListeners() {
     window.addEventListener('mousedown', (e) => {
       if (
@@ -291,7 +334,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = document.createElement('div');
     card.className = 'card'; card.id = cardId;
     if (opts.isDarkMode) card.classList.add('dark-mode');
-    if (opts.isSolid) card.classList.add('solid-view');
 
     if (opts.isLarge) {
         card.style.width = '494px';
@@ -365,12 +407,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.applyCardBadges) {
         applyCardBadges(cardData);
     }
-    
-    const header = card.querySelector('.card-header');
-    if (opts.isSolid) {
-        card.style.background = header.style.background || getComputedStyle(header).background;
-    }
-
 
     card.addEventListener('mousedown', (e) => {
         if (e.ctrlKey) {
@@ -382,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
     makeDraggable(card, cardData);
 
     const headerColorBtn = card.querySelector('.header-color-picker-btn');
+    const header = card.querySelector('.card-header');
     const colorChanger = card.querySelector('.color-changer');
 
     if (opts.headerBg) {
@@ -400,9 +437,6 @@ document.addEventListener('DOMContentLoaded', () => {
         header.style.background = c;
         headerColorBtn.style.background = c;
         colorChanger.dataset.colorIndex = '-1';
-        if (card.classList.contains('solid-view')) {
-            card.style.background = c;
-        }
         saveState();
     });
 
@@ -413,9 +447,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const c = cardColors[idx % cardColors.length];
         colorChanger.style.backgroundColor = c;
         header.style.background = c;
-        if (card.classList.contains('solid-view')) {
-            card.style.background = c;
-        }
     };
 
     const savedColorIndex = parseInt(opts.colorIndex ?? '0', 10);
@@ -433,16 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const bodyColorChanger = card.querySelector('.body-color-changer');
     if (bodyColorChanger) {
-      bodyColorChanger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isSolid = card.classList.toggle('solid-view');
-        if (isSolid) {
-            card.style.background = header.style.background || getComputedStyle(header).background;
-        } else {
-            card.style.background = '';
-        }
-        saveState();
-      });
+      bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
     }
 
     const noteBtn = card.querySelector('.note-btn');
@@ -928,7 +950,6 @@ document.addEventListener('DOMContentLoaded', () => {
         title: c.element.querySelector('.card-title')?.innerText ?? '',
         bodyHTML: c.element.querySelector('.card-body')?.innerHTML ?? '',
         isDarkMode: c.element.classList.contains('dark-mode'),
-        isSolid: c.element.classList.contains('solid-view'),
         bodyClass: c.element.querySelector('.card-body')?.className.replace('card-body', '').trim() ?? '',
         headerBg: c.element.querySelector('.card-header')?.style.background ?? '',
         colorIndex: parseInt(c.element.querySelector('.color-changer')?.dataset.colorIndex || '0', 10),
@@ -1102,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadProjectBtn && loadProjectInput) {
       loadProjectBtn.addEventListener('click', () => loadProjectInput.click());
       loadProjectInput.addEventListener('change', async (e) => {
-        const file = e.target.files && e.target.files[0];
+        const file = e.target.files && e.target.files;
         if (!file) return;
 
         try {
@@ -1131,7 +1152,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (exportHtmlBtn) {
       exportHtmlBtn.addEventListener('click', () => {
         const bodyStyle = getComputedStyle(document.body);
-        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
+        // ИСПРАВЛЕНИЕ: Экранируем внутренние ` и $ для встраиваемого скрипта
+        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\\\`translate(\\\${x}px,\\\${y}px) scale(\\\${s})\\\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
 
         const canvasClone = canvas.cloneNode(true);
 
@@ -1205,8 +1227,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
             const localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
             value.textContent = `${(r.L || 0) + aBonusL + localL} / ${(r.R || 0) + aBonusR + localR}`;
-            value.setAttribute('contenteditable', 'false');
-            value.style.pointerEvents = 'none';
           } else if (name.startsWith('цикл')) {
             const r = result[cd.id] || { L: 0, R: 0, total: 0 };
             const totalDisplay = (r.total || 0) + aBonusL + aBonusR;
@@ -1237,15 +1257,11 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="left-controls">
           <button class="active-btn" data-dir="L" data-step="1">+1</button>
           <button class="active-btn" data-dir="L" data-step="10">+10</button>
-          <button class="active-btn" data-dir="L" data-step="-10">-10</button>
-          <button class="active-btn" data-dir="L" data-step="-1">-1</button>
         </div>
         <div class="mid-controls">
           <button class="active-btn active-clear">Очистить</button>
         </div>
         <div class="right-controls">
-          <button class="active-btn" data-dir="R" data-step="-1">-1</button>
-          <button class="active-btn" data-dir="R" data-step="-10">-10</button>
           <button class="active-btn" data-dir="R" data-step="10">+10</button>
           <button class="active-btn" data-dir="R" data-step="1">+1</button>
         </div>`;
@@ -1314,59 +1330,36 @@ document.addEventListener('DOMContentLoaded', () => {
     return { parentId: p.parentId, side: (p.side === 'right' ? 'R' : 'L') };
   }
 
-  function propagateActivePv(cardEl, side, amount) {
-    if (amount === 0) return;
-
-    const cardData = findCardByElement(cardEl);
-    if (!cardData) return;
-
-    const { L, R, valEl } = parseActivePV(cardEl);
-    if (!valEl) return;
-    
-    let currentVal = (side === 'L') ? L : R;
-    let newVal = currentVal + amount;
-
-    const parentInfo = getParentInfo(cardData.id);
-    const parentEl = parentInfo ? findCardElementById(parentInfo.parentId) : null;
-    const hidden = parentEl ? parentEl.querySelector('.active-pv-hidden') : null;
-
-    if (newVal < 0 && parentEl && hidden) {
-        const bonusAttr = (parentInfo.side === 'L') ? 'locall' : 'localr';
-        let parentBonus = parseInt(hidden.dataset[bonusAttr] || '0', 10);
-        
-        if (parentBonus > 0) {
-            const neededUnits = Math.ceil(-newVal / 330);
-            const unitsToBorrow = Math.min(neededUnits, parentBonus);
-
-            parentBonus -= unitsToBorrow;
-            newVal += unitsToBorrow * 330;
-            hidden.dataset[bonusAttr] = String(parentBonus);
-        }
-    }
-    
-    let unitsToPass = 0;
-    let remainder = newVal;
-
-    if (newVal >= 330) {
-        unitsToPass = Math.floor(newVal / 330);
-        remainder = newVal % 330;
-    } else if (newVal < 0) {
-        remainder = 0;
-    }
-
-    if (side === 'L') {
-        setActivePV(cardEl, remainder, R);
-    } else {
-        setActivePV(cardEl, L, remainder);
-    }
-
-    if (unitsToPass > 0 && parentEl && hidden) {
-        const bonusAttr = (parentInfo.side === 'L') ? 'locall' : 'localr';
-        const parentBonus = parseInt(hidden.dataset[bonusAttr] || '0', 10);
-        hidden.dataset[bonusAttr] = String(parentBonus + unitsToPass);
+  function propagateActivePvUp(cardEl, side, amount) {
+    if (!amount || amount <= 0) return;
+    let curEl = cardEl;
+    let curSide = side;
+    let carry = amount;
+    while (true) {
+      ensureActiveControls(curEl);
+      const apv = parseActivePV(curEl);
+      let L = apv.L, R = apv.R;
+      const prev = (curSide === 'L') ? L : R;
+      const s = prev + carry;
+      const units = Math.floor(s / 330);
+      const rem = s % 330;
+      if (curSide === 'L') L = rem; else R = rem;
+      setActivePV(curEl, L, R);
+      const hidden = curEl.querySelector('.active-pv-hidden');
+      if (hidden && units > 0) {
+        if (curSide === 'L') hidden.dataset.locall = String((parseInt(hidden.dataset.locall || '0', 10) + units));
+        else                 hidden.dataset.localr = String((parseInt(hidden.dataset.localr || '0', 10) + units));
+      }
+      const curCard = findCardByElement(curEl);
+      if (!curCard) break;
+      const p = getParentInfo(curCard.id);
+      if (!p) break;
+      const parentEl = findCardElementById(p.parentId);
+      if (!parentEl) break;
+      curEl = parentEl;
+      curSide = p.side;
     }
   }
-
 
   function setActivePV(cardEl, L, R) {
     const { valEl } = parseActivePV(cardEl);
@@ -1393,9 +1386,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const dir = btn.dataset.dir;
     const step = parseInt(btn.dataset.step, 10);
-    if (!dir || isNaN(step)) return;
-    
-    propagateActivePv(cardEl, dir, step);
+    if (!dir || !step) return;
+    const hidden = cardEl.querySelector('.active-pv-hidden');
+    if (hidden) {
+      if (dir === 'L') hidden.dataset.btnL = String((parseInt(hidden.dataset.btnL || '0', 10) + step));
+      else             hidden.dataset.btnR = String((parseInt(hidden.dataset.btnR || '0', 10) + step));
+    }
+    propagateActivePvUp(cardEl, dir, step);
     saveState();
   });
 
@@ -1778,21 +1775,18 @@ async function exportToSvg() {
     const viewBox = `0 0 ${contentWidth + PADDING * 2} ${contentHeight + PADDING * 2}`;
 
     const getCleanedCardHtml = (cardData) => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = `<div class="card" style="width:${cardData.width || '380px'};">${cardData.bodyHTML}</div>`;
+
         const tempBody = document.createElement('div');
         tempBody.innerHTML = cardData.bodyHTML;
         const pvControls = tempBody.querySelector('.active-pv-controls');
         if (pvControls) pvControls.remove();
 
-        const badges = cardData.badges || {};
         const cardHeader = document.createElement('div');
         cardHeader.className = 'card-header';
         cardHeader.style.background = cardData.headerBg;
-        cardHeader.innerHTML = `
-            <div class="slf-badge ${badges.slf ? 'visible' : ''}">SLF</div>
-            <span class="card-title">${cardData.title}</span>
-            <div class="fendou-badge ${badges.fendou ? 'visible' : ''}">FENDOU</div>
-            <img class="rank-badge ${badges.rank ? 'visible' : ''}" src="${badges.rank ? `rank-${badges.rank}.png` : ''}" alt="Rank">
-        `;
+        cardHeader.innerHTML = `<span class="card-title">${cardData.title}</span>`;
 
         const finalCard = document.createElement('div');
         finalCard.className = 'card';
@@ -1845,10 +1839,9 @@ async function exportToSvg() {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${contentWidth + PADDING * 2}" height="${contentHeight + PADDING * 2}">
             <defs>
                 <style>
-                    /* Minimal styles from style.css needed for SVG rendering */
-                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: hidden; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; user-select: none; }
-                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
-                    .card-title { grid-column:2/3; text-align:center; font-size: 20px; line-height: 1; font-weight: 800; }
+                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: hidden; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; }
+                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; display: flex; align-items: center; justify-content: center; }
+                    .card-title { font-size: 20px; line-height: 1; font-weight: 800; }
                     .card-body { padding: 15px; text-align: center; }
                     .card-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px; }
                     .label { font-weight: 700; color: #374151; font-size: 16px; }
@@ -1861,11 +1854,6 @@ async function exportToSvg() {
                     .card.dark-mode .card-title { color: #f3f4f6; }
                     .card.dark-mode .coin-icon { visibility: hidden; }
                     .line { fill:none; }
-                    .slf-badge, .fendou-badge, .rank-badge { position: absolute; display: none; user-select: none; pointer-events: none; }
-                    .slf-badge.visible, .fendou-badge.visible, .rank-badge.visible { display: block; }
-                    .slf-badge { top: 15px; left: 15px; color: #ffc700; font-weight: 900; font-size: 24px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-                    .fendou-badge { top: -25px; left: 50%; transform: translateX(-50%); color: red; font-weight: 900; font-size: 36px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-                    .rank-badge { top: -15px; right: 15px; width: 80px; height: auto; transform: rotate(15deg); }
                 </style>
                 <marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" fill="currentColor">
                   <circle cx="5" cy="5" r="4"/>
@@ -2002,6 +1990,7 @@ async function prepareForPrint() {
         }
 
         printWindow.document.open();
+        // ИСПРАВЛЕНИЕ: Удалены некорректные обратные слэши перед ${...}
         printWindow.document.write(`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати A0</title>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
@@ -2078,18 +2067,7 @@ async function prepareForPrint() {
                 cardEl.style.width = cardData.width || '380px';
                 cardEl.style.left = `${cardData.x - minX + PADDING}px`;
                 cardEl.style.top = `${cardData.y - minY + PADDING}px`;
-
-                const badges = cardData.badges || {};
-                const headerHTML = `
-                    <div class="card-header" style="background:${cardData.headerBg};">
-                        <div class="slf-badge ${badges.slf ? 'visible' : ''}">SLF</div>
-                        <span class="card-title">${cardData.title}</span>
-                        <div class="fendou-badge ${badges.fendou ? 'visible' : ''}">FENDOU</div>
-                        <img class="rank-badge ${badges.rank ? 'visible' : ''}" src="${badges.rank ? `rank-${badges.rank}.png` : ''}" alt="Rank">
-                    </div>
-                `;
-
-                cardEl.innerHTML = headerHTML + `<div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>`;
+                cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><span class="card-title">${cardData.title}</span></div><div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>`;
                 printCanvas.appendChild(cardEl);
                 cardElements.set(cardData.id, cardEl);
             });
