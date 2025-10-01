@@ -217,8 +217,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (e.key === 'Delete') deleteSelection();
 
-      if (e.ctrlKey && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-      else if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') || (e.ctrlKey && e.key.toLowerCase() === 'y')) { e.preventDefault(); redo(); }
+      if (e.ctrlKey && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (
+        (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') ||
+        (e.ctrlKey && e.key.toLowerCase() === 'y')
+      ) {
+        e.preventDefault();
+        redo();
+      }
 
       if (e.ctrlKey && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); }
       if (e.ctrlKey && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteSelection(); }
@@ -2185,6 +2193,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
