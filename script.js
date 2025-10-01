@@ -1225,14 +1225,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (name.startsWith('баланс')) {
             const r = result[cd.id] || { L: 0, R: 0, total: 0 };
-            const localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
-            const localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
-            value.textContent = `${(r.L || 0) + aBonusL + localL} / ${(r.R || 0) + aBonusR + localR}`;
-          } else if (name.startsWith('цикл')) {
-            const r = result[cd.id] || { L: 0, R: 0, total: 0 };
-            const totalDisplay = (r.total || 0) + aBonusL + aBonusR;
-            value.textContent = String(Math.floor(totalDisplay / 72));
-          }
+            let localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
+            let localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
+            if (!Number.isFinite(localL)) localL = 0;
+            if (!Number.isFinite(localR)) localR = 0;
+            if (localL < 0) localL = 0;
+            if (localR < 0) localR = 0;
+            const leftBalance = Math.max(0, (r.L || 0) + aBonusL + localL);
+            const rightBalance = Math.max(0, (r.R || 0) + aBonusR + localR);
+            value.textContent = `${leftBalance} / ${rightBalance}`;
         });
       });
     } catch (e) {
@@ -1352,20 +1353,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const localKey = curSide === 'L' ? 'locall' : 'localr';
       let storedUnits = hidden ? parseInt(hidden.dataset[localKey] || '0', 10) : 0;
       if (!Number.isFinite(storedUnits)) storedUnits = 0;
+      if (storedUnits < 0) storedUnits = 0;
+
 
       const beforeTotal = prev + storedUnits * BASE;
       let totalValue = beforeTotal + carry;
       if (totalValue < 0) totalValue = 0;
 
-      const newUnits = Math.floor(totalValue / BASE);
+      const newUnits = Math.max(0, Math.floor(totalValue / BASE));
       const rem = totalValue - newUnits * BASE;
       const applied = totalValue - beforeTotal;
 
       if (curSide === 'L') L = rem; else R = rem;
       setActivePV(curEl, L, R);
 
-      if (hidden) {
-        hidden.dataset[localKey] = String(newUnits);
+      if (hidden) {␊
+        hidden.dataset[localKey] = String(newUnits);␊
       }
 
       if (!parentInfo || applied === 0) break;
@@ -1416,6 +1419,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const parsedUnits = parseInt(hidden.dataset[localKey] || '0', 10);
         if (!Number.isNaN(parsedUnits)) localUnits = parsedUnits;
       }
+      if (localUnits < 0 || !Number.isFinite(localUnits)) localUnits = 0;
       const totalAvailable = Math.max(0, current + localUnits * ACTIVE_PV_BASE);
       if (-step > totalAvailable) step = -totalAvailable;
     }
@@ -2181,5 +2185,6 @@ async function prepareForPrint() {
 
 
 });
+
 
 
