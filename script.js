@@ -1242,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const leftBalance = Math.max(0, (r.L || 0) + aBonusL + localL);
             const rightBalance = Math.max(0, (r.R || 0) + aBonusR + localR);
             value.textContent = `${leftBalance} / ${rightBalance}`;
-          }			  
+          }
         });
       });
     } catch (e) {
@@ -2194,6 +2194,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
