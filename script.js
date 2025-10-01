@@ -1376,8 +1376,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (curSide === 'L') L = rem; else R = rem;
       setActivePV(curEl, L, R);
 
-      if (hidden) {␊
-        hidden.dataset[localKey] = String(newUnits);␊
+      if (hidden) {
+        hidden.dataset[localKey] = String(newUnits);
       }
 
       if (!parentInfo || applied === 0) break;
@@ -2194,6 +2194,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
