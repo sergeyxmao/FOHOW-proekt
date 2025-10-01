@@ -1365,15 +1365,30 @@ document.addEventListener('DOMContentLoaded', () => {
       if (storedUnits < 0) storedUnits = 0;
 
 
-      const beforeTotal = prev + storedUnits * BASE;
-      let totalValue = beforeTotal + carry;
-      if (totalValue < 0) totalValue = 0;
+      const beforeRem = prev;
+      const beforeUnits = storedUnits;
+      const beforeTotal = beforeRem + beforeUnits * BASE;
 
-      const newUnits = Math.max(0, Math.floor(totalValue / BASE));
-      const rem = totalValue - newUnits * BASE;
-      const applied = totalValue - beforeTotal;
+      let delta = carry;
+      if (delta < 0) {
+        const minDelta = -beforeRem;
+        if (delta < minDelta) delta = minDelta;
+      }
 
-      if (curSide === 'L') L = rem; else R = rem;
+      let remTotal = beforeRem + delta;
+      if (remTotal < 0) remTotal = 0;
+
+      let newUnits = beforeUnits;
+      if (remTotal >= BASE) {
+        const extraUnits = Math.floor(remTotal / BASE);
+        newUnits += extraUnits;
+        remTotal -= extraUnits * BASE;
+      }
+
+      const afterTotal = remTotal + newUnits * BASE;
+      const applied = afterTotal - beforeTotal;
+
+      if (curSide === 'L') L = remTotal; else R = remTotal;
       setActivePV(curEl, L, R);
 
       if (hidden) {
@@ -1422,14 +1437,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let step = rawStep;
     if (step < 0) {
       const current = dir === 'L' ? apv.L : apv.R;
-      let localUnits = 0;
-      if (hidden) {
-        const localKey = dir === 'L' ? 'locall' : 'localr';
-        const parsedUnits = parseInt(hidden.dataset[localKey] || '0', 10);
-        if (!Number.isNaN(parsedUnits)) localUnits = parsedUnits;
-      }
-      if (localUnits < 0 || !Number.isFinite(localUnits)) localUnits = 0;
-      const totalAvailable = Math.max(0, current + localUnits * ACTIVE_PV_BASE);
+      const totalAvailable = Math.max(0, current);
       if (-step > totalAvailable) step = -totalAvailable;
     }
 
@@ -2194,6 +2202,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
