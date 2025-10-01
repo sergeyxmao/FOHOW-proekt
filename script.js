@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <svg class="coin-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
             <circle cx="50" cy="50" r="45" fill="#ffd700" stroke="#DAA520" stroke-width="5"/>
           </svg>
-          <span class="value" contenteditable="true">330/330pv</span>
+          <span class="value" contenteditable="true">30/330pv</span>
         </div>
         <div class="card-row"><span class="label">Баланс:</span><span class="value" contenteditable="true">0 / 0</span></div>
         <div class="card-row"><span class="label">Актив-заказы PV:</span><span class="value" contenteditable="true">0 / 0</span></div>
@@ -862,10 +862,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function loadTemplate() {
     const templateCards = [
         { key: 'lena', x: 2240, y: -770, title: 'Елена', pv: '330/330pv', coinFill: '#ffd700', isLarge: true },
-        { key: 'a',    x: 1750, y: -420, title: 'A',     pv: '330/330pv', coinFill: '#ffd700' },
+        { key: 'a',    x: 1750, y: -420, title: 'A',     pv: '30/330pv', coinFill: '#ffd700' },
         { key: 'c',    x: 1470, y:  -70, title: 'C',     pv: '30/330pv', coinFill: '#ffd700' },
         { key: 'd',    x: 2030, y:  -70, title: 'D',     pv: '30/330pv', coinFill: '#ffd700' },
-        { key: 'b',    x: 2870, y: -420, title: 'B',     pv: '330/330pv', coinFill: '#ffd700' },
+        { key: 'b',    x: 2870, y: -420, title: 'B',     pv: '30/330pv', coinFill: '#ffd700' },
         { key: 'e',    x: 2590, y:  -70, title: 'E',     pv: '30/330pv', coinFill: '#ffd700' },
         { key: 'f',    x: 3150, y:  -70, title: 'F',     pv: '30/330pv', coinFill: '#ffd700' },
     ];
@@ -2202,6 +2202,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
