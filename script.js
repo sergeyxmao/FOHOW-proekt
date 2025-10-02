@@ -2039,8 +2039,8 @@ const getCleanedCardHtml = async (cardData) => { // Добавили async
     };
 
  // Определяем дополнительное пространство вокруг карточки для предотвращения обрезки
-    const EXTRA_PADDING_TOP = 90;  // Запас высоты сверху для надписи "FENDOU"
-    const EXTRA_PADDING_SIDE = 60; // Запас ширины сбоку для значка ранга
+    const EXTRA_PADDING_TOP = 60;  // Запас высоты сверху для надписи "FENDOU"
+    const EXTRA_PADDING_SIDE = 50; // Запас ширины сбоку для значка ранга
 
     const cardHtmlPromises = state.cards.map(card => getCleanedCardHtml(card));
     const resolvedCardHtmls = await Promise.all(cardHtmlPromises);
@@ -2403,6 +2403,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
