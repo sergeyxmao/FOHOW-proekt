@@ -2014,7 +2014,7 @@ async function exportToSvg() {
         cardBody.innerHTML = tempBody.innerHTML;
         finalCard.appendChild(cardBody);
 
-        return finalCard.outerHTML;
+        return finalCard.outerHTML.replace(/(<img[^>]+)>/g, '$1 />');
     };
 
     const cardObjects = state.cards.map(card =>
@@ -2367,6 +2367,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
