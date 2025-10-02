@@ -488,8 +488,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (cardData.note && cardData.note.visible) createNoteWindow(cardData);
 
-    card.querySelectorAll('[contenteditable="true"]').forEach(el => el.addEventListener('blur', () => saveState()));
-
+    setupBalanceManualEditing(card);
+    card.querySelectorAll('[contenteditable="true"]').forEach(el => el.addEventListener('blur', () => {
+      handleBalanceManualBlur(el);
+      saveState();
+    }));
     card.querySelectorAll('.connection-point').forEach(point => {
       point.addEventListener('mousedown', (e) => {
         e.stopPropagation();
@@ -1232,6 +1235,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const name = (label.textContent || '').trim().toLowerCase();
 
           if (name.startsWith('баланс')) {
+            if (value.dataset.manualBalance) return;
             const r = result[cd.id] || { L: 0, R: 0, total: 0 };
             let localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
             let localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
@@ -1250,11 +1254,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function ensureActiveControls(cardEl) {
-    const rows = cardEl.querySelectorAll('.card-row');
-    let activeRow = null;
-    rows.forEach(r => {
-      const lab = r.querySelector('.label');
+  function ensureActiveControls(cardEl) {␊
+    const rows = cardEl.querySelectorAll('.card-row');␊
+    let activeRow = null;␊
+    rows.forEach(r => {␊
+      const lab = r.querySelector('.label');␊
       if (lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы')) activeRow = r;
     });
     if (!activeRow) return;
@@ -1311,6 +1315,41 @@ document.addEventListener('DOMContentLoaded', () => {
         activeRow.addEventListener(ev, (e) => { e.stopPropagation(); e.preventDefault(); }, { capture:true })
       );
     }
+  }
+
+  function getBalanceValueElement(cardEl) {
+    const balanceRow = Array.from(cardEl.querySelectorAll('.card-row')).find(row => {
+      const label = row.querySelector('.label');
+      return label && (label.textContent || '').trim().toLowerCase().startsWith('баланс');
+    });
+    return balanceRow ? balanceRow.querySelector('.value') : null;
+  }
+
+  function setupBalanceManualEditing(cardEl) {
+    const valueEl = getBalanceValueElement(cardEl);
+    if (!valueEl || valueEl.__balanceHandlersAttached) return;
+    valueEl.__balanceHandlersAttached = true;
+    valueEl.__balanceDirty = false;
+
+    valueEl.addEventListener('input', () => {
+      valueEl.dataset.manualBalance = 'true';
+      valueEl.__balanceDirty = true;
+    });
+  }
+
+  function handleBalanceManualBlur(el) {
+    if (!el || !el.__balanceHandlersAttached || !el.closest('.card')) return;
+    if (!el.__balanceDirty && !el.dataset.manualBalance) return;
+
+    const text = (el.textContent || '').trim();
+    if (text) {
+      el.textContent = text;
+      el.dataset.manualBalance = 'true';
+    } else {
+      delete el.dataset.manualBalance;
+      recalculateAndRender();
+    }
+    el.__balanceDirty = false;
   }
 
   function parseActivePV(cardEl) {
@@ -2202,6 +2241,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
