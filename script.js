@@ -489,8 +489,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cardData.note && cardData.note.visible) createNoteWindow(cardData);
 
     setupBalanceManualEditing(card);
+    setupBalanceManualEditing(card);
     card.querySelectorAll('[contenteditable="true"]').forEach(el => el.addEventListener('blur', () => {
       handleBalanceManualBlur(el);
+      saveState();
+    }));      handleBalanceManualBlur(el);
       saveState();
     }));
     card.querySelectorAll('.connection-point').forEach(point => {
@@ -1235,7 +1238,18 @@ document.addEventListener('DOMContentLoaded', () => {
           const name = (label.textContent || '').trim().toLowerCase();
 
           if (name.startsWith('баланс')) {
-            if (value.dataset.manualBalance) return;
+            const manual = value.dataset.manualBalance ? readStoredManualBalance(el) : null;
+            if (manual) {
+              if (manual.left != null && manual.right != null) {
+                value.textContent = manual.raw || formatManualBalance({ left: manual.left, right: manual.right });
+              } else if (manual.raw) {
+                value.textContent = manual.raw;
+              } else {
+                delete value.dataset.manualBalance;
+              }
+              return;
+            }
+
             const r = result[cd.id] || { L: 0, R: 0, total: 0 };
             let localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
             let localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
@@ -1307,6 +1321,9 @@ document.addEventListener('DOMContentLoaded', () => {
       hidden.dataset.locall  = hidden.dataset.locall  || '0';
       hidden.dataset.localr  = hidden.dataset.localr  || '0';
     }
+    hidden.dataset.manualBalanceLeft = hidden.dataset.manualBalanceLeft || '';
+    hidden.dataset.manualBalanceRight = hidden.dataset.manualBalanceRight || '';
+    hidden.dataset.manualBalanceRaw = hidden.dataset.manualBalanceRaw || '';
 
     const valEl = activeRow.querySelector('.value');
     if (valEl) {
@@ -1321,6 +1338,120 @@ document.addEventListener('DOMContentLoaded', () => {
     const balanceRow = Array.from(cardEl.querySelectorAll('.card-row')).find(row => {
       const label = row.querySelector('.label');
       return label && (label.textContent || '').trim().toLowerCase().startsWith('баланс');
+    });
+    return balanceRow ? balanceRow.querySelector('.value') : null;
+  }
+
+  function parseManualBalanceInput(text) {
+    if (!text) return null;
+    const cleaned = text.replace(/\s+/g, '');
+    if (!cleaned) return null;
+    const parts = cleaned.split('/');
+    if (parts.length === 0 || parts.length > 2) return null;
+    const left = parseInt(parts[0], 10);
+    const right = parts.length === 2 ? parseInt(parts[1], 10) : 0;
+    if (!Number.isFinite(left) || !Number.isFinite(right)) return null;
+    return { left, right };
+  }
+
+  function formatManualBalance({ left, right }) {
+    return `${left} / ${right}`;
+  }
+
+  function readStoredManualBalance(cardEl) {
+    const hidden = cardEl?.querySelector('.active-pv-hidden');
+    if (!hidden) return null;
+    const left = parseInt(hidden.dataset.manualBalanceLeft || '', 10);
+    const right = parseInt(hidden.dataset.manualBalanceRight || '', 10);
+    const raw = hidden.dataset.manualBalanceRaw || '';
+    if (!Number.isFinite(left) || !Number.isFinite(right)) return raw ? { raw } : null;
+    return { left, right, raw: raw || formatManualBalance({ left, right }) };
+  }
+
+  function storeManualBalance(cardEl, valueEl, balance) {
+    const hidden = cardEl?.querySelector('.active-pv-hidden');
+    if (!hidden) return;
+    hidden.dataset.manualBalanceLeft = Number.isFinite(balance.left) ? String(balance.left) : '';
+    hidden.dataset.manualBalanceRight = Number.isFinite(balance.right) ? String(balance.right) : '';
+    const raw = formatManualBalance(balance);
+    hidden.dataset.manualBalanceRaw = raw;
+    valueEl.dataset.manualBalance = 'true';
+    valueEl.dataset.manualBalanceRaw = raw;
+    valueEl.textContent = raw;
+  }
+
+  function clearManualBalance(cardEl, valueEl) {
+    const hidden = cardEl?.querySelector('.active-pv-hidden');
+    if (hidden) {
+      delete hidden.dataset.manualBalanceLeft;
+      delete hidden.dataset.manualBalanceRight;
+      delete hidden.dataset.manualBalanceRaw;
+    }
+    delete valueEl.dataset.manualBalance;
+    delete valueEl.dataset.manualBalanceRaw;
+  }
+
+  function setupBalanceManualEditing(cardEl) {
+    const valueEl = getBalanceValueElement(cardEl);
+    if (!valueEl || valueEl.__balanceHandlersAttached) return;
+    valueEl.__balanceHandlersAttached = true;
+    valueEl.__balanceDirty = false;
+
+    valueEl.addEventListener('input', () => {
+      valueEl.dataset.manualBalance = 'true';
+      valueEl.__balanceDirty = true;
+    });
+
+    valueEl.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        const cardElLocal = valueEl.closest('.card');
+        if (!cardElLocal) return;
+        clearManualBalance(cardElLocal, valueEl);
+        valueEl.textContent = '';
+        valueEl.__balanceDirty = false;
+        recalculateAndRender();
+        saveState();
+      }
+    });
+  }
+
+  function handleBalanceManualBlur(el) {
+    if (!el || !el.__balanceHandlersAttached || !el.closest('.card')) return;
+    if (!el.__balanceDirty && !el.dataset.manualBalance) return;
+
+    const cardEl = el.closest('.card');
+    if (!cardEl) { el.__balanceDirty = false; return; }
+
+    const text = (el.textContent || '').trim();
+    if (!text) {
+      clearManualBalance(cardEl, el);
+      el.textContent = '';
+      el.__balanceDirty = false;
+      recalculateAndRender();
+      return;
+    }
+
+    const parsed = parseManualBalanceInput(text);
+    if (parsed) {
+      storeManualBalance(cardEl, el, parsed);
+    } else {
+      const stored = readStoredManualBalance(cardEl);
+      if (stored && stored.raw) {
+        el.textContent = stored.raw;
+        el.dataset.manualBalance = 'true';
+      } else {
+        clearManualBalance(cardEl, el);
+        recalculateAndRender();
+      }
+    }
+    el.__balanceDirty = false;
+  }
+
+  function parseActivePV(cardEl) {
+    const row = Array.from(cardEl.querySelectorAll('.card-row')).find(r => {
+      const lab = r.querySelector('.label');
+      return lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы');
     });
     return balanceRow ? balanceRow.querySelector('.value') : null;
   }
@@ -2241,6 +2372,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
