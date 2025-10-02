@@ -2092,8 +2092,7 @@ const getCleanedCardHtml = async (cardData) => { // Добавили async
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${contentWidth + PADDING * 2}" height="${contentHeight + PADDING * 2}">
             <defs>
                 <style>
-                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: hidden; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; }
-                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
+                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: visible; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; }                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
                     .card-title { grid-column: 2 / 3; text-align: center; font-size: 20px; line-height: 1; font-weight: 800; }
                     .card-body { padding: 15px; text-align: center; }
                     .card-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -2404,6 +2403,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
