@@ -1273,66 +1273,66 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeRow = null;
     rows.forEach(r => {
       const lab = r.querySelector('.label');
-      if (lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы')) activeRow = r;␊
-    });␊
-    if (!activeRow) return;␊
-␊
-    activeRow.classList.add('active-pv-row');␊
-␊
-    if (!cardEl.querySelector('.active-pv-controls')) {␊
-      const controls = document.createElement('div');␊
-      controls.className = 'active-pv-controls';␊
-      controls.innerHTML = `␊
-        <div class="left-controls">␊
-          <button class="active-btn" data-dir="L" data-step="1">+1</button>␊
-          <button class="active-btn" data-dir="L" data-step="10">+10</button>␊
-          <button class="active-btn" data-dir="L" data-step="-10">-10</button>␊
-          <button class="active-btn" data-dir="L" data-step="-1">-1</button>␊
-        </div>␊
-        <div class="mid-controls">␊
-          <button class="active-btn active-clear">Очистить</button>␊
-        </div>␊
-        <div class="right-controls">␊
-          <button class="active-btn" data-dir="R" data-step="-1">-1</button>␊
-          <button class="active-btn" data-dir="R" data-step="-10">-10</button>␊
-          <button class="active-btn" data-dir="R" data-step="10">+10</button>␊
-          <button class="active-btn" data-dir="R" data-step="1">+1</button>␊
-        </div>`;␊
-      activeRow.insertAdjacentElement('afterend', controls);␊
-    }␊
-␊
-    let hidden = cardEl.querySelector('.active-pv-hidden');␊
-    if (!hidden) {␊
-      hidden = document.createElement('span');␊
-      hidden.className = 'active-pv-hidden';␊
-      hidden.style.display = 'none';␊
-      hidden.dataset.btnL    = '0';␊
-      hidden.dataset.btnR    = '0';␊
-      hidden.dataset.abonusl = '0';␊
-      hidden.dataset.abonusr = '0';␊
-      hidden.dataset.locall  = '0';␊
-      hidden.dataset.localr  = '0';␊
-      activeRow.insertAdjacentElement('afterend', hidden);␊
-    } else {␊
-      hidden.dataset.btnL    = hidden.dataset.btnL    || '0';␊
-      hidden.dataset.btnR    = hidden.dataset.btnR    || '0';␊
-      hidden.dataset.abonusl = hidden.dataset.abonusl || '0';␊
-      hidden.dataset.abonusr = hidden.dataset.abonusr || '0';␊
-      hidden.dataset.locall  = hidden.dataset.locall  || '0';␊
-      hidden.dataset.localr  = hidden.dataset.localr  || '0';␊
-    }␊
-    hidden.dataset.manualBalanceLeft = hidden.dataset.manualBalanceLeft || '';␊
-    hidden.dataset.manualBalanceRight = hidden.dataset.manualBalanceRight || '';␊
-    hidden.dataset.manualBalanceRaw = hidden.dataset.manualBalanceRaw || '';␊
-␊
-    const valEl = activeRow.querySelector('.value');␊
-    if (valEl) {␊
-      valEl.setAttribute('contenteditable', 'false');␊
+      if (lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы')) activeRow = r;
+    });
+    if (!activeRow) return;
+
+    activeRow.classList.add('active-pv-row');
+
+    if (!cardEl.querySelector('.active-pv-controls')) {
+      const controls = document.createElement('div');  
+      controls.className = 'active-pv-controls';  
+      controls.innerHTML = `  
+        <div class="left-controls">  
+          <button class="active-btn" data-dir="L" data-step="1">+1</button>  
+          <button class="active-btn" data-dir="L" data-step="10">+10</button>  
+          <button class="active-btn" data-dir="L" data-step="-10">-10</button>  
+          <button class="active-btn" data-dir="L" data-step="-1">-1</button>  
+        </div>  
+        <div class="mid-controls">  
+          <button class="active-btn active-clear">Очистить</button>  
+        </div>  
+        <div class="right-controls">  
+          <button class="active-btn" data-dir="R" data-step="-1">-1</button>  
+          <button class="active-btn" data-dir="R" data-step="-10">-10</button>  
+          <button class="active-btn" data-dir="R" data-step="10">+10</button>  
+          <button class="active-btn" data-dir="R" data-step="1">+1</button>  
+        </div>`;  
+      activeRow.insertAdjacentElement('afterend', controls);  
+    }  
+  
+    let hidden = cardEl.querySelector('.active-pv-hidden');  
+    if (!hidden) {  
+      hidden = document.createElement('span');  
+      hidden.className = 'active-pv-hidden';  
+      hidden.style.display = 'none';  
+      hidden.dataset.btnL    = '0';  
+      hidden.dataset.btnR    = '0';  
+      hidden.dataset.abonusl = '0';  
+      hidden.dataset.abonusr = '0';  
+      hidden.dataset.locall  = '0';  
+      hidden.dataset.localr  = '0';  
+      activeRow.insertAdjacentElement('afterend', hidden);  
+    } else {  
+      hidden.dataset.btnL    = hidden.dataset.btnL    || '0';  
+      hidden.dataset.btnR    = hidden.dataset.btnR    || '0';  
+      hidden.dataset.abonusl = hidden.dataset.abonusl || '0';  
+      hidden.dataset.abonusr = hidden.dataset.abonusr || '0';  
+      hidden.dataset.locall  = hidden.dataset.locall  || '0';  
+      hidden.dataset.localr  = hidden.dataset.localr  || '0';  
+    }  
+    hidden.dataset.manualBalanceLeft = hidden.dataset.manualBalanceLeft || '';  
+    hidden.dataset.manualBalanceRight = hidden.dataset.manualBalanceRight || '';  
+    hidden.dataset.manualBalanceRaw = hidden.dataset.manualBalanceRaw || '';  
+  
+    const valEl = activeRow.querySelector('.value');  
+    if (valEl) {  
+      valEl.setAttribute('contenteditable', 'false');  
       ['beforeinput', 'input', 'keydown', 'paste'].forEach(ev =>
         activeRow.addEventListener(ev, (e) => { e.stopPropagation(); e.preventDefault(); }, { capture: true })
-      );␊
-    }␊
-  }␊
+      );  
+    }  
+  }  
 
   function getBalanceValueElement(cardEl) {
     const balanceRow = Array.from(cardEl.querySelectorAll('.card-row')).find(row => {
@@ -2372,6 +2372,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
