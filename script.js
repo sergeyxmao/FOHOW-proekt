@@ -1188,7 +1188,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const buildAndDownload = (cssText) => {
-          const htmlContent = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Просмотр Схемы</title><style>${cssText}body{overflow:hidden}.card:hover{transform:none;box-shadow:0 8px 20px rgba(0,0,0,.15)}.card.selected{box-shadow:0 8px 20px rgba(0,0,0,.15)}</style></head><body style="background:${bodyStyle.background};">${canvasClone.outerHTML}${viewOnlyScript}</body></html>`;
+          const serializeVoidTags = (html) =>
+            html.replace(/<(img|meta)([^>]*?)(\s*\/)?>(?=<|$)/gi, (_, tag, attrs) => {
+              const trimmedAttrs = (attrs || '').trim().replace(/\s*\/?$/, '');
+              const spacer = trimmedAttrs ? ` ${trimmedAttrs}` : '';
+              return `<${tag}${spacer} />`;
+            });
+
+          const rawHtmlContent = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Просмотр Схемы</title><style>${cssText}body{overflow:hidden}.card:hover{transform:none;box-shadow:0 8px 20px rgba(0,0,0,.15)}.card.selected{box-shadow:0 8px 20px rgba(0,0,0,.15)}</style></head><body style="background:${bodyStyle.background};">${canvasClone.outerHTML}${viewOnlyScript}</body></html>`;
+          const htmlContent = serializeVoidTags(rawHtmlContent);
           const blob = new Blob([htmlContent], {type:'text/html'});
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -2351,4 +2359,5 @@ async function prepareForPrint() {
 
 
 });
+
 
