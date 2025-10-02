@@ -1953,7 +1953,23 @@ document.addEventListener('DOMContentLoaded', () => {
       notesListBtn.disabled = !hasAnyNoteWithText;
     }
   }
-
+// ВСТАВЬТЕ ЭТОТ КОД ПЕРЕД ФУНКЦИЕЙ exportToSvg
+const imageToDataUri = (url) => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => resolve(null); // Если картинка не загрузилась, просто идем дальше
+        img.src = url;
+    });
+};
 async function exportToSvg() {
     if (cards.length === 0) {
         alert("На доске нет элементов для экспорта.");
@@ -1977,10 +1993,7 @@ async function exportToSvg() {
     const contentHeight = maxY - minY;
     const viewBox = `0 0 ${contentWidth + PADDING * 2} ${contentHeight + PADDING * 2}`;
 
-    const getCleanedCardHtml = (cardData) => {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = `<div class="card" style="width:${cardData.width || '380px'};">${cardData.bodyHTML}</div>`;
-
+const getCleanedCardHtml = async (cardData) => { // Добавили async
         const tempBody = document.createElement('div');
         tempBody.innerHTML = cardData.bodyHTML;
         const pvControls = tempBody.querySelector('.active-pv-controls');
@@ -1990,7 +2003,14 @@ async function exportToSvg() {
         const slfClass = `slf-badge${badges.slf ? ' visible' : ''}`;
         const fendouClass = `fendou-badge${badges.fendou ? ' visible' : ''}`;
         const rankClass = `rank-badge${badges.rank ? ' visible' : ''}`;
-        const rankSrc = badges.rank ? `rank-${badges.rank}.png` : '';
+        
+        let rankSrc = '';
+        if (badges.rank) {
+            const dataUri = await imageToDataUri(`rank-${badges.rank}.png`);
+            if (dataUri) {
+                rankSrc = dataUri;
+            }
+        }
 
         const cardHeader = document.createElement('div');
         cardHeader.className = 'card-header';
@@ -2014,13 +2034,23 @@ async function exportToSvg() {
         cardBody.innerHTML = tempBody.innerHTML;
         finalCard.appendChild(cardBody);
 
-        return finalCard.outerHTML.replace(/(<img[^>]+)>/g, '$1 />');
+        const rawHtml = finalCard.outerHTML;
+        return rawHtml.replace(/(<img[^>]+)>/g, '$1 />');
     };
 
-    const cardObjects = state.cards.map(card =>
-        `<foreignObject x="${card.x - minX + PADDING}" y="${card.y - minY + PADDING}" width="${parseInt(card.width, 10) || 380}" height="280">
-            <div xmlns="http://www.w3.org/1999/xhtml">
-                ${getCleanedCardHtml(card)}
+const FENDOU_OFFSET_Y = 50; // Запас высоты сверху для надписи FENDOU
+
+    const cardHtmlPromises = state.cards.map(card => getCleanedCardHtml(card));
+    const resolvedCardHtmls = await Promise.all(cardHtmlPromises);
+
+    const cardObjects = state.cards.map((card, index) =>
+        `<foreignObject 
+            x="${card.x - minX + PADDING}" 
+            y="${card.y - minY + PADDING - FENDOU_OFFSET_Y}" 
+            width="${parseInt(card.width, 10) || 380}" 
+            height="${280 + FENDOU_OFFSET_Y}">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="position: relative; top: ${FENDOU_OFFSET_Y}px;">
+                ${resolvedCardHtmls[index]}
             </div>
         </foreignObject>`
     ).join('\n');
@@ -2367,6 +2397,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
