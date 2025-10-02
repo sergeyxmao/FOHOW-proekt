@@ -489,11 +489,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cardData.note && cardData.note.visible) createNoteWindow(cardData);
 
     setupBalanceManualEditing(card);
-    setupBalanceManualEditing(card);
     card.querySelectorAll('[contenteditable="true"]').forEach(el => el.addEventListener('blur', () => {
       handleBalanceManualBlur(el);
-      saveState();
-    }));      handleBalanceManualBlur(el);
       saveState();
     }));
     card.querySelectorAll('.connection-point').forEach(point => {
@@ -1138,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadProjectBtn && loadProjectInput) {
       loadProjectBtn.addEventListener('click', () => loadProjectInput.click());
       loadProjectInput.addEventListener('change', async (e) => {
-        const file = e.target.files && e.target.files;
+        const file = e.target.files && e.target.files[0];
         if (!file) return;
 
         try {
@@ -1167,8 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (exportHtmlBtn) {
       exportHtmlBtn.addEventListener('click', () => {
         const bodyStyle = getComputedStyle(document.body);
-        // ИСПРАВЛЕНИЕ: Экранируем внутренние ` и $ для встраиваемого скрипта
-        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\\\`translate(\\\${x}px,\\\${y}px) scale(\\\${s})\\\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
+        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
 
         const canvasClone = canvas.cloneNode(true);
 
@@ -1280,59 +1276,59 @@ document.addEventListener('DOMContentLoaded', () => {
     activeRow.classList.add('active-pv-row');
 
     if (!cardEl.querySelector('.active-pv-controls')) {
-      const controls = document.createElement('div');  
-      controls.className = 'active-pv-controls';  
-      controls.innerHTML = `  
-        <div class="left-controls">  
-          <button class="active-btn" data-dir="L" data-step="1">+1</button>  
-          <button class="active-btn" data-dir="L" data-step="10">+10</button>  
-          <button class="active-btn" data-dir="L" data-step="-10">-10</button>  
-          <button class="active-btn" data-dir="L" data-step="-1">-1</button>  
-        </div>  
-        <div class="mid-controls">  
-          <button class="active-btn active-clear">Очистить</button>  
-        </div>  
-        <div class="right-controls">  
-          <button class="active-btn" data-dir="R" data-step="-1">-1</button>  
-          <button class="active-btn" data-dir="R" data-step="-10">-10</button>  
-          <button class="active-btn" data-dir="R" data-step="10">+10</button>  
-          <button class="active-btn" data-dir="R" data-step="1">+1</button>  
-        </div>`;  
-      activeRow.insertAdjacentElement('afterend', controls);  
-    }  
-  
-    let hidden = cardEl.querySelector('.active-pv-hidden');  
-    if (!hidden) {  
-      hidden = document.createElement('span');  
-      hidden.className = 'active-pv-hidden';  
-      hidden.style.display = 'none';  
-      hidden.dataset.btnL    = '0';  
-      hidden.dataset.btnR    = '0';  
-      hidden.dataset.abonusl = '0';  
-      hidden.dataset.abonusr = '0';  
-      hidden.dataset.locall  = '0';  
-      hidden.dataset.localr  = '0';  
-      activeRow.insertAdjacentElement('afterend', hidden);  
-    } else {  
-      hidden.dataset.btnL    = hidden.dataset.btnL    || '0';  
-      hidden.dataset.btnR    = hidden.dataset.btnR    || '0';  
-      hidden.dataset.abonusl = hidden.dataset.abonusl || '0';  
-      hidden.dataset.abonusr = hidden.dataset.abonusr || '0';  
-      hidden.dataset.locall  = hidden.dataset.locall  || '0';  
-      hidden.dataset.localr  = hidden.dataset.localr  || '0';  
-    }  
-    hidden.dataset.manualBalanceLeft = hidden.dataset.manualBalanceLeft || '';  
-    hidden.dataset.manualBalanceRight = hidden.dataset.manualBalanceRight || '';  
-    hidden.dataset.manualBalanceRaw = hidden.dataset.manualBalanceRaw || '';  
-  
-    const valEl = activeRow.querySelector('.value');  
-    if (valEl) {  
-      valEl.setAttribute('contenteditable', 'false');  
+      const controls = document.createElement('div');
+      controls.className = 'active-pv-controls';
+      controls.innerHTML = `
+        <div class="left-controls">
+          <button class="active-btn" data-dir="L" data-step="1">+1</button>
+          <button class="active-btn" data-dir="L" data-step="10">+10</button>
+          <button class="active-btn" data-dir="L" data-step="-10">-10</button>
+          <button class="active-btn" data-dir="L" data-step="-1">-1</button>
+        </div>
+        <div class="mid-controls">
+          <button class="active-btn active-clear">Очистить</button>
+        </div>
+        <div class="right-controls">
+          <button class="active-btn" data-dir="R" data-step="-1">-1</button>
+          <button class="active-btn" data-dir="R" data-step="-10">-10</button>
+          <button class="active-btn" data-dir="R" data-step="10">+10</button>
+          <button class="active-btn" data-dir="R" data-step="1">+1</button>
+        </div>`;
+      activeRow.insertAdjacentElement('afterend', controls);
+    }
+
+    let hidden = cardEl.querySelector('.active-pv-hidden');
+    if (!hidden) {
+      hidden = document.createElement('span');
+      hidden.className = 'active-pv-hidden';
+      hidden.style.display = 'none';
+      hidden.dataset.btnL    = '0';
+      hidden.dataset.btnR    = '0';
+      hidden.dataset.abonusl = '0';
+      hidden.dataset.abonusr = '0';
+      hidden.dataset.locall  = '0';
+      hidden.dataset.localr  = '0';
+      activeRow.insertAdjacentElement('afterend', hidden);
+    } else {
+      hidden.dataset.btnL    = hidden.dataset.btnL    || '0';
+      hidden.dataset.btnR    = hidden.dataset.btnR    || '0';
+      hidden.dataset.abonusl = hidden.dataset.abonusl || '0';
+      hidden.dataset.abonusr = hidden.dataset.abonusr || '0';
+      hidden.dataset.locall  = hidden.dataset.locall  || '0';
+      hidden.dataset.localr  = hidden.dataset.localr  || '0';
+    }
+    hidden.dataset.manualBalanceLeft = hidden.dataset.manualBalanceLeft || '';
+    hidden.dataset.manualBalanceRight = hidden.dataset.manualBalanceRight || '';
+    hidden.dataset.manualBalanceRaw = hidden.dataset.manualBalanceRaw || '';
+
+    const valEl = activeRow.querySelector('.value');
+    if (valEl) {
+      valEl.setAttribute('contenteditable', 'false');
       ['beforeinput', 'input', 'keydown', 'paste'].forEach(ev =>
-        activeRow.addEventListener(ev, (e) => { e.stopPropagation(); e.preventDefault(); }, { capture: true })
-      );  
-    }  
-  }  
+        valEl.addEventListener(ev, (e) => { e.stopPropagation(); e.preventDefault(); }, { capture: true })
+      );
+    }
+  }
 
   function getBalanceValueElement(cardEl) {
     const balanceRow = Array.from(cardEl.querySelectorAll('.card-row')).find(row => {
@@ -1453,41 +1449,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const lab = r.querySelector('.label');
       return lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы');
     });
-    return balanceRow ? balanceRow.querySelector('.value') : null;
-  }
-
-  function setupBalanceManualEditing(cardEl) {
-    const valueEl = getBalanceValueElement(cardEl);
-    if (!valueEl || valueEl.__balanceHandlersAttached) return;
-    valueEl.__balanceHandlersAttached = true;
-    valueEl.__balanceDirty = false;
-
-    valueEl.addEventListener('input', () => {
-      valueEl.dataset.manualBalance = 'true';
-      valueEl.__balanceDirty = true;
-    });
-  }
-
-  function handleBalanceManualBlur(el) {
-    if (!el || !el.__balanceHandlersAttached || !el.closest('.card')) return;
-    if (!el.__balanceDirty && !el.dataset.manualBalance) return;
-
-    const text = (el.textContent || '').trim();
-    if (text) {
-      el.textContent = text;
-      el.dataset.manualBalance = 'true';
-    } else {
-      delete el.dataset.manualBalance;
-      recalculateAndRender();
-    }
-    el.__balanceDirty = false;
-  }
-
-  function parseActivePV(cardEl) {
-    const row = Array.from(cardEl.querySelectorAll('.card-row')).find(r => {
-      const lab = r.querySelector('.label');
-      return lab && (lab.textContent || '').trim().toLowerCase().startsWith('актив-заказы');
-    });
     if (!row) return { L: 0, R: 0, row: null, valEl: null };
     const valEl = row.querySelector('.value');
     const txt = (valEl?.textContent || '').trim();
@@ -1514,6 +1475,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!p) return null;
     return { parentId: p.parentId, side: (p.side === 'right' ? 'R' : 'L') };
   }
+
   function propagateActivePvUp(cardEl, side, amount) {
     if (!amount) return;
     const BASE = ACTIVE_PV_BASE;
@@ -2215,7 +2177,6 @@ async function prepareForPrint() {
         }
 
         printWindow.document.open();
-        // ИСПРАВЛЕНИЕ: Удалены некорректные обратные слэши перед ${...}
         printWindow.document.write(`
           <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати A0</title>
           <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
@@ -2372,16 +2333,3 @@ async function prepareForPrint() {
 
 
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
