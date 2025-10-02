@@ -2038,22 +2038,29 @@ const getCleanedCardHtml = async (cardData) => { // Добавили async
         return rawHtml.replace(/(<img[^>]+)>/g, '$1 />');
     };
 
-const FENDOU_OFFSET_Y = 50; // Запас высоты сверху для надписи FENDOU
+ // Определяем дополнительное пространство вокруг карточки для предотвращения обрезки
+    const EXTRA_PADDING_TOP = 60;  // Запас высоты сверху для надписи "FENDOU"
+    const EXTRA_PADDING_SIDE = 50; // Запас ширины сбоку для значка ранга
 
     const cardHtmlPromises = state.cards.map(card => getCleanedCardHtml(card));
     const resolvedCardHtmls = await Promise.all(cardHtmlPromises);
 
-    const cardObjects = state.cards.map((card, index) =>
-        `<foreignObject 
-            x="${card.x - minX + PADDING}" 
-            y="${card.y - minY + PADDING - FENDOU_OFFSET_Y}" 
-            width="${parseInt(card.width, 10) || 380}" 
-            height="${280 + FENDOU_OFFSET_Y}">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="position: relative; top: ${FENDOU_OFFSET_Y}px;">
+    const cardObjects = state.cards.map((card, index) => {
+        const cardWidth = parseInt(card.width, 10) || 380;
+        // Увеличиваем общую ширину и высоту контейнера
+        const totalWidth = cardWidth + (EXTRA_PADDING_SIDE * 2);
+        const totalHeight = 280 + EXTRA_PADDING_TOP;
+
+        return `<foreignObject
+            x="${card.x - minX + PADDING - EXTRA_PADDING_SIDE}"
+            y="${card.y - minY + PADDING - EXTRA_PADDING_TOP}"
+            width="${totalWidth}"
+            height="${totalHeight}">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="position: relative; top: ${EXTRA_PADDING_TOP}px; left: ${EXTRA_PADDING_SIDE}px;">
                 ${resolvedCardHtmls[index]}
             </div>
-        </foreignObject>`
-    ).join('\n');
+        </foreignObject>`;
+    }).join('\n');
 
     const lineObjects = state.lines.map(line => {
         const startCard = state.cards.find(c => c.id === line.startId);
@@ -2397,6 +2404,7 @@ async function prepareForPrint() {
 
 
 });
+
 
 
 
