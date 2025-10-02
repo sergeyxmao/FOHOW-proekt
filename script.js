@@ -1778,7 +1778,7 @@ document.addEventListener('DOMContentLoaded', () => {
       note.visible = false;
       noteWindow.remove();
       note.window = null;
-      saveState();
+      saveState();			
     });
 
     const header = noteWindow.querySelector('.note-header');
@@ -1970,10 +1970,23 @@ async function exportToSvg() {
         const pvControls = tempBody.querySelector('.active-pv-controls');
         if (pvControls) pvControls.remove();
 
+        const badges = cardData.badges || { fendou: false, slf: false, rank: null };
+        const slfClass = `slf-badge${badges.slf ? ' visible' : ''}`;
+        const fendouClass = `fendou-badge${badges.fendou ? ' visible' : ''}`;
+        const rankClass = `rank-badge${badges.rank ? ' visible' : ''}`;
+        const rankSrc = badges.rank ? `rank-${badges.rank}.png` : '';
+
         const cardHeader = document.createElement('div');
         cardHeader.className = 'card-header';
-        cardHeader.style.background = cardData.headerBg;
-        cardHeader.innerHTML = `<span class="card-title">${cardData.title}</span>`;
+        if (cardData.headerBg) {
+            cardHeader.style.background = cardData.headerBg;
+        }
+        cardHeader.innerHTML = `
+            <div class="${slfClass}">SLF</div>
+            <span class="card-title">${cardData.title}</span>
+            <div class="${fendouClass}">FENDOU</div>
+            <img class="${rankClass}" src="${rankSrc}" alt="Rank" />
+        `;
 
         const finalCard = document.createElement('div');
         finalCard.className = 'card';
@@ -2027,13 +2040,18 @@ async function exportToSvg() {
             <defs>
                 <style>
                     .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: hidden; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; }
-                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; display: flex; align-items: center; justify-content: center; }
-                    .card-title { font-size: 20px; line-height: 1; font-weight: 800; }
+                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
+                    .card-title { grid-column: 2 / 3; text-align: center; font-size: 20px; line-height: 1; font-weight: 800; }
                     .card-body { padding: 15px; text-align: center; }
                     .card-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px; }
                     .label { font-weight: 700; color: #374151; font-size: 16px; }
                     .value { color: #111827; font-weight: 800; font-size: 20px; }
                     .coin-icon { width: 28px; height: 28px; }
+                    .slf-badge, .fendou-badge, .rank-badge { position: absolute; display: none; user-select: none; pointer-events: none; }
+                    .slf-badge.visible, .fendou-badge.visible, .rank-badge.visible { display: block; }
+                    .slf-badge { top: 15px; left: 15px; color: #ffc700; font-weight: 900; font-size: 24px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+                    .fendou-badge { top: -25px; left: 50%; transform: translateX(-50%); color: red; font-weight: 900; font-size: 36px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+                    .rank-badge { top: -15px; right: 15px; width: 80px; height: auto; transform: rotate(15deg); }
                     .card.dark-mode, .card.dark-mode .card-body { background: #2b2b2b; }
                     .card.dark-mode .label { color: #e5e7eb; }
                     .card.dark-mode .value { color: #f9fafb; }
@@ -2333,3 +2351,4 @@ async function prepareForPrint() {
 
 
 });
+
