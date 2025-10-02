@@ -1243,15 +1243,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (name.startsWith('баланс')) {
             const manual = value.dataset.manualBalance ? readStoredManualBalance(el) : null;
+            let manualLeft = 0;
+            let manualRight = 0;
+            let hasManualNumbers = false;
+
             if (manual) {
-              if (manual.left != null && manual.right != null) {
-                value.textContent = manual.raw || formatManualBalance({ left: manual.left, right: manual.right });
+              if (Number.isFinite(manual.left) && Number.isFinite(manual.right)) {
+                manualLeft = manual.left;
+                manualRight = manual.right;
+                hasManualNumbers = true;
               } else if (manual.raw) {
                 value.textContent = manual.raw;
+                return;
               } else {
                 delete value.dataset.manualBalance;
               }
-              return;
             }
 
             const r = result[cd.id] || { L: 0, R: 0, total: 0 };
@@ -1263,7 +1269,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (localR < 0) localR = 0;
             const leftBalance = Math.max(0, (r.L || 0) + aBonusL + localL);
             const rightBalance = Math.max(0, (r.R || 0) + aBonusR + localR);
-            value.textContent = `${leftBalance} / ${rightBalance}`;
+            const displayLeft = hasManualNumbers ? manualLeft + leftBalance : leftBalance;
+            const displayRight = hasManualNumbers ? manualRight + rightBalance : rightBalance;
+            value.textContent = `${displayLeft} / ${displayRight}`;
           }
         });
       });
@@ -2359,5 +2367,6 @@ async function prepareForPrint() {
 
 
 });
+
 
 
