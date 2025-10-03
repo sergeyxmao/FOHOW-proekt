@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggleGuidesBtn = document.getElementById('toggle-guides-btn');
   const toggleGridBtn = document.getElementById('toggle-grid-btn');
   const hierarchicalDragModeBtn = document.getElementById('hierarchical-drag-mode-btn');
-  const projectNameInput = document.getElementById('project-name-input');
 
   const thicknessSlider = document.getElementById('thickness-slider');
   const thicknessValue = document.getElementById('thickness-value');
@@ -45,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     isHierarchicalDragMode: false,
     isGlobalLineMode: false,
     guidesEnabled: true,
-    isGridVisible: true,
+    isGridVisible: false,
     lineStart: null,
     previewLine: null
   };
@@ -68,17 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!canvas || !svgLayer) return;
 
-  document.documentElement.style.setProperty('--grid-step', `${GRID_SIZE}px`);
-
   gridOverlay = document.createElement('div');
   gridOverlay.id = 'canvas-grid-overlay';
   gridOverlay.className = 'canvas-grid-overlay';
+  gridOverlay.style.display = 'none';
   canvas.prepend(gridOverlay);
   updateGridOverlayVisibility();
-
-  if (projectNameInput) {
-    projectNameInput.addEventListener('change', () => saveState());
-  }
 
   if (addCardBtn) addCardBtn.addEventListener('click', () => { createCard(); saveState(); });
   if (addLargeCardBtn) addLargeCardBtn.addEventListener('click', () => { createCard({ isLarge: true }); saveState(); });
@@ -152,28 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function getProjectName() {
-    return (projectNameInput?.value || '').trim();
-  }
-
-  function applyProjectName(name) {
-    if (!projectNameInput) return;
-    projectNameInput.value = name ? String(name) : '';
-  }
-
-  function sanitizeFileName(name, fallback = 'project') {
-    const trimmed = (name || '').trim().replace(/\s+/g, ' ');
-    const sanitized = trimmed
-      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
-      .replace(/\.+$/, '');
-    return sanitized || fallback;
-  }
-
   function setupGlobalEventListeners() {
     window.addEventListener('mousedown', (e) => {
       if (
         e.target.closest('.ui-panel-left') ||
-        e.target.closest('.ui-panel-center') ||
         e.target.closest('.ui-panel-right') ||
         e.target.closest('.note-window') ||
         e.target.closest('.card-context-menu')
@@ -231,11 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('wheel', (e) => {
-      if (
-        e.target.closest('.ui-panel-left') ||
-        e.target.closest('.ui-panel-center') ||
-        e.target.closest('.ui-panel-right')
-      ) return;
+      if (e.target.closest('.ui-panel-left') || e.target.closest('.ui-panel-right')) return;
       e.preventDefault();
       const scaleAmount = -e.deltaY * 0.001;
       const newScale = Math.max(0.1, Math.min(3, canvasState.scale + scaleAmount));
@@ -441,6 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="connection-point right" data-side="right"></div>
       <div class="connection-point bottom" data-side="bottom"></div>
       <div class="connection-point left" data-side="left"></div>
+      ${!opts.isLarge ? `<button class="card-control-btn body-color-changer" title="Сменить фон">🖌️</button>` : ''}
       <div class="card-controls">
         <button class="card-control-btn note-btn" title="Заметка">📝</button>
       </div>
@@ -524,6 +497,18 @@ document.addEventListener('DOMContentLoaded', () => {
         setHeaderColorByIndex(i);
         saveState();
     });
+
+    const bodyColorChanger = card.querySelector('.body-color-changer');
+    if (bodyColorChanger && cardBody) {
+      bodyColorChanger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const nextIsDark = !card.classList.contains('dark-mode');
+        card.classList.toggle('dark-mode', nextIsDark);
+        cardBody.classList.toggle('dark-bg', nextIsDark);
+        saveState();
+      });
+    }
+
 
     const noteBtn = card.querySelector('.note-btn');
     if (cardData.note && hasAnyEntry(cardData.note)) {
@@ -1011,8 +996,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function serializeState() {
     return {
-      projectName: getProjectName(),
-      gridVisible: !!activeState.isGridVisible,
       cards: cards.map(c => ({
         id: c.id,
         x: parseFloat(c.element.style.left),
@@ -1043,12 +1026,6 @@ document.addEventListener('DOMContentLoaded', () => {
     cards.forEach(c => { if (c.note && c.note.window) c.note.window.remove(); c.element.remove(); });
     cards = [];
     activeState.selectedCards.clear(); activeState.selectedLine = null;
-
-    activeState.isGridVisible = typeof state.gridVisible === 'boolean'
-      ? state.gridVisible
-      : activeState.isGridVisible;
-    updateGridOverlayVisibility();
-    applyProjectName(state.projectName ?? '');
 
     const idMap = new Map();
     state.cards.forEach(cd => {
@@ -1191,8 +1168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const safeName = sanitizeFileName(getProjectName(), 'project');
-        a.download = `${safeName}.json`;
+        a.download = `project-${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
       });
@@ -1227,7 +1203,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-  
     if (exportHtmlBtn) {
       exportHtmlBtn.addEventListener('click', async () => {
         try {
@@ -1241,6 +1216,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '.card-controls',
             '.close-btn',
             '.header-color-picker-btn',
+            '.body-color-changer',
             '.connection-point',
             '.color-changer',
             '.active-pv-controls'
@@ -1321,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cssText = await response.text();
             buildAndDownload(cssText);
           } catch (err) {
-            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.canvas-grid-overlay{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(0deg, rgba(15,98,254,.18) 1px, transparent 1px),linear-gradient(90deg, rgba(15,98,254,.18) 1px, transparent 1px),linear-gradient(0deg, rgba(15,98,254,.45) 2px, transparent 2px),linear-gradient(90deg, rgba(15,98,254,.45) 2px, transparent 2px);background-size:70px 70px,70px 70px,350px 350px,350px 350px;background-position:0 0,0 0,0 0,0 0;opacity:.75}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
+            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.canvas-grid-overlay{position:absolute;inset:0;pointer-events:none;background-size:70px 70px;background-image:linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);opacity:.3}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
             buildAndDownload(minimalCss);
           }
         } catch (err) {
@@ -1364,18 +1340,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (name.startsWith('баланс')) {
             const manual = value.dataset.manualBalance ? readStoredManualBalance(el) : null;
+            let manualLeft = 0;
+            let manualRight = 0;
+            let hasManualNumbers = false;
+
             if (manual) {
               if (Number.isFinite(manual.left) && Number.isFinite(manual.right)) {
-                value.textContent = formatManualBalance({ left: manual.left, right: manual.right });
-                value.dataset.manualBalance = 'true';
-                return;
-              }
-              if (manual.raw) {
+                manualLeft = manual.left;
+                manualRight = manual.right;
+                hasManualNumbers = true;
+              } else if (manual.raw) {
                 value.textContent = manual.raw;
-                value.dataset.manualBalance = 'true';
                 return;
+              } else {
+                delete value.dataset.manualBalance;
               }
-              delete value.dataset.manualBalance;
             }
 
             const r = result[cd.id] || { L: 0, R: 0, total: 0 };
@@ -1387,7 +1366,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (localR < 0) localR = 0;
             const leftBalance = Math.max(0, (r.L || 0) + aBonusL + localL);
             const rightBalance = Math.max(0, (r.R || 0) + aBonusR + localR);
-            value.textContent = `${leftBalance} / ${rightBalance}`;
+            const displayLeft = hasManualNumbers ? manualLeft + leftBalance : leftBalance;
+            const displayRight = hasManualNumbers ? manualRight + rightBalance : rightBalance;
+            value.textContent = `${displayLeft} / ${displayRight}`;
           }
         });
       });
