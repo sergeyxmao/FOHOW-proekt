@@ -1192,8 +1192,7 @@ document.addEventListener('DOMContentLoaded', () => {
       exportHtmlBtn.addEventListener('click', async () => {
         try {
           const bodyStyle = getComputedStyle(document.body);
-          const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(${x}px,${y}px) scale(${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
-
+          const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
           const canvasClone = canvas.cloneNode(true);
 
           const selectorsToRemove = [
@@ -2642,4 +2641,5 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
