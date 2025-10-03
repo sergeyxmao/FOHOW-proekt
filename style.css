@@ -8,6 +8,7 @@
   --bg: #f5f7fb;
   --radius: 14px;
   --shadow: 0 8px 20px rgba(0,0,0,.12);
+  --grid-step: 70px;
 }
 
 html,body{
@@ -31,6 +32,40 @@ html,body{
   display:flex; flex-direction:column; align-items:flex-end; gap:14px;
 }
 .ui-panel-right .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+
+.ui-panel-center{
+  position:fixed; top:20px; left:50%; transform:translateX(-50%);
+  z-index:2000;
+  display:flex; align-items:center;
+  background: var(--panel);
+  padding:8px 14px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+#project-name-input{
+  width:260px; max-width:36vw;
+  border:1px solid #d1d5db;
+  border-radius:10px;
+  padding:6px 12px;
+  font-size:16px;
+  font-weight:600;
+  color:var(--ink);
+  background:#fff;
+  outline:none;
+  transition:border-color .2s, box-shadow .2s;
+  user-select:text;
+}
+
+#project-name-input:focus{
+  border-color:var(--brand);
+  box-shadow:0 0 0 3px rgba(15,98,254,.2);
+}
+
+#project-name-input::placeholder{
+  color:var(--muted);
+  font-weight:500;
+}
 
 .ui-btn{
   min-width:40px; height:40px; padding:0 10px;
@@ -105,15 +140,15 @@ html,body{
   position:relative;
   background-color:#fff;
   background-image:
-    linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);
+    linear-gradient(0deg, rgba(15,98,254,.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,98,254,.25) 1px, transparent 1px);
   background-size:18px 18px;
 }
 .grad-btn--grid::after{
   content:"";
   position:absolute;
   inset:6px;
-  border:1px solid rgba(255,99,132,.35);
+  border:1px solid rgba(15,98,254,.35);
   border-radius:6px;
   pointer-events:none;
 }
@@ -129,11 +164,18 @@ html,body{
   position:absolute;
   inset:0;
   pointer-events:none;
-  background-size:70px 70px;
   background-image:
-    linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);
-  opacity:.3;
+    linear-gradient(0deg, rgba(15,98,254,.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,98,254,.18) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15,98,254,.45) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(15,98,254,.45) 2px, transparent 2px);
+  background-size:
+    var(--grid-step) var(--grid-step),
+    var(--grid-step) var(--grid-step),
+    calc(var(--grid-step) * 5) calc(var(--grid-step) * 5),
+    calc(var(--grid-step) * 5) calc(var(--grid-step) * 5);
+  background-position:0 0, 0 0, 0 0, 0 0;
+  opacity:.75;
 }
 .line{
   fill:none; pointer-events:auto; cursor:pointer;
@@ -218,7 +260,6 @@ html,body{
   width:22px; height:22px; border:none; border-radius:6px; cursor:pointer;
   box-shadow:0 2px 5px rgba(0,0,0,.1); font-size:16px; display:grid; place-items:center;
 }
-.body-color-changer{ position:absolute; bottom:8px; left:8px; }
 
 /* === Стили для заметок === */
 .note-btn { background:#fff; }
@@ -547,15 +588,15 @@ html,body{
   position:relative;
   background-color:#fff;
   background-image:
-    linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);
+    linear-gradient(0deg, rgba(15,98,254,.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,98,254,.25) 1px, transparent 1px);
   background-size:18px 18px;
-}
+}␊
 .grad-btn--grid::after{
   content:"";
   position:absolute;
   inset:6px;
-  border:1px solid rgba(255,99,132,.35);
+  border:1px solid rgba(15,98,254,.35);
   border-radius:6px;
   pointer-events:none;
 }
@@ -571,11 +612,18 @@ html,body{
   position:absolute;
   inset:0;
   pointer-events:none;
-  background-size:70px 70px;
   background-image:
-    linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);
-  opacity:.3;
+    linear-gradient(0deg, rgba(15,98,254,.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,98,254,.18) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(15,98,254,.45) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(15,98,254,.45) 2px, transparent 2px);
+  background-size:
+    var(--grid-step) var(--grid-step),
+    var(--grid-step) var(--grid-step),
+    calc(var(--grid-step) * 5) calc(var(--grid-step) * 5),
+    calc(var(--grid-step) * 5) calc(var(--grid-step) * 5);
+  background-position:0 0, 0 0, 0 0, 0 0;
+  opacity:.75;
 }
 .line{
   fill:none; pointer-events:auto; cursor:pointer;
@@ -660,7 +708,6 @@ html,body{
   width:22px; height:22px; border:none; border-radius:6px; cursor:pointer;
   box-shadow:0 2px 5px rgba(0,0,0,.1); font-size:16px; display:grid; place-items:center;
 }
-.body-color-changer{ position:absolute; bottom:8px; left:8px; }
 
 /* === Стили для заметок === */
 .note-btn { background:#fff; }
@@ -1091,6 +1138,7 @@ html,body{
     opacity: 0.6;
     filter: grayscale(1);
 }
+
 
 
 
