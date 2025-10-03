@@ -184,7 +184,9 @@ html,body{
 
 /* Тело карточки */
 .card-body{ padding:15px; text-align:center; background:#fff; border-radius:0 0 16px 16px; }
-.card-body.dark-bg{ background:#2b2b2b; }
+.card-body.dark-bg{ background:#2b2b2b; color:#f3f4f6; }
+.card-body.dark-bg .value,
+.card-body.dark-bg .label{ color:inherit; }
 
 .card-row{ display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:12px; }
 .label{ font-weight:700; color:#374151; }
@@ -340,21 +342,55 @@ html,body{
   font-weight: bold;
 }
 
-.card.dark-mode,
-.card.dark-mode .card-body{ background:#2b2b2b; }
-.card.dark-mode .label{ color:#e5e7eb; }
-.card.dark-mode .value{ color:#f9fafb; }
-.card.dark-mode .card-header{ background:#1f2937 !important; }
-.card.dark-mode .card-title{ color:#f3f4f6; }
-.card.dark-mode .note-btn,
-.card.dark-mode .color-changer{ background:#374151 !important; border-color:#4b5563; color:#e5e7eb; }
-
-.card.dark-mode .header-color-picker-btn,
-.card.dark-mode .color-changer {
-  visibility: hidden;
+.card.dark-mode{
+  background: var(--surface);
+  color:#f3f4f6;
 }
-.card.dark-mode .coin-icon {
-  visibility: hidden;
+.card.dark-mode .card-header{
+  background:#1f2937 !important;
+  color:#f3f4f6;
+}
+.card.dark-mode .card-title{
+  color:#f3f4f6;
+}
+.card-body.dark-bg{
+  background:#2b2b2b;
+  color:#f3f4f6;
+}
+.card-body.dark-bg .label,
+.card-body.dark-bg .value,
+.card-body.dark-bg .card-row > *,
+.card-body.dark-bg p,
+.card-body.dark-bg span,
+.card-body.dark-bg strong,
+.card-body.dark-bg b{
+  color:inherit;
+}
+.card-body.dark-bg .value{
+  background:rgba(255,255,255,0.08);
+}
+.card-body.dark-bg .value:focus{
+  background:rgba(255,255,255,0.18);
+  box-shadow:0 0 6px 2px rgba(255,255,255,.35);
+}
+.card.dark-mode .note-btn,
+.card.dark-mode .color-changer{
+  background:#374151 !important;
+  border-color:#4b5563;
+  color:#e5e7eb;
+}
+.card.dark-mode .header-color-picker-btn,
+.card.dark-mode .color-changer{
+  visibility:visible;
+  border-color:#6b7280;
+  box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+.card.dark-mode .coin-icon{
+  visibility:visible;
+}
+.card.dark-mode .coin-icon circle{
+  fill:#fbbf24;
+  stroke:#d97706;
 }
 
 .content-hidden .slf-badge,
@@ -590,7 +626,9 @@ html,body{
 
 /* Тело карточки */
 .card-body{ padding:15px; text-align:center; background:#fff; border-radius:0 0 16px 16px; }
-.card-body.dark-bg{ background:#2b2b2b; }
+.card-body.dark-bg{ background:#2b2b2b; color:#f3f4f6; }
+.card-body.dark-bg .value,
+.card-body.dark-bg .label{ color:inherit; }
 
 .card-row{ display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:12px; }
 .label{ font-weight:700; color:#374151; }
@@ -746,21 +784,55 @@ html,body{
   font-weight: bold;
 }
 
-.card.dark-mode,
-.card.dark-mode .card-body{ background:#2b2b2b; }
-.card.dark-mode .label{ color:#e5e7eb; }
-.card.dark-mode .value{ color:#f9fafb; }
-.card.dark-mode .card-header{ background:#1f2937 !important; }
-.card.dark-mode .card-title{ color:#f3f4f6; }
-.card.dark-mode .note-btn,
-.card.dark-mode .color-changer{ background:#374151 !important; border-color:#4b5563; color:#e5e7eb; }
-
-.card.dark-mode .header-color-picker-btn,
-.card.dark-mode .color-changer {
-  visibility: hidden;
+.card.dark-mode{
+  background: var(--surface);
+  color:#f3f4f6;
 }
-.card.dark-mode .coin-icon {
-  visibility: hidden;
+.card.dark-mode .card-header{
+  background:#1f2937 !important;
+  color:#f3f4f6;
+}
+.card.dark-mode .card-title{
+  color:#f3f4f6;
+}
+.card-body.dark-bg{
+  background:#2b2b2b;
+  color:#f3f4f6;
+}
+.card-body.dark-bg .label,
+.card-body.dark-bg .value,
+.card-body.dark-bg .card-row > *,
+.card-body.dark-bg p,
+.card-body.dark-bg span,
+.card-body.dark-bg strong,
+.card-body.dark-bg b{
+  color:inherit;
+}
+.card-body.dark-bg .value{
+  background:rgba(255,255,255,0.08);
+}
+.card-body.dark-bg .value:focus{
+  background:rgba(255,255,255,0.18);
+  box-shadow:0 0 6px 2px rgba(255,255,255,.35);
+}
+.card.dark-mode .note-btn,
+.card.dark-mode .color-changer{
+  background:#374151 !important;
+  border-color:#4b5563;
+  color:#e5e7eb;
+}
+.card.dark-mode .header-color-picker-btn,
+.card.dark-mode .color-changer{
+  visibility:visible;
+  border-color:#6b7280;
+  box-shadow:0 2px 6px rgba(0,0,0,.4);
+}
+.card.dark-mode .coin-icon{
+  visibility:visible;
+}
+.card.dark-mode .coin-icon circle{
+  fill:#fbbf24;
+  stroke:#d97706;
 }
 
 .content-hidden .slf-badge,
@@ -1019,5 +1091,6 @@ html,body{
     opacity: 0.6;
     filter: grayscale(1);
 }
+
 
 
