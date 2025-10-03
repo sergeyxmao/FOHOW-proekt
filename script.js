@@ -2129,7 +2129,7 @@ const getCleanedCardHtml = async (cardData) => { // Добавили async
     URL.revokeObjectURL(url);
 }
 
-// ============== НАЧАЛО НОВОГО БЛОКА ДЛЯ ПЕЧАТИ (ИСПРАВЛЕННАЯ ВЕРСИЯ 2.0) ==============
+// ============== НАЧАЛО НОВОГО БЛОКА ДЛЯ ПЕЧАТИ (ИСПРАВЛЕННАЯ ВЕРСИЯ 3.0) ==============
 
 // Константы с размерами бумаги в миллиметрах
 const PAPER_SIZES = {
@@ -2213,7 +2213,6 @@ function createPrintModal() {
 
     document.body.appendChild(modalOverlay);
 
-    // Получаем все элементы управления из созданного окна
     const closeBtn = document.getElementById('print-modal-close');
     const formatSelect = document.getElementById('print-format');
     const tileCheckbox = document.getElementById('print-tile-a4');
@@ -2265,9 +2264,12 @@ function createPrintModal() {
 
     function autoSelectOrientation() {
         const bounds = getSchemeBounds();
-        const schemaAspectRatio = bounds.width / bounds.height;
-        // Если схема шире, чем выше, выбираем альбомную, иначе книжную
-        currentOrientation = schemaAspectRatio > 1 ? 'landscape' : 'portrait';
+        if (bounds.width === 0 || bounds.height === 0) {
+            currentOrientation = 'portrait';
+        } else {
+            const schemaAspectRatio = bounds.width / bounds.height;
+            currentOrientation = schemaAspectRatio > 1 ? 'landscape' : 'portrait';
+        }
         orientationBtns.forEach(b => b.classList.toggle('active', b.dataset.orientation === currentOrientation));
     }
 
@@ -2304,7 +2306,7 @@ function createPrintModal() {
         const contentTotalWidth = bounds.width + PADDING * 2;
         const contentTotalHeight = bounds.height + PADDING * 2;
 
-        previewArea.innerHTML = ''; // Очищаем перед добавлением
+        previewArea.innerHTML = '';
         const { printCanvas } = await createPrintableHtml(serializeState(), bounds, PADDING);
         
         if (contentCheckbox.checked) printCanvas.classList.add('content-hidden');
@@ -2313,7 +2315,12 @@ function createPrintModal() {
         printCanvas.id = 'canvas-clone-preview';
         
         const scale = Math.min(previewWidth / contentTotalWidth, previewHeight / contentTotalHeight);
-        printCanvas.style.transform = `scale(${scale})`;
+        const scaledWidth = contentTotalWidth * scale;
+        const scaledHeight = contentTotalHeight * scale;
+        const translateX = (previewWidth - scaledWidth) / 2;
+        const translateY = (previewHeight - scaledHeight) / 2;
+        
+        printCanvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
         
         previewArea.appendChild(printCanvas);
     }
@@ -2335,17 +2342,19 @@ function createPrintModal() {
         renderContainer.style.top = '-9999px';
         renderContainer.style.width = `${contentWidth}px`;
         renderContainer.style.height = `${contentHeight}px`;
-        renderContainer.style.background = '#fff'; // Важно для html2canvas
+        renderContainer.style.background = getComputedStyle(document.body).background;
 
         const { printCanvas } = await createPrintableHtml(state, bounds, PADDING);
         renderContainer.appendChild(printCanvas);
         document.body.appendChild(renderContainer);
         if (contentCheckbox.checked) renderContainer.classList.add('content-hidden');
-        if (colorCheckbox.checked) renderContainer.classList.add('outline-mode');
+        if (colorCheckbox.checked) {
+            renderContainer.classList.add('outline-mode');
+            renderContainer.style.background = '#fff';
+        }
 
         try {
             statusLabel.textContent = 'Создание изображения (может занять время)...';
-            // Даем браузеру время на отрисовку скрытого элемента
             await new Promise(resolve => setTimeout(resolve, 100));
 
             const canvas = await html2canvas(renderContainer, { scale: 2, useCORS: true });
@@ -2362,20 +2371,13 @@ function createPrintModal() {
                 link.click();
             } else if (exportType === 'pdf') {
                 statusLabel.textContent = 'Создание PDF...';
-                const doc = new jsPDF({
-                    orientation: currentOrientation,
-                    unit: 'mm',
-                    format: selectedFormat
-                });
-
+                
                 const paperWidth = isLandscape ? paper.height : paper.width;
                 const paperHeight = isLandscape ? paper.width : paper.height;
-                const canvasAspectRatio = canvas.width / canvas.height;
                 
-                // Логика "нарезки" на А4
                 if (tileCheckbox.checked && selectedFormat !== 'a4') {
                     const a4 = PAPER_SIZES['a4'];
-                    const tiledDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                    const tiledDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4'});
                     
                     const cols = Math.ceil(paperWidth / a4.width);
                     const rows = Math.ceil(paperHeight / a4.height);
@@ -2385,28 +2387,19 @@ function createPrintModal() {
                     
                     for (let r = 0; r < rows; r++) {
                         for (let c = 0; c < cols; c++) {
-                             if (r > 0 || c > 0) tiledDoc.addPage();
+                            if (r > 0 || c > 0) tiledDoc.addPage();
                             const tempCanvas = document.createElement('canvas');
                             tempCanvas.width = sliceWidthPx;
                             tempCanvas.height = sliceHeightPx;
                             const tempCtx = tempCanvas.getContext('2d');
                             tempCtx.drawImage(canvas, c * sliceWidthPx, r * sliceHeightPx, sliceWidthPx, sliceHeightPx, 0, 0, sliceWidthPx, sliceHeightPx);
-                            
-                            const sliceAspectRatio = tempCanvas.width / tempCanvas.height;
-                            const a4AspectRatio = a4.width / a4.height;
-                            let imgWidth, imgHeight;
-                            if(sliceAspectRatio > a4AspectRatio){
-                                imgWidth = a4.width;
-                                imgHeight = a4.width / sliceAspectRatio;
-                            } else {
-                                imgHeight = a4.height;
-                                imgWidth = a4.height * sliceAspectRatio;
-                            }
-                            tiledDoc.addImage(tempCanvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, imgWidth, imgHeight);
+                            tiledDoc.addImage(tempCanvas.toDataURL('image/png'), 'PNG', 0, 0, a4.width, a4.height, undefined, 'FAST');
                         }
                     }
                     tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`);
                 } else {
+                    const doc = new jsPDF({ orientation: currentOrientation, unit: 'mm', format: selectedFormat });
+                    const canvasAspectRatio = canvas.width / canvas.height;
                     const paperAspectRatio = paperWidth / paperHeight;
                     let imgWidth, imgHeight;
                     if (canvasAspectRatio > paperAspectRatio) {
@@ -2416,7 +2409,7 @@ function createPrintModal() {
                         imgHeight = paperHeight;
                         imgWidth = paperHeight * canvasAspectRatio;
                     }
-                    doc.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, imgWidth, imgHeight);
+                    doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
                     doc.save(`scheme-${selectedFormat}.pdf`);
                 }
             }
@@ -2436,6 +2429,10 @@ function createPrintModal() {
     async function createPrintableHtml(state, bounds, PADDING) {
         const printCanvas = document.createElement('div');
         printCanvas.id = 'canvas';
+        printCanvas.style.position = 'relative';
+        printCanvas.style.width = '100%';
+        printCanvas.style.height = '100%';
+
         const printSvgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         printSvgLayer.id = 'svg-layer';
         printSvgLayer.style.position = 'absolute';
@@ -2479,7 +2476,6 @@ function createPrintModal() {
              cardElements.set(cardData.id, cardEl);
         }
         
-        // Даем время на отрисовку DOM, чтобы получить реальные размеры карточек
         await new Promise(resolve => setTimeout(resolve, 0));
 
         state.lines.forEach(lineData => {
@@ -2518,9 +2514,10 @@ function createPrintModal() {
     autoSelectOrientation();
     updatePreview();
 }
-// ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============```
+// ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
