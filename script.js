@@ -2413,8 +2413,8 @@ async function processPrint(exportType) {
 
         const state = serializeState();
         const PADDING = 100;
-        
-        const bounds = getSchemeBounds();
+
+        const bounds = getSchemeBounds();␊
         const contentWidth = bounds.width + PADDING * 2;
         const contentHeight = bounds.height + PADDING * 2;
         
@@ -2434,6 +2434,14 @@ async function processPrint(exportType) {
         if (colorCheckbox.checked) {
             renderContainer.classList.add('outline-mode');
             renderContainer.style.background = '#fff';
+        }
+
+        const jsPDFLib = window.jspdf?.jsPDF || window.jsPDF;
+        if (exportType === 'pdf' && !jsPDFLib) {
+            console.error('jsPDF library is not available on the page.');
+            statusLabel.textContent = 'Не удалось загрузить модуль PDF.';
+            [pdfBtn, pngBtn].forEach(b => b.disabled = false);
+            return;
         }
 
         try {
@@ -2497,8 +2505,7 @@ async function processPrint(exportType) {
                 
                 if (tileCheckbox.checked && selectedFormat !== 'a4') {
                     const a4 = PAPER_SIZES['a4'];
-                    const tiledDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4'});
-                    
+                    const tiledDoc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4'});                    
                     const cols = Math.ceil(paperWidth / a4.width);
                     const rows = Math.ceil(paperHeight / a4.height);
                     
@@ -2518,8 +2525,7 @@ async function processPrint(exportType) {
                     }
                     tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`);
                 } else {
-                    const doc = new jsPDF({ orientation: currentOrientation, unit: 'mm', format: selectedFormat });
-                    const canvasAspectRatio = canvas.width / canvas.height;
+                    const doc = new jsPDFLib({ orientation: currentOrientation, unit: 'mm', format: selectedFormat });                    const canvasAspectRatio = canvas.width / canvas.height;
                     const paperAspectRatio = paperWidth / paperHeight;
                     let imgWidth, imgHeight;
                     if (canvasAspectRatio > paperAspectRatio) {
@@ -2641,5 +2647,6 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
