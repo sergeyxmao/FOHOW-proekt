@@ -2129,280 +2129,380 @@ const getCleanedCardHtml = async (cardData) => { // Добавили async
     URL.revokeObjectURL(url);
 }
 
+// ============== НАЧАЛО НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
+
+// Константы с размерами бумаги в миллиметрах
+const PAPER_SIZES = {
+    a4: { width: 210, height: 297 },
+    a3: { width: 297, height: 420 },
+    a2: { width: 420, height: 594 },
+    a1: { width: 594, height: 841 },
+    a0: { width: 841, height: 1189 },
+};
+
+// Главная функция, которая будет вызываться кнопкой "Печать"
 async function prepareForPrint() {
     if (cards.length === 0) {
-      alert("На доске нет элементов для печати.");
-      return;
+        alert("На доске нет элементов для печати.");
+        return;
     }
+    // Создаем и показываем модальное окно с настройками
+    createPrintModal();
+}
 
-    const state = serializeState();
-    const PADDING = 100;
+// Функция для создания модального окна, его элементов и логики
+function createPrintModal() {
+    // Предотвращаем создание дубликатов окна
+    if (document.getElementById('print-modal-overlay')) return;
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    state.cards.forEach(card => {
-        const cardWidth = parseInt(card.width, 10) || 380;
-        const cardHeight = 280;
-        minX = Math.min(minX, card.x);
-        minY = Math.min(minY, card.y);
-        maxX = Math.max(maxX, card.x + cardWidth);
-        maxY = Math.max(maxY, card.y + cardHeight);
-    });
+    const modalOverlay = document.createElement('div');
+    modalOverlay.id = 'print-modal-overlay';
+    modalOverlay.className = 'print-modal-overlay';
 
-    const contentWidth = maxX - minX;
-    const contentHeight = maxY - minY;
-
-    const bodyStyle = getComputedStyle(document.body);
-
-    const screenshotScript = `
-      document.addEventListener('DOMContentLoaded', () => {
-        const { jsPDF } = window.jspdf;
-
-        const pngBtn = document.getElementById('do-screenshot-btn');
-        const pdfBtn = document.getElementById('do-pdf-btn');
-        const target = document.getElementById('canvas');
-        const toggleContentBtn = document.getElementById('toggle-content-btn');
-        const toggleColorBtn = document.getElementById('toggle-color-btn');
-
-        if (!pngBtn || !pdfBtn || !target || !toggleContentBtn || !toggleColorBtn) {
-            console.error('Необходимые элементы для печати не найдены!');
-            return;
-        }
-
-        toggleContentBtn.addEventListener('click', () => {
-            target.classList.toggle('content-hidden');
-            toggleContentBtn.classList.toggle('active');
-        });
-
-        toggleColorBtn.addEventListener('click', () => {
-            target.classList.toggle('outline-mode');
-            toggleColorBtn.classList.toggle('active');
-        });
-
-        const A0_WIDTH_MM = 841;
-        const A0_HEIGHT_MM = 1189;
-        const DPI = 150;
-        const INCH_PER_MM = 1 / 25.4;
-        const A0_WIDTH_PX = A0_WIDTH_MM * INCH_PER_MM * DPI;
-        const A0_HEIGHT_PX = A0_HEIGHT_MM * INCH_PER_MM * DPI;
-
-        function processCanvas(format) {
-            const btn = format === 'png' ? pngBtn : pdfBtn;
-            const originalText = btn.textContent;
-            btn.textContent = 'Подготовка...';
-            btn.disabled = true;
-            (format === 'png' ? pdfBtn : pngBtn).disabled = true;
-
-            html2canvas(target, { scale: 2, useCORS: true }).then(canvas => {
-                btn.textContent = 'Масштабирование...';
-
-                const originalWidth = canvas.width;
-                const originalHeight = canvas.height;
-                const scale = Math.min(A0_WIDTH_PX / originalWidth, A0_HEIGHT_PX / originalHeight);
-                const finalWidth = originalWidth * scale;
-                const finalHeight = originalHeight * scale;
-
-                const scaledCanvas = document.createElement('canvas');
-                scaledCanvas.width = finalWidth;
-                scaledCanvas.height = finalHeight;
-                const ctx = scaledCanvas.getContext('2d');
-                ctx.drawImage(canvas, 0, 0, finalWidth, finalHeight);
-
-                if (format === 'png') {
-                    btn.textContent = 'Создание PNG...';
-                    const link = document.createElement('a');
-                    link.download = 'scheme-A0.png';
-                    link.href = scaledCanvas.toDataURL('image/png');
-                    link.click();
-                    btn.textContent = 'Готово!';
-                } else { // pdf
-                    btn.textContent = 'Создание PDF...';
-                    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a0' });
-                    doc.addImage(scaledCanvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, A0_WIDTH_MM, (finalHeight / finalWidth) * A0_WIDTH_MM);
-                    doc.save('scheme-A0.pdf');
-                    btn.textContent = 'Готово!';
-                }
-
-            }).catch(err => {
-                console.error("Ошибка при создании " + format.toUpperCase() + ":", err);
-                btn.textContent = 'Ошибка!';
-            }).finally(() => {
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                    (format === 'png' ? pdfBtn : pngBtn).disabled = false;
-                }, 2000);
-            });
-        }
-
-        pngBtn.addEventListener('click', () => processCanvas('png'));
-        pdfBtn.addEventListener('click', () => processCanvas('pdf'));
-      });
+    // HTML-структура модального окна
+    modalOverlay.innerHTML = `
+        <div class="print-modal-content">
+            <div class="print-modal-header">
+                <h2>Настройки печати</h2>
+                <button id="print-modal-close" class="print-modal-close-btn">&times;</button>
+            </div>
+            <div class="print-modal-body">
+                <div class="print-controls">
+                    <div class="print-control-group">
+                        <label for="print-format">Формат:</label>
+                        <select id="print-format">
+                            <option value="a4" selected>A4</option>
+                            <option value="a3">A3</option>
+                            <option value="a2">A2</option>
+                            <option value="a1">A1</option>
+                            <option value="a0">A0</option>
+                        </select>
+                    </div>
+                    <div class="print-control-group">
+                        <label>Ориентация:</label>
+                        <div class="orientation-buttons">
+                           <button data-orientation="portrait" class="orientation-btn active" title="Книжная">
+                                <svg width="24" height="24" viewBox="0 0 16 16"><path fill="currentColor" d="M3.5 2a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-9zM4 3h8v10H4V3z"/></svg>
+                           </button>
+                           <button data-orientation="landscape" class="orientation-btn" title="Альбомная">
+                                <svg width="24" height="24" viewBox="0 0 16 16"><path fill="currentColor" d="M14 4.5a.5.5 0 0 0-.5-.5h-11a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-7zM3 5h10v6H3V5z"/></svg>
+                           </button>
+                        </div>
+                    </div>
+                    <div class="print-control-group" style="align-items: center; flex-direction: row;">
+                        <input type="checkbox" id="print-tile-a4" disabled>
+                        <label for="print-tile-a4">Разбить на страницы A4</label>
+                    </div>
+                     <div class="print-control-group" style="align-items: center; flex-direction: row;">
+                        <input type="checkbox" id="print-toggle-content">
+                        <label for="print-toggle-content">Скрыть содержимое</label>
+                    </div>
+                     <div class="print-control-group" style="align-items: center; flex-direction: row;">
+                        <input type="checkbox" id="print-toggle-color">
+                        <label for="print-toggle-color">Ч/Б (контур)</label>
+                    </div>
+                    <div class="print-actions">
+                        <button id="print-export-pdf" class="print-action-btn">Сохранить PDF</button>
+                        <button id="print-export-png" class="print-action-btn">Сохранить PNG</button>
+                    </div>
+                </div>
+                <div class="print-preview-container">
+                    <div id="print-preview-area"></div>
+                    <div id="print-status-label"></div>
+                </div>
+            </div>
+        </div>
     `;
 
-    const createPrintWindow = (cssText) => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            alert("Не удалось открыть новое окно. Пожалуйста, разрешите всплывающие окна.");
-            return;
+    document.body.appendChild(modalOverlay);
+
+    // Получаем все элементы управления из созданного окна
+    const closeBtn = document.getElementById('print-modal-close');
+    const formatSelect = document.getElementById('print-format');
+    const tileCheckbox = document.getElementById('print-tile-a4');
+    const contentCheckbox = document.getElementById('print-toggle-content');
+    const colorCheckbox = document.getElementById('print-toggle-color');
+    const orientationBtns = document.querySelectorAll('.orientation-btn');
+    const pdfBtn = document.getElementById('print-export-pdf');
+    const pngBtn = document.getElementById('print-export-png');
+    const previewArea = document.getElementById('print-preview-area');
+    const statusLabel = document.getElementById('print-status-label');
+
+    let currentOrientation = 'portrait';
+
+    // Назначаем обработчики событий
+    closeBtn.addEventListener('click', () => modalOverlay.remove());
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) modalOverlay.remove();
+    });
+
+    orientationBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            orientationBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentOrientation = btn.dataset.orientation;
+            updatePreview();
+        });
+    });
+    
+    [formatSelect, contentCheckbox, colorCheckbox].forEach(el => el.addEventListener('change', updatePreview));
+
+    pdfBtn.addEventListener('click', () => processPrint('pdf'));
+    pngBtn.addEventListener('click', () => processPrint('png'));
+
+    // --- Логика работы окна ---
+
+    function getSchemeBounds() {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      cards.forEach(cardData => {
+          const card = cardData.element;
+          const x = parseFloat(card.style.left);
+          const y = parseFloat(card.style.top);
+          const cardWidth = card.offsetWidth;
+          const cardHeight = card.offsetHeight;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x + cardWidth);
+          maxY = Math.max(maxY, y + cardHeight);
+      });
+      return { minX, minY, width: maxX - minX, height: maxY - minY };
+    }
+
+    function updatePreview() {
+        const selectedFormat = formatSelect.value;
+        tileCheckbox.disabled = selectedFormat === 'a4';
+        if (selectedFormat === 'a4') tileCheckbox.checked = false;
+
+        const paperSize = PAPER_SIZES[selectedFormat];
+        const paperWidth = currentOrientation === 'portrait' ? paperSize.width : paperSize.height;
+        const paperHeight = currentOrientation === 'portrait' ? paperSize.height : paperSize.width;
+
+        // Задаем пропорции для области предпросмотра
+        const previewAspectRatio = paperWidth / paperHeight;
+        const previewContainer = document.querySelector('.print-preview-container');
+        const containerWidth = previewContainer.clientWidth - 30; // 30px for padding
+        const containerHeight = previewContainer.clientHeight - 60; // 60px for padding and status
+        
+        let previewWidth = containerWidth;
+        let previewHeight = containerWidth / previewAspectRatio;
+
+        if (previewHeight > containerHeight) {
+            previewHeight = containerHeight;
+            previewWidth = containerHeight * previewAspectRatio;
+        }
+        
+        previewArea.style.width = `${previewWidth}px`;
+        previewArea.style.height = `${previewHeight}px`;
+
+        // Клонируем холст для отображения в предпросмотре
+        const clone = canvas.cloneNode(true);
+        clone.style.transform = '';
+        clone.id = 'canvas-clone-preview';
+        if(contentCheckbox.checked) clone.classList.add('content-hidden');
+        if(colorCheckbox.checked) clone.classList.add('outline-mode');
+
+        const bounds = getSchemeBounds();
+        const PADDING = 50; 
+        
+        // Масштабируем и позиционируем клон внутри области предпросмотра
+        const scaleX = previewWidth / (bounds.width + PADDING * 2);
+        const scaleY = previewHeight / (bounds.height + PADDING * 2);
+        const scale = Math.min(scaleX, scaleY);
+        
+        clone.style.transform = `scale(${scale}) translate(${-bounds.minX + PADDING/scale}px, ${-bounds.minY + PADDING/scale}px)`;
+        
+        previewArea.innerHTML = '';
+        previewArea.appendChild(clone);
+    }
+    
+    async function processPrint(exportType) {
+        statusLabel.textContent = 'Подготовка рендера...';
+        [pdfBtn, pngBtn].forEach(b => b.disabled = true);
+
+        const state = serializeState();
+        const PADDING = 100;
+        const DPI = 150;
+        const INCH_PER_MM = 1 / 25.4;
+
+        const bounds = getSchemeBounds();
+        const contentWidth = bounds.width;
+        const contentHeight = bounds.height;
+        
+        // Создаем временный контейнер для рендеринга в высоком качестве
+        const renderContainer = document.createElement('div');
+        renderContainer.style.position = 'fixed';
+        renderContainer.style.left = '-9999px'; // Прячем за экраном
+        renderContainer.style.top = '-9999px';
+        renderContainer.style.width = `${contentWidth + PADDING * 2}px`;
+        renderContainer.style.height = `${contentHeight + PADDING * 2}px`;
+        
+        // Генерируем "чистый" HTML схемы для рендеринга
+        const {printCanvas, printSvgLayer} = await createPrintableHtml(state, bounds, PADDING);
+        renderContainer.appendChild(printCanvas);
+        document.body.appendChild(renderContainer);
+        if(contentCheckbox.checked) renderContainer.classList.add('content-hidden');
+        if(colorCheckbox.checked) renderContainer.classList.add('outline-mode');
+
+        try {
+            statusLabel.textContent = 'Создание изображения...';
+            const canvas = await html2canvas(renderContainer, { scale: 2, useCORS: true });
+            
+            const selectedFormat = formatSelect.value;
+            const paper = PAPER_SIZES[selectedFormat];
+            const isLandscape = currentOrientation === 'landscape';
+
+            if (exportType === 'png') {
+                statusLabel.textContent = 'Сохранение PNG...';
+                const link = document.createElement('a');
+                link.download = `scheme-${selectedFormat}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } else if (exportType === 'pdf') {
+                statusLabel.textContent = 'Создание PDF...';
+                const doc = new jsPDF({
+                    orientation: currentOrientation,
+                    unit: 'mm',
+                    format: selectedFormat
+                });
+
+                const paperWidth = isLandscape ? paper.height : paper.width;
+                const paperHeight = isLandscape ? paper.width : paper.height;
+                const canvasAspectRatio = canvas.width / canvas.height;
+                const paperAspectRatio = paperWidth / paperHeight;
+
+                let imgWidth, imgHeight;
+                if (canvasAspectRatio > paperAspectRatio) {
+                    imgWidth = paperWidth;
+                    imgHeight = paperWidth / canvasAspectRatio;
+                } else {
+                    imgHeight = paperHeight;
+                    imgWidth = paperHeight * canvasAspectRatio;
+                }
+
+                // Логика "нарезки" на А4
+                if (tileCheckbox.checked && selectedFormat !== 'a4') {
+                    const a4 = PAPER_SIZES['a4'];
+                    const tiledDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4'});
+                    
+                    const cols = Math.ceil(paperWidth / a4.width);
+                    const rows = Math.ceil(paperHeight / a4.height);
+                    const tileCanvas = document.createElement('canvas');
+                    const tileCtx = tileCanvas.getContext('2d');
+
+                    const sliceWidthPx = canvas.width / cols;
+                    const sliceHeightPx = canvas.height / rows;
+                    tileCanvas.width = sliceWidthPx;
+                    tileCanvas.height = sliceHeightPx;
+                    
+                    for (let r = 0; r < rows; r++) {
+                        for (let c = 0; c < cols; c++) {
+                            if (r > 0 || c > 0) tiledDoc.addPage();
+                            tileCtx.clearRect(0, 0, tileCanvas.width, tileCanvas.height);
+                            tileCtx.drawImage(canvas, c * sliceWidthPx, r * sliceHeightPx, sliceWidthPx, sliceHeightPx, 0, 0, sliceWidthPx, sliceHeightPx);
+                            tiledDoc.addImage(tileCanvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, a4.width, a4.height);
+                        }
+                    }
+                    tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`);
+                } else {
+                    doc.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, imgWidth, imgHeight);
+                    doc.save(`scheme-${selectedFormat}.pdf`);
+                }
+            }
+            statusLabel.textContent = 'Готово!';
+        } catch (err) {
+            console.error("Ошибка при создании файла:", err);
+            statusLabel.textContent = 'Произошла ошибка!';
+        } finally {
+            // Очистка
+            document.body.removeChild(renderContainer);
+            setTimeout(() => {
+                statusLabel.textContent = '';
+                [pdfBtn, pngBtn].forEach(b => b.disabled = false);
+            }, 3000);
+        }
+    }
+    
+    async function createPrintableHtml(state, bounds, PADDING) {
+        // Эта функция создает DOM-элементы для чистого рендера, как в старой версии
+        const printCanvas = document.createElement('div');
+        printCanvas.id = 'canvas';
+        const printSvgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        printSvgLayer.id = 'svg-layer';
+        printSvgLayer.innerHTML = `<defs><marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6"><circle cx="5" cy="5" r="4" fill="currentColor"/></marker></defs>`;
+        printCanvas.appendChild(printSvgLayer);
+
+        const cardElements = new Map();
+        for (const cardData of state.cards) {
+             const tempBody = document.createElement('div');
+             tempBody.innerHTML = cardData.bodyHTML;
+             tempBody.querySelector('.active-pv-controls')?.remove();
+             const cleanedBodyHTML = tempBody.innerHTML;
+
+             const cardEl = document.createElement('div');
+             cardEl.className = 'card';
+             if (cardData.isDarkMode) cardEl.classList.add('dark-mode');
+             cardEl.style.width = cardData.width || '380px';
+             cardEl.style.left = `${cardData.x - bounds.minX + PADDING}px`;
+             cardEl.style.top = `${cardData.y - bounds.minY + PADDING}px`;
+             
+             let rankSrc = '';
+             if (cardData.badges?.rank) {
+                const dataUri = await imageToDataUri(`rank-${cardData.badges.rank}.png`);
+                if(dataUri) rankSrc = dataUri;
+             }
+             
+             cardEl.innerHTML = `
+                 <div class="card-header" style="background:${cardData.headerBg};">
+                     <div class="slf-badge ${cardData.badges?.slf ? 'visible' : ''}">SLF</div>
+                     <span class="card-title">${cardData.title}</span>
+                     <div class="fendou-badge ${cardData.badges?.fendou ? 'visible' : ''}">FENDOU</div>
+                     <img class="rank-badge ${cardData.badges?.rank ? 'visible' : ''}" src="${rankSrc}" alt="Rank">
+                 </div>
+                 <div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>
+             `;
+             printCanvas.appendChild(cardEl);
+             cardElements.set(cardData.id, cardEl);
         }
 
-        printWindow.document.open();
-        printWindow.document.write(`
-          <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Версия для печати A0</title>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
-          <style>
-            ${cssText}
-            html, body {
-              overflow: auto !important; margin: 0; padding: 0;
-              width: ${contentWidth + PADDING * 2}px;
-              height: ${contentHeight + PADDING * 2}px;
-            }
-            #canvas { transform: none !important; position: relative; width: 100%; height: 100%; }
-            .card { box-shadow: none !important; border: 1px solid #a9a9a9; }
-            .card:hover { transform: none !important; }
-            #controls { position: fixed; top: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; background: #fff; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
-            .control-btn { padding: 12px 20px; font-size: 16px; font-weight: bold; background-color: #0f62fe; color: white; border: none; border-radius: 10px; cursor: pointer; }
-            .control-btn:hover:not(:disabled) { background-color: #0042d6; }
-            .control-btn:disabled { background-color: #6b7280; cursor: not-allowed; }
-            .toggle-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #ccc; background-color: #fff; cursor: pointer; font-size: 20px; display: grid; place-items: center; transition: .2s; }
-            .toggle-btn.active { background-color: #eaf1ff; border-color: #0f62fe; }
-            .content-hidden .card-header .card-title,
-            .content-hidden .card-body .value,
-            .content-hidden .card-body .coin-icon,
-            .content-hidden .slf-badge,
-            .content-hidden .fendou-badge,
-            .content-hidden .rank-badge {
-                visibility: hidden !important;
-            }
-            .outline-mode .card-header { background: none !important; color: #000 !important; border-bottom: 1px solid #000 !important; }
-            .outline-mode .card-body, .outline-mode .card { background: none !important; border: 1px solid #000 !important; }
-            .outline-mode .line { color: #000 !important; stroke: #000 !important; }
-            .outline-mode .value, .outline-mode .label, .outline-mode .card-title { color: #000 !important; }
-            .outline-mode .coin-icon circle { fill: none !important; stroke: #000 !important; }
-            .outline-mode [style*="background"] { background: none !important; }
-            .outline-mode .fendou-badge, .outline-mode .slf-badge { color: #000 !important; text-shadow: none !important; }
-            .outline-mode .rank-badge { opacity: 0.5; filter: grayscale(1); }
-          </style></head>
-          <body style="background: ${bodyStyle.background};">
-            <div id="controls">
-              <button id="do-screenshot-btn" class="control-btn">Сохранить PNG (A0)</button>
-              <button id="do-pdf-btn" class="control-btn">Сохранить PDF (A0)</button>
-              <div id="print-toggles" style="margin-top: 10px; display: flex; gap: 10px;">
-                <button id="toggle-content-btn" class="toggle-btn" title="Скрыть/показать содержимое">👁️</button>
-                <button id="toggle-color-btn" class="toggle-btn" title="Вкл/выкл цвета">🎨</button>
-              </div>
-            </div>
-            <div id="canvas">
-               <svg id="svg-layer" style="width:100%; height:100%;"><defs>
-                    <marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6">
-                      <circle cx="5" cy="5" r="4" fill="currentColor"/>
-                    </marker></defs>
-                </svg>
-            </div>
-            <script>${screenshotScript}<\/script>
-          </body></html>`);
-        printWindow.document.close();
-
-        printWindow.addEventListener('load', () => {
-            const printCanvas = printWindow.document.getElementById('canvas');
-            const printSvgLayer = printWindow.document.getElementById('svg-layer');
-            if (!printCanvas || !printSvgLayer) return;
-
-            const cardElements = new Map();
-            state.cards.forEach(cardData => {
-                const tempBody = printWindow.document.createElement('div');
-                tempBody.innerHTML = cardData.bodyHTML;
-                const pvControls = tempBody.querySelector('.active-pv-controls');
-                if (pvControls) pvControls.remove();
-                const cleanedBodyHTML = tempBody.innerHTML;
-
-                const cardEl = printWindow.document.createElement('div');
-                cardEl.className = 'card';
-                if(cardData.isDarkMode) cardEl.classList.add('dark-mode');
-                cardEl.style.width = cardData.width || '380px';
-                cardEl.style.left = `${cardData.x - minX + PADDING}px`;
-                cardEl.style.top = `${cardData.y - minY + PADDING}px`;
-                cardEl.innerHTML = `
-                    <div class="card-header" style="background:${cardData.headerBg};">
-                        <div class="slf-badge">SLF</div>
-                        <span class="card-title">${cardData.title}</span>
-                        <div class="fendou-badge">FENDOU</div>
-                        <img class="rank-badge" src="" alt="Rank">
-                    </div>
-                    <div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>
-                `;
-                printCanvas.appendChild(cardEl);
-
-                const badges = cardData.badges || {};
-                const slfBadge = cardEl.querySelector('.slf-badge');
-                const fendouBadge = cardEl.querySelector('.fendou-badge');
-                const rankBadge = cardEl.querySelector('.rank-badge');
-
-                if (slfBadge) {
-                    slfBadge.classList.toggle('visible', !!badges.slf);
-                }
-
-                if (fendouBadge) {
-                    fendouBadge.classList.toggle('visible', !!badges.fendou);
-                }
-
-                if (rankBadge) {
-                    if (badges.rank) {
-                        rankBadge.src = `rank-${badges.rank}.png`;
-                        rankBadge.classList.add('visible');
-                    } else {
-                        rankBadge.classList.remove('visible');
-                        rankBadge.removeAttribute('src');
-                    }
-                }
-                cardElements.set(cardData.id, cardEl);
-            });
-
-            state.lines.forEach(lineData => {
-                const startEl = cardElements.get(lineData.startId);
-                const endEl = cardElements.get(lineData.endId);
-                if (!startEl || !endEl) return;
-
-                const getPrintCoords = (el, side) => {
-                  const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
-                  const w = parseInt(el.style.width, 10) || 380, h = 280;
-                  switch (side) {
-                    case 'top': return { x: x + w / 2, y: y };
-                    case 'bottom': return { x: x + w / 2, y: y + h };
-                    case 'left': return { x: x, y: y + h / 2 };
-                    case 'right': return { x: x + w, y: y + h / 2 };
-                  }
-                };
-
-                const p1 = getPrintCoords(startEl, lineData.startSide);
-                const p2 = getPrintCoords(endEl, lineData.endSide);
-                const path = printWindow.document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                path.setAttribute('class', 'line');
-                path.setAttribute('stroke', lineData.color);
-                path.setAttribute('stroke-width', lineData.thickness);
-                path.style.setProperty('--line-color', lineData.color);
-                path.setAttribute('marker-start', 'url(#marker-dot)');
-                path.setAttribute('marker-end', 'url(#marker-dot)');
-
-                let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
-                path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
-                printSvgLayer.appendChild(path);
-            });
+        state.lines.forEach(lineData => {
+            const startEl = cardElements.get(lineData.startId);
+            const endEl = cardElements.get(lineData.endId);
+            if (!startEl || !endEl) return;
+            const getPrintCoords = (el, side) => {
+              const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+              const w = el.offsetWidth, h = el.offsetHeight;
+              switch (side) {
+                case 'top': return { x: x + w / 2, y: y };
+                case 'bottom': return { x: x + w / 2, y: y + h };
+                case 'left': return { x: x, y: y + h / 2 };
+                case 'right': return { x: x + w, y: y + h / 2 };
+              }
+            };
+            const p1 = getPrintCoords(startEl, lineData.startSide);
+            const p2 = getPrintCoords(endEl, lineData.endSide);
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('class', 'line');
+            path.setAttribute('stroke', lineData.color);
+            path.setAttribute('stroke-width', lineData.thickness);
+            path.style.setProperty('--line-color', lineData.color);
+            path.setAttribute('marker-start', 'url(#marker-dot)');
+            path.setAttribute('marker-end', 'url(#marker-dot)');
+            let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
+            path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
+            printSvgLayer.appendChild(path);
         });
-    };
 
-    fetch('style.css')
-      .then(response => response.ok ? response.text() : Promise.reject())
-      .then(cssText => createPrintWindow(cssText))
-      .catch(() => {
-        const minimalCss = ':root{--card-width: 380px; --brand: #0f62fe;}';
-        createPrintWindow(minimalCss);
-      });
+        return {printCanvas, printSvgLayer};
+    }
+    
+    // Первый вызов для отрисовки предпросмотра при открытии
+    updatePreview();
 }
+// ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 
 });
+
 
 
 
