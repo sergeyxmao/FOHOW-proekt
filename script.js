@@ -2323,7 +2323,7 @@ function createPrintModal() {
         previewArea.appendChild(printCanvas);
     }
     
-    async function processPrint(exportType) {
+async function processPrint(exportType) {
         statusLabel.textContent = 'Подготовка рендера...';
         [pdfBtn, pngBtn].forEach(b => b.disabled = true);
 
@@ -2356,7 +2356,23 @@ function createPrintModal() {
             statusLabel.textContent = 'Создание изображения...';
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            const canvas = await html2canvas(renderContainer, { scale: 2, useCORS: true, logging: false });
+            // --- НОВАЯ ЛОГИКА МАСШТАБИРОВАНИЯ ---
+            const originalScale = 2;
+            let finalScale = originalScale;
+            const MAX_CANVAS_DIMENSION = 16384; // Безопасный лимит для большинства браузеров
+
+            const requiredWidth = renderContainer.offsetWidth * originalScale;
+            const requiredHeight = renderContainer.offsetHeight * originalScale;
+
+            if (requiredWidth > MAX_CANVAS_DIMENSION || requiredHeight > MAX_CANVAS_DIMENSION) {
+                const downscaleFactor = Math.min(MAX_CANVAS_DIMENSION / requiredWidth, MAX_CANVAS_DIMENSION / requiredHeight);
+                finalScale = originalScale * downscaleFactor;
+                console.warn(`Схема слишком велика. Разрешение рендера снижено с ${originalScale}x до ${finalScale.toFixed(2)}x, чтобы избежать ошибки браузера.`);
+                statusLabel.textContent = 'Схема очень большая, разрешение снижено...';
+            }
+            // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
+            const canvas = await html2canvas(renderContainer, { scale: finalScale, useCORS: true, logging: false });
             
             const selectedFormat = formatSelect.value;
             const paper = PAPER_SIZES[selectedFormat];
@@ -2520,6 +2536,7 @@ function createPrintModal() {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
