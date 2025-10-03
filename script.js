@@ -2129,7 +2129,7 @@ const getCleanedCardHtml = async (cardData) => { // Добавили async
     URL.revokeObjectURL(url);
 }
 
-// ============== НАЧАЛО НОВОГО БЛОКА ДЛЯ ПЕЧАТИ (ИСПРАВЛЕННАЯ ВЕРСИЯ 3.0) ==============
+// ============== НАЧАЛО НОВОГО БЛОКА ДЛЯ ПЕЧАТИ (ФИНАЛЬНАЯ ВЕРСИЯ 4.0) ==============
 
 // Константы с размерами бумаги в миллиметрах
 const PAPER_SIZES = {
@@ -2152,14 +2152,12 @@ async function prepareForPrint() {
 
 // Функция для создания модального окна, его элементов и логики
 function createPrintModal() {
-    // Предотвращаем создание дубликатов окна
     if (document.getElementById('print-modal-overlay')) return;
 
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'print-modal-overlay';
     modalOverlay.className = 'print-modal-overlay';
 
-    // HTML-структура модального окна
     modalOverlay.innerHTML = `
         <div class="print-modal-content">
             <div class="print-modal-header">
@@ -2347,6 +2345,7 @@ function createPrintModal() {
         const { printCanvas } = await createPrintableHtml(state, bounds, PADDING);
         renderContainer.appendChild(printCanvas);
         document.body.appendChild(renderContainer);
+
         if (contentCheckbox.checked) renderContainer.classList.add('content-hidden');
         if (colorCheckbox.checked) {
             renderContainer.classList.add('outline-mode');
@@ -2354,10 +2353,10 @@ function createPrintModal() {
         }
 
         try {
-            statusLabel.textContent = 'Создание изображения (может занять время)...';
+            statusLabel.textContent = 'Создание изображения...';
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            const canvas = await html2canvas(renderContainer, { scale: 2, useCORS: true });
+            const canvas = await html2canvas(renderContainer, { scale: 2, useCORS: true, logging: false });
             
             const selectedFormat = formatSelect.value;
             const paper = PAPER_SIZES[selectedFormat];
@@ -2387,7 +2386,7 @@ function createPrintModal() {
                     
                     for (let r = 0; r < rows; r++) {
                         for (let c = 0; c < cols; c++) {
-                            if (r > 0 || c > 0) tiledDoc.addPage();
+                             if (r > 0 || c > 0) tiledDoc.addPage();
                             const tempCanvas = document.createElement('canvas');
                             tempCanvas.width = sliceWidthPx;
                             tempCanvas.height = sliceHeightPx;
@@ -2428,13 +2427,13 @@ function createPrintModal() {
     
     async function createPrintableHtml(state, bounds, PADDING) {
         const printCanvas = document.createElement('div');
-        printCanvas.id = 'canvas';
+        printCanvas.id = 'canvas-render';
         printCanvas.style.position = 'relative';
-        printCanvas.style.width = '100%';
-        printCanvas.style.height = '100%';
+        printCanvas.style.width = `${bounds.width + PADDING * 2}px`;
+        printCanvas.style.height = `${bounds.height + PADDING * 2}px`;
 
         const printSvgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        printSvgLayer.id = 'svg-layer';
+        printSvgLayer.id = 'svg-layer-render';
         printSvgLayer.style.position = 'absolute';
         printSvgLayer.style.top = '0';
         printSvgLayer.style.left = '0';
@@ -2456,6 +2455,7 @@ function createPrintModal() {
              cardEl.style.width = cardData.width || '380px';
              cardEl.style.left = `${cardData.x - bounds.minX + PADDING}px`;
              cardEl.style.top = `${cardData.y - bounds.minY + PADDING}px`;
+             cardEl.style.borderColor = cardData.headerBg;
              
              let rankSrc = '';
              if (cardData.badges?.rank) {
@@ -2476,7 +2476,7 @@ function createPrintModal() {
              cardElements.set(cardData.id, cardEl);
         }
         
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         state.lines.forEach(lineData => {
             const startEl = cardElements.get(lineData.startId);
@@ -2484,8 +2484,10 @@ function createPrintModal() {
             if (!startEl || !endEl) return;
 
             const getPrintCoords = (el, side) => {
-              const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
-              const w = el.offsetWidth, h = el.offsetHeight;
+              const x = parseFloat(el.style.left);
+              const y = parseFloat(el.style.top);
+              const w = parseInt(el.style.width) || 380;
+              const h = 280; // Fixed height
               switch (side) {
                 case 'top': return { x: x + w / 2, y: y };
                 case 'bottom': return { x: x + w / 2, y: y + h };
@@ -2495,6 +2497,8 @@ function createPrintModal() {
             };
             const p1 = getPrintCoords(startEl, lineData.startSide);
             const p2 = getPrintCoords(endEl, lineData.endSide);
+            if(!p1 || !p2) return;
+            
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('class', 'line');
             path.setAttribute('stroke', lineData.color);
@@ -2510,13 +2514,13 @@ function createPrintModal() {
         return {printCanvas, printSvgLayer};
     }
     
-    // Инициализация
     autoSelectOrientation();
     updatePreview();
 }
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
