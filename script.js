@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const notesListBtn = document.getElementById('notes-list-btn');
   const preparePrintBtn = document.getElementById('prepare-print-btn');
   const toggleGuidesBtn = document.getElementById('toggle-guides-btn');
+  const toggleGridBtn = document.getElementById('toggle-grid-btn');
   const hierarchicalDragModeBtn = document.getElementById('hierarchical-drag-mode-btn');
 
   const thicknessSlider = document.getElementById('thickness-slider');
@@ -43,11 +44,13 @@ document.addEventListener('DOMContentLoaded', () => {
     isHierarchicalDragMode: false,
     isGlobalLineMode: false,
     guidesEnabled: true,
+    isGridVisible: false,
     lineStart: null,
     previewLine: null
   };
   let cards = [];
   let lines = [];
+  let gridOverlay = null;
   const cardColors = ['#5D8BF4', '#38A3A5', '#E87A5D', '#595959'];
 
   let undoStack = [];
@@ -63,6 +66,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.appendChild(hGuide);
 
   if (!canvas || !svgLayer) return;
+
+  gridOverlay = document.createElement('div');
+  gridOverlay.id = 'canvas-grid-overlay';
+  gridOverlay.className = 'canvas-grid-overlay';
+  gridOverlay.style.display = 'none';
+  canvas.prepend(gridOverlay);
+  updateGridOverlayVisibility();
 
   if (addCardBtn) addCardBtn.addEventListener('click', () => { createCard(); saveState(); });
   if (addLargeCardBtn) addLargeCardBtn.addEventListener('click', () => { createCard({ isLarge: true }); saveState(); });
@@ -126,6 +136,15 @@ document.addEventListener('DOMContentLoaded', () => {
     catch(_) { const frag = lastRange.extractContents(); span.appendChild(frag); lastRange.insertNode(span); }
     hideNumPop(); saveState();
   });
+
+  function updateGridOverlayVisibility() {
+    if (gridOverlay) {
+      gridOverlay.style.display = activeState.isGridVisible ? 'block' : 'none';
+    }
+    if (toggleGridBtn) {
+      toggleGridBtn.classList.toggle('active', activeState.isGridVisible);
+    }
+  }
 
   function setupGlobalEventListeners() {
     window.addEventListener('mousedown', (e) => {
@@ -723,6 +742,14 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.background = e.target.value;
         });
     }
+
+    if (toggleGridBtn) {
+      toggleGridBtn.addEventListener('click', () => {
+        activeState.isGridVisible = !activeState.isGridVisible;
+        updateGridOverlayVisibility();
+      });
+      updateGridOverlayVisibility();
+    }
   }
 
   function deleteCard(cardData) {
@@ -1162,13 +1189,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (exportHtmlBtn) {
-      exportHtmlBtn.addEventListener('click', () => {
-        const bodyStyle = getComputedStyle(document.body);
-        const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
+      exportHtmlBtn.addEventListener('click', async () => {
+        try {
+          const bodyStyle = getComputedStyle(document.body);
+          const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(${x}px,${y}px) scale(${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
 
-        const canvasClone = canvas.cloneNode(true);
+          const canvasClone = canvas.cloneNode(true);
 
-        const selectorsToRemove = [
+          const selectorsToRemove = [
             '.note-resize-handle',
             '.note-close-btn',
             '.card-controls',
@@ -1178,35 +1206,90 @@ document.addEventListener('DOMContentLoaded', () => {
             '.connection-point',
             '.color-changer',
             '.active-pv-controls'
-        ];
+          ];
 
-        canvasClone.querySelectorAll(selectorsToRemove.join(', ')).forEach(el => el.remove());
+          canvasClone.querySelectorAll(selectorsToRemove.join(', ')).forEach(el => el.remove());
 
-        canvasClone.querySelectorAll('[contenteditable]').forEach(el => {
-            el.setAttribute('contenteditable','false');
+          canvasClone.querySelectorAll('[contenteditable]').forEach(el => {
+            el.setAttribute('contenteditable', 'false');
             el.style.pointerEvents = 'none';
-        });
+          });
 
-        const buildAndDownload = (cssText) => {
-          const serializeVoidTags = (html) =>
-            html.replace(/<(img|meta)([^>]*?)(\s*\/)?>(?=<|$)/gi, (_, tag, attrs) => {
-              const trimmedAttrs = (attrs || '').trim().replace(/\s*\/?$/, '');
-              const spacer = trimmedAttrs ? ` ${trimmedAttrs}` : '';
-              return `<${tag}${spacer} />`;
-            });
+          const inferMimeFromSrc = (src) => {
+            const clean = src.split('?')[0] || '';
+            const ext = clean.split('.').pop()?.toLowerCase();
+            switch (ext) {
+              case 'svg': return 'image/svg+xml';
+              case 'jpg':
+              case 'jpeg': return 'image/jpeg';
+              case 'gif': return 'image/gif';
+              case 'webp': return 'image/webp';
+              default: return 'image/png';
+            }
+          };
 
-          const rawHtmlContent = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Просмотр Схемы</title><style>${cssText}body{overflow:hidden}.card:hover{transform:none;box-shadow:0 8px 20px rgba(0,0,0,.15)}.card.selected{box-shadow:0 8px 20px rgba(0,0,0,.15)}</style></head><body style="background:${bodyStyle.background};">${canvasClone.outerHTML}${viewOnlyScript}</body></html>`;
-          const htmlContent = serializeVoidTags(rawHtmlContent);
-          const blob = new Blob([htmlContent], {type:'text/html'});
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = `scheme-${Date.now()}.html`; a.click();
-          URL.revokeObjectURL(url);
-        };
-        fetch('style.css').then(r => r.ok ? r.text() : Promise.reject()).then(cssText => buildAndDownload(cssText)).catch(() => {
-            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
+          const arrayBufferToBase64 = (buffer) => {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const chunk = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunk) {
+              binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+            }
+            return window.btoa(binary);
+          };
+
+          const inlineImages = async (root) => {
+            const images = Array.from(root.querySelectorAll('img'));
+            await Promise.all(images.map(async (img) => {
+              const src = img.getAttribute('src');
+              if (!src || src.startsWith('data:') || /^(https?:)?\/\//i.test(src)) return;
+              try {
+                const response = await fetch(src);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const buffer = await response.arrayBuffer();
+                const mime = response.headers.get('Content-Type') || inferMimeFromSrc(src);
+                const base64 = arrayBufferToBase64(buffer);
+                img.setAttribute('src', `data:${mime};base64,${base64}`);
+              } catch (err) {
+                console.warn('Не удалось встроить изображение в экспортируемый HTML:', src, err);
+              }
+            }));
+          };
+
+          await inlineImages(canvasClone);
+
+          const buildAndDownload = (cssText) => {
+            const serializeVoidTags = (html) =>
+              html.replace(/<(img|meta)([^>]*?)(\s*\/)?>(?=<|$)/gi, (_, tag, attrs) => {
+                const trimmedAttrs = (attrs || '').trim().replace(/\s*\/?$/, '');
+                const spacer = trimmedAttrs ? ` ${trimmedAttrs}` : '';
+                return `<${tag}${spacer} />`;
+              });
+
+            const rawHtmlContent = `<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"UTF-8\"><title>Просмотр Схемы</title><style>${cssText}body{overflow:hidden}.card:hover{transform:none;box-shadow:0 8px 20px rgba(0,0,0,.15)}.card.selected{box-shadow:0 8px 20px rgba(0,0,0,.15)}</style></head><body style=\"background:${bodyStyle.background};\">${canvasClone.outerHTML}${viewOnlyScript}</body></html>`;
+            const htmlContent = serializeVoidTags(rawHtmlContent);
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scheme-${Date.now()}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+          };
+
+          try {
+            const response = await fetch('style.css');
+            if (!response.ok) throw new Error('style-missing');
+            const cssText = await response.text();
+            buildAndDownload(cssText);
+          } catch (err) {
+            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.canvas-grid-overlay{position:absolute;inset:0;pointer-events:none;background-size:70px 70px;background-image:linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);opacity:.3}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
             buildAndDownload(minimalCss);
-        });
+          }
+        } catch (err) {
+          console.error('Не удалось выполнить экспорт HTML:', err);
+          alert('Экспорт в HTML завершился ошибкой. Подробности см. в консоли.');
+        }
       });
     }
   }
@@ -2536,18 +2619,3 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
