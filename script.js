@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const notesListBtn = document.getElementById('notes-list-btn');
   const preparePrintBtn = document.getElementById('prepare-print-btn');
   const toggleGuidesBtn = document.getElementById('toggle-guides-btn');
+  const toggleGridBtn = document.getElementById('toggle-grid-btn');
   const hierarchicalDragModeBtn = document.getElementById('hierarchical-drag-mode-btn');
 
   const thicknessSlider = document.getElementById('thickness-slider');
@@ -43,11 +44,13 @@ document.addEventListener('DOMContentLoaded', () => {
     isHierarchicalDragMode: false,
     isGlobalLineMode: false,
     guidesEnabled: true,
+    isGridVisible: false,
     lineStart: null,
     previewLine: null
   };
   let cards = [];
   let lines = [];
+  let gridOverlay = null;
   const cardColors = ['#5D8BF4', '#38A3A5', '#E87A5D', '#595959'];
 
   let undoStack = [];
@@ -63,6 +66,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.appendChild(hGuide);
 
   if (!canvas || !svgLayer) return;
+
+  gridOverlay = document.createElement('div');
+  gridOverlay.id = 'canvas-grid-overlay';
+  gridOverlay.className = 'canvas-grid-overlay';
+  gridOverlay.style.display = 'none';
+  canvas.prepend(gridOverlay);
+  updateGridOverlayVisibility();
 
   if (addCardBtn) addCardBtn.addEventListener('click', () => { createCard(); saveState(); });
   if (addLargeCardBtn) addLargeCardBtn.addEventListener('click', () => { createCard({ isLarge: true }); saveState(); });
@@ -126,6 +136,15 @@ document.addEventListener('DOMContentLoaded', () => {
     catch(_) { const frag = lastRange.extractContents(); span.appendChild(frag); lastRange.insertNode(span); }
     hideNumPop(); saveState();
   });
+
+  function updateGridOverlayVisibility() {
+    if (gridOverlay) {
+      gridOverlay.style.display = activeState.isGridVisible ? 'block' : 'none';
+    }
+    if (toggleGridBtn) {
+      toggleGridBtn.classList.toggle('active', activeState.isGridVisible);
+    }
+  }
 
   function setupGlobalEventListeners() {
     window.addEventListener('mousedown', (e) => {
@@ -723,6 +742,15 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.background = e.target.value;
         });
     }
+
+    if (toggleGridBtn) {
+      toggleGridBtn.addEventListener('click', () => {
+        activeState.isGridVisible = !activeState.isGridVisible;
+        updateGridOverlayVisibility();
+      });
+      updateGridOverlayVisibility();
+    }
+  }
 
   function deleteCard(cardData) {
     lines = lines.filter(line => {
@@ -2641,7 +2669,6 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
-
 
 
 
