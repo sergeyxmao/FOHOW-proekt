@@ -2222,7 +2222,6 @@ const PAPER_SIZES = {
     a0: { width: 841, height: 1189 },
 };
 const DEFAULT_DPI = 96;
-const PX_PER_MM = DEFAULT_DPI / 25.4;
 
 // Главная функция, которая будет вызываться кнопкой "Печать"
 async function prepareForPrint() {
@@ -2272,6 +2271,15 @@ function createPrintModal() {
                         </div>
                     </div>
                     <div class="print-control-group">
+                        <label for="print-dpi">Разрешение (DPI):</label>
+                        <select id="print-dpi">
+                            <option value="96">96</option>
+                            <option value="150">150</option>
+                            <option value="300" selected>300</option>
+                            <option value="600">600</option>
+                        </select>
+                    </div>
+                    <div class="print-control-group">
                         <label class="checkbox-label"><input type="checkbox" id="print-tile-a4" disabled>Разбить на страницы A4</label>
                     </div>
                      <div class="print-control-group">
@@ -2303,10 +2311,12 @@ function createPrintModal() {
     const orientationBtns = document.querySelectorAll('.orientation-btn');
     const pdfBtn = document.getElementById('print-export-pdf');
     const pngBtn = document.getElementById('print-export-png');
+    const dpiSelect = document.getElementById('print-dpi');
     const previewArea = document.getElementById('print-preview-area');
     const statusLabel = document.getElementById('print-status-label');
 
     let currentOrientation;
+    let selectedDpi = parseInt(dpiSelect.value, 10) || DEFAULT_DPI;
 
     closeBtn.addEventListener('click', () => modalOverlay.remove());
     modalOverlay.addEventListener('click', (e) => {
@@ -2321,7 +2331,16 @@ function createPrintModal() {
             updatePreview();
         });
     });
-    
+
+    dpiSelect.addEventListener('change', () => {
+        const parsed = parseInt(dpiSelect.value, 10);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+            selectedDpi = parsed;
+        } else {
+            selectedDpi = DEFAULT_DPI;
+        }
+    });
+
     [formatSelect, tileCheckbox, contentCheckbox, colorCheckbox].forEach(el => el.addEventListener('change', updatePreview));
 
     pdfBtn.addEventListener('click', () => processPrint('pdf'));
@@ -2449,7 +2468,8 @@ async function processPrint(exportType) {
             await new Promise(resolve => setTimeout(resolve, 100));
 
             // --- НОВАЯ ЛОГИКА МАСШТАБИРОВАНИЯ ---
-            const originalScale = 2;
+            const dpiScale = selectedDpi / DEFAULT_DPI;
+            const originalScale = Math.max(dpiScale, 2);
             let finalScale = originalScale;
             const MAX_CANVAS_DIMENSION = 16384; // Безопасный лимит для большинства браузеров
 
@@ -2471,8 +2491,10 @@ async function processPrint(exportType) {
             const isLandscape = currentOrientation === 'landscape';
             const targetWidthMm = isLandscape ? paper.height : paper.width;
             const targetHeightMm = isLandscape ? paper.width : paper.height;
-            const targetWidthPx = Math.round(targetWidthMm * PX_PER_MM);
-            const targetHeightPx = Math.round(targetHeightMm * PX_PER_MM);
+            const pxPerMm = selectedDpi / 25.4;
+            const targetWidthPx = Math.round(targetWidthMm * pxPerMm);
+            const targetHeightPx = Math.round(targetHeightMm * pxPerMm);
+
 
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = targetWidthPx;
@@ -2647,6 +2669,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
