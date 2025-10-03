@@ -101,10 +101,40 @@ html,body{
   cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.06); transition:transform .15s; background:#fff;
 }
 .grad-btn:hover{ transform:translateY(-1px); }
+.grad-btn--grid{
+  position:relative;
+  background-color:#fff;
+  background-image:
+    linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);
+  background-size:18px 18px;
+}
+.grad-btn--grid::after{
+  content:"";
+  position:absolute;
+  inset:6px;
+  border:1px solid rgba(255,99,132,.35);
+  border-radius:6px;
+  pointer-events:none;
+}
+.grad-btn--grid.active{
+  border-color:#0f62fe;
+  box-shadow:0 0 0 2px rgba(15,98,254,.35) inset;
+}
 
 /* Canvas/SVG */
 #canvas{ position:relative; width:100%; height:100%; transform-origin:0 0; cursor:default; }
 #svg-layer{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+.canvas-grid-overlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background-size:70px 70px;
+  background-image:
+    linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);
+  opacity:.3;
+}
 .line{
   fill:none; pointer-events:auto; cursor:pointer;
   color: var(--line-color, var(--brand));
@@ -477,10 +507,40 @@ html,body{
   cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.06); transition:transform .15s; background:#fff;
 }
 .grad-btn:hover{ transform:translateY(-1px); }
+.grad-btn--grid{
+  position:relative;
+  background-color:#fff;
+  background-image:
+    linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);
+  background-size:18px 18px;
+}
+.grad-btn--grid::after{
+  content:"";
+  position:absolute;
+  inset:6px;
+  border:1px solid rgba(255,99,132,.35);
+  border-radius:6px;
+  pointer-events:none;
+}
+.grad-btn--grid.active{
+  border-color:#0f62fe;
+  box-shadow:0 0 0 2px rgba(15,98,254,.35) inset;
+}
 
 /* Canvas/SVG */
 #canvas{ position:relative; width:100%; height:100%; transform-origin:0 0; cursor:default; }
 #svg-layer{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+.canvas-grid-overlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background-size:70px 70px;
+  background-image:
+    linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);
+  opacity:.3;
+}
 .line{
   fill:none; pointer-events:auto; cursor:pointer;
   color: var(--line-color, var(--brand));
@@ -959,4 +1019,5 @@ html,body{
     opacity: 0.6;
     filter: grayscale(1);
 }
+
 
