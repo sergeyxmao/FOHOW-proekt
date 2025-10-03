@@ -2222,6 +2222,8 @@ const PAPER_SIZES = {
     a1: { width: 594, height: 841 },
     a0: { width: 841, height: 1189 },
 };
+const DEFAULT_DPI = 96;
+const PX_PER_MM = DEFAULT_DPI / 25.4;
 
 // Главная функция, которая будет вызываться кнопкой "Печать"
 async function prepareForPrint() {
@@ -2456,20 +2458,41 @@ async function processPrint(exportType) {
             // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
             const canvas = await html2canvas(renderContainer, { scale: finalScale, useCORS: true, logging: false });
-            
+
             const selectedFormat = formatSelect.value;
             const paper = PAPER_SIZES[selectedFormat];
             const isLandscape = currentOrientation === 'landscape';
+            const targetWidthMm = isLandscape ? paper.height : paper.width;
+            const targetHeightMm = isLandscape ? paper.width : paper.height;
+            const targetWidthPx = Math.round(targetWidthMm * PX_PER_MM);
+            const targetHeightPx = Math.round(targetHeightMm * PX_PER_MM);
+
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = targetWidthPx;
+            exportCanvas.height = targetHeightPx;
+            const exportCtx = exportCanvas.getContext('2d');
+            const backgroundColor = getComputedStyle(renderContainer).backgroundColor || '#ffffff';
+            exportCtx.fillStyle = backgroundColor;
+            exportCtx.fillRect(0, 0, targetWidthPx, targetHeightPx);
+            exportCtx.imageSmoothingEnabled = true;
+            exportCtx.imageSmoothingQuality = 'high';
+
+            const fitScale = Math.min(targetWidthPx / canvas.width, targetHeightPx / canvas.height);
+            const drawWidth = canvas.width * fitScale;
+            const drawHeight = canvas.height * fitScale;
+            const offsetX = (targetWidthPx - drawWidth) / 2;
+            const offsetY = (targetHeightPx - drawHeight) / 2;
+            exportCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
 
             if (exportType === 'png') {
                 statusLabel.textContent = 'Сохранение PNG...';
                 const link = document.createElement('a');
                 link.download = `scheme-${selectedFormat}.png`;
-                link.href = canvas.toDataURL('image/png');
+                link.href = exportCanvas.toDataURL('image/png');
                 link.click();
             } else if (exportType === 'pdf') {
                 statusLabel.textContent = 'Создание PDF...';
-                
+
                 const paperWidth = isLandscape ? paper.height : paper.width;
                 const paperHeight = isLandscape ? paper.width : paper.height;
                 
@@ -2619,3 +2642,4 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
