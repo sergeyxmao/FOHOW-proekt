@@ -361,6 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cardId = `card_${Date.now()}_${Math.floor(Math.random()*1000)}`;
     const card = document.createElement('div');
     card.className = 'card'; card.id = cardId;
+    if (opts.isDarkMode) card.classList.add('dark-mode');
 
     if (opts.isLarge) {
         card.style.width = '494px';
@@ -419,17 +420,8 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
-    const cardBody = card.querySelector('.card-body');
-    const startDark = !!(opts.isDarkMode || cardBody?.classList.contains('dark-bg'));
-    if (cardBody) {
-      card.classList.toggle('dark-mode', startDark);
-      cardBody.classList.toggle('dark-bg', startDark);
-    } else if (startDark) {
-      card.classList.add('dark-mode');
-    }
-
     canvas.appendChild(card);
-        ensureActiveControls(card);
+	ensureActiveControls(card);
 
     const cardData = {
         id: cardId,
@@ -499,16 +491,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const bodyColorChanger = card.querySelector('.body-color-changer');
-    if (bodyColorChanger && cardBody) {
-      bodyColorChanger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const nextIsDark = !card.classList.contains('dark-mode');
-        card.classList.toggle('dark-mode', nextIsDark);
-        cardBody.classList.toggle('dark-bg', nextIsDark);
-        saveState();
-      });
+    if (bodyColorChanger) {
+      bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
     }
-
 
     const noteBtn = card.querySelector('.note-btn');
     if (cardData.note && hasAnyEntry(cardData.note)) {
@@ -2201,14 +2186,12 @@ const getCleanedCardHtml = async (cardData) => { // Добавили async
                     .slf-badge { top: 15px; left: 15px; color: #ffc700; font-weight: 900; font-size: 24px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
                     .fendou-badge { top: -25px; left: 50%; transform: translateX(-50%); color: red; font-weight: 900; font-size: 36px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
                     .rank-badge { top: -15px; right: 15px; width: 80px; height: auto; transform: rotate(15deg); }
-                    .card.dark-mode { background: #ffffff; color: #f3f4f6; }
-                    .card.dark-mode .card-header { background: #1f2937 !important; color: #f3f4f6; }
+                    .card.dark-mode, .card.dark-mode .card-body { background: #2b2b2b; }
+                    .card.dark-mode .label { color: #e5e7eb; }
+                    .card.dark-mode .value { color: #f9fafb; }
+                    .card.dark-mode .card-header { background: #1f2937 !important; }
                     .card.dark-mode .card-title { color: #f3f4f6; }
-                    .card-body.dark-bg { background: #2b2b2b; color: #f3f4f6; }
-                    .card-body.dark-bg .label,
-                    .card-body.dark-bg .value { color: inherit; }
-                    .card.dark-mode .coin-icon { visibility: visible; }
-                    .card.dark-mode .coin-icon circle { fill: #fbbf24; stroke: #d97706; }
+                    .card.dark-mode .coin-icon { visibility: hidden; }
                     .line { fill:none; }
                 </style>
                 <marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" fill="currentColor">
@@ -2686,3 +2669,8 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
+
+
+
+
