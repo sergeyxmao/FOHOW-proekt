@@ -2414,7 +2414,7 @@ async function processPrint(exportType) {
         const state = serializeState();
         const PADDING = 100;
 
-        const bounds = getSchemeBounds();␊
+        const bounds = getSchemeBounds();
         const contentWidth = bounds.width + PADDING * 2;
         const contentHeight = bounds.height + PADDING * 2;
         
@@ -2647,6 +2647,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
