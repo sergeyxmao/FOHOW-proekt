@@ -917,9 +917,11 @@ html,body{
 }
 
 /* Улучшенные стили для режимов печати */
-.content-hidden .card-body,
-.content-hidden .card-title {
-    visibility: hidden;
+.content-hidden .card-title,
+.content-hidden .value,
+.content-hidden .coin-icon,
+.content-hidden .active-pv-controls {
+    visibility: hidden !important;
 }
 .outline-mode .card-header,
 .outline-mode .card-body,
@@ -957,3 +959,4 @@ html,body{
     opacity: 0.6;
     filter: grayscale(1);
 }
+
