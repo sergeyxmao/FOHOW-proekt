@@ -4,156 +4,241 @@ class PasswordProtector {
         // ЗДЕСЬ ВСТАВЬТЕ ХЭШИ ОТ ВАШИХ ПАРОЛЕЙ
         this.validHashes = [
             "5b33003a928495b97792ac286d477b54dd20eb773c74ae2fb3653bc5950ad6dd", // Хэш от пароля
-            
+
         ];
-        
-        this.checkAuthentication();
-    }
-    
-    async checkAuthentication() {
-        // Проверяем, есть ли активная сессия
-        const sessionAuth = sessionStorage.getItem('fohowAuth');
-        if (sessionAuth === 'authenticated') {
-            return; // Пользователь уже авторизован
-        }
-        
-        // Запрашиваем пароль
-        await this.requestPassword();
-    }
-    
-    async requestPassword() {
-        const password = prompt("🔐 Введите пароль для доступа к FOHOW проекту:");
-        
-        if (!password) {
-            this.showAccessDenied("Пароль не введен");
+
+        this.sessionKey = 'fohowAuth';
+        this.modalElement = document.getElementById('auth-modal');
+        this.formElement = this.modalElement?.querySelector('[data-auth-form]') || null;
+        this.passwordInput = this.formElement?.querySelector('.auth-modal__input') || null;
+        this.errorElement = this.modalElement?.querySelector('[data-auth-error]') || null;
+        this.submitButton = this.formElement?.querySelector('.auth-modal__submit') || null;
+        this.defaultSubmitText = this.submitButton?.textContent || '';
+        this.focusableElements = [];
+        this.isProcessing = false;
+
+        this.handleSubmit = this.handleSubmit.bind(this);
+        this.handleKeyDown = this.handleKeyDown.bind(this);
+        this.handleDocumentFocus = this.handleDocumentFocus.bind(this);
+
+        if (!this.modalElement || !this.formElement || !this.passwordInput) {
+            console.error('Модальное окно авторизации не найдено.');
             return;
         }
-        
-        // Создаем хэш от введенного пароля
-        const inputHash = await this.sha256(password);
-        
-        // Проверяем, есть ли такой хэш в списке разрешенных
-        if (this.validHashes.includes(inputHash)) {
-            // Пароль верный - сохраняем сессию
-            sessionStorage.setItem('fohowAuth', 'authenticated');
-        } else {
-            // Неверный пароль
-            this.showAccessDenied("Неверный пароль");
+
+        this.formElement.addEventListener('submit', this.handleSubmit);
+        this.passwordInput.addEventListener('input', () => this.clearError());
+        this.modalElement.addEventListener('keydown', this.handleKeyDown);
+        document.addEventListener('focusin', this.handleDocumentFocus);
+
+        this.checkAuthentication();
+    }
+
+    checkAuthentication() {
+        const sessionAuth = sessionStorage.getItem(this.sessionKey);
+        if (sessionAuth === 'authenticated') {
+            this.hideModalInstantly();
+            return;
+        }
+
+        this.openModal();
+    }
+
+    openModal() {
+        if (!this.modalElement) {
+            return;
+        }
+
+        this.modalElement.removeAttribute('hidden');
+        document.body.classList.add('auth-modal-open');
+        this.clearError();
+        this.formElement?.reset();
+
+        window.requestAnimationFrame(() => {
+            this.modalElement.classList.add('auth-modal--visible');
+            this.updateFocusableElements();
+            this.focusFirstElement();
+        });
+    }
+
+    hideModalInstantly() {
+        if (!this.modalElement) {
+            return;
+        }
+        this.modalElement.setAttribute('hidden', '');
+        this.modalElement.classList.remove('auth-modal--visible');
+        document.body.classList.remove('auth-modal-open');
+    }
+
+    closeModal() {
+        if (!this.modalElement) {
+            return;
+        }
+
+        this.modalElement.classList.remove('auth-modal--visible');
+        document.body.classList.remove('auth-modal-open');
+
+        const transitionDuration = 400;
+        window.setTimeout(() => {
+            if (this.modalElement && !this.modalElement.classList.contains('auth-modal--visible')) {
+                this.modalElement.setAttribute('hidden', '');
+            }
+        }, transitionDuration);
+    }
+
+    updateFocusableElements() {
+        if (!this.modalElement) {
+            this.focusableElements = [];
+            return;
+        }
+
+        const selectors = [
+            'a[href]',
+            'button:not([disabled])',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])'
+        ].join(',');
+
+        this.focusableElements = Array.from(this.modalElement.querySelectorAll(selectors)).filter((element) => {
+            return element.offsetParent !== null && !element.hasAttribute('aria-hidden');
+        });
+    }
+
+    focusFirstElement() {
+        if (this.passwordInput) {
+            this.passwordInput.focus();
+            this.passwordInput.select();
+            return;
+        }
+
+        if (this.focusableElements.length > 0) {
+            this.focusableElements[0].focus();
         }
     }
-    
-    // Функция для создания хэша SHA-256
+
+    isModalVisible() {
+        return Boolean(this.modalElement && this.modalElement.classList.contains('auth-modal--visible'));
+    }
+
+    handleKeyDown(event) {
+        if (event.key !== 'Tab' || !this.isModalVisible()) {
+            return;
+        }
+
+        if (!this.focusableElements.length) {
+            this.updateFocusableElements();
+        }
+
+        if (!this.focusableElements.length) {
+            return;
+        }
+
+        const firstElement = this.focusableElements[0];
+        const lastElement = this.focusableElements[this.focusableElements.length - 1];
+        const isShiftPressed = event.shiftKey;
+        const activeElement = document.activeElement;
+
+        if (!activeElement) {
+            return;
+        }
+
+        if (isShiftPressed && activeElement === firstElement) {
+            event.preventDefault();
+            lastElement.focus();
+        } else if (!isShiftPressed && activeElement === lastElement) {
+            event.preventDefault();
+            firstElement.focus();
+        }
+    }
+
+    handleDocumentFocus(event) {
+        if (!this.isModalVisible() || !this.modalElement) {
+            return;
+        }
+
+        if (!this.modalElement.contains(event.target)) {
+            this.focusFirstElement();
+        }
+    }
+
+    async handleSubmit(event) {
+        event.preventDefault();
+
+        if (this.isProcessing) {
+            return;
+        }
+
+        if (!window.crypto || !crypto.subtle) {
+            this.displayError('Браузер не поддерживает проверку пароля.');
+            return;
+        }
+
+        const password = (this.passwordInput?.value || '').trim();
+
+        if (!password) {
+            this.displayError('Введите пароль.');
+            this.focusFirstElement();
+            return;
+        }
+
+        this.togglePendingState(true);
+
+        try {
+            const inputHash = await this.sha256(password);
+
+            if (this.validHashes.includes(inputHash)) {
+                sessionStorage.setItem(this.sessionKey, 'authenticated');
+                this.clearError();
+                this.formElement?.reset();
+                this.closeModal();
+            } else {
+                this.displayError('Неверный пароль. Попробуйте ещё раз.');
+                this.focusFirstElement();
+            }
+        } catch (error) {
+            console.error('Ошибка проверки пароля', error);
+            this.displayError('Не удалось проверить пароль. Попробуйте позже.');
+        } finally {
+            this.togglePendingState(false);
+        }
+    }
+
+    togglePendingState(pending) {
+        this.isProcessing = pending;
+
+        if (this.submitButton) {
+            this.submitButton.disabled = pending;
+            this.submitButton.textContent = pending ? 'Проверяем…' : this.defaultSubmitText;
+        }
+    }
+
+    displayError(message) {
+        if (!this.errorElement) {
+            return;
+        }
+
+        if (!message) {
+            this.errorElement.textContent = '';
+            this.errorElement.hidden = true;
+            return;
+        }
+
+        this.errorElement.textContent = message;
+        this.errorElement.hidden = false;
+    }
+
+    clearError() {
+        this.displayError('');
+    }
+
     async sha256(message) {
-        const msgBuffer = new TextEncoder().encode(message);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const encoder = new TextEncoder();
+        const data = encoder.encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-    
-    showAccessDenied(reason) {
-        // Полностью заменяем содержимое страницы
-        document.body.innerHTML = this.getAccessDeniedPage(reason);
-        
-        // Блокируем любые другие скрипты
-        throw new Error("Access denied: " + reason);
-    }
-    
-    getAccessDeniedPage(reason) {
-        return `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Доступ ограничен - FOHOW Project</title>
-                <style>
-                    body {
-                        margin: 0;
-                        padding: 0;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                        height: 100vh;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        font-family: 'Arial', sans-serif;
-                    }
-                    .denied-container {
-                        text-align: center;
-                        background: white;
-                        padding: 50px;
-                        border-radius: 20px;
-                        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-                        max-width: 500px;
-                    }
-                    .lock-icon {
-                        font-size: 80px;
-                        margin-bottom: 20px;
-                    }
-                    h1 {
-                        color: #ff4757;
-                        margin-bottom: 20px;
-                    }
-                    .telegram-section {
-                        background: linear-gradient(135deg, #0088cc, #00a2ff);
-                        color: white;
-                        padding: 20px;
-                        border-radius: 10px;
-                        margin: 20px 0;
-                    }
-                    .tg-icon {
-                        font-size: 24px;
-                        margin-right: 10px;
-                    }
-                    .contact-button {
-                        display: inline-flex;
-                        align-items: center;
-                        background: white;
-                        color: #0088cc;
-                        padding: 12px 25px;
-                        border-radius: 8px;
-                        text-decoration: none;
-                        font-weight: bold;
-                        margin-top: 15px;
-                        transition: transform 0.2s;
-                    }
-                    .contact-button:hover {
-                        transform: translateY(-2px);
-                        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-                    }
-                    .refresh-hint {
-                        margin-top: 20px;
-                        font-size: 12px;
-                        color: #666;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="denied-container">
-                    <div class="lock-icon">🔒</div>
-                    <h1>Доступ к FOHOW Project</h1>
-                    
-                    <p><strong>Статус:</strong> ${reason}</p>
-                    <p>Проект доступен только по паролю для авторизованных пользователей</p>
-                    
-                    <div class="telegram-section">
-                        <h3>🚀 Получить доступ</h3>
-                        <p>Свяжитесь с администратором в Telegram:</p>
-                        
-                        <a href="https://t.me/MarketingFohow" target="_blank" class="contact-button">
-                            <span class="tg-icon">✈️</span>
-                            Написать @MarketingFohow
-                        </a>
-                        
-                        <div style="margin-top: 15px; font-size: 13px;">
-                            📋 <em>Укажите в сообщении: "Запрос доступа к FOHOW проекту"</em>
-                        </div>
-                    </div>
-                    
-                    <div class="refresh-hint">
-                        🔄 <strong>Обновите страницу (F5)</strong> для ввода пароля
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
+        return hashArray.map((value) => value.toString(16).padStart(2, '0')).join('');
     }
 }
 
