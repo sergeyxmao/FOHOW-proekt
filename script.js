@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let undoStack = [];
   let redoStack = [];
   let clipboard = null;
+  let lastSavedSnapshot = null;
+  let lastEngineMeta = null;
+  const imageDataUriCache = new Map();
 
   const vGuide = document.createElement('div');
   vGuide.className = 'guide-line vertical';
@@ -1049,17 +1052,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateNotesButtonState();
-    if (pushHistory) saveState();
-    recalculateAndRender();
+    const currentState = serializeState();
+    if (pushHistory) {
+      saveState(currentState);
+    } else {
+      recalculateAndRender(currentState);
+      lastSavedSnapshot = JSON.stringify(currentState);
+    }
   }
 
-  function saveState() {
-    const snapshot = serializeState();
-    if (undoStack.length === 0 && cards.length === 0 && lines.length === 0) return;
-    undoStack.push(JSON.stringify(snapshot));
+  function saveState(precomputedState = null) {
+    const snapshot = precomputedState ?? serializeState();
+    if (undoStack.length === 0 && snapshot.cards.length === 0 && snapshot.lines.length === 0) {
+      recalculateAndRender(snapshot);
+      return;
+    }
+    const serialized = JSON.stringify(snapshot);
+    if (serialized === lastSavedSnapshot) {
+      recalculateAndRender(snapshot);
+      return;
+    }
+    undoStack.push(serialized);
     if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
     redoStack = [];
-    recalculateAndRender();
+    lastSavedSnapshot = serialized;
+    recalculateAndRender(snapshot);
   }
 
   function undo() {
@@ -1293,14 +1310,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function recalculateAndRender() {
+  function recalculateAndRender(stateOverride = null) {
     try {
-      if (!window.Engine) return;
-      const state = serializeState();
+      if (!window.Engine) {
+        lastEngineMeta = null;
+        return;
+      }
+      const state = stateOverride ?? serializeState();
       const { result, meta } = Engine.recalc(state);
+      lastEngineMeta = meta;
 
       const id2el = new Map(cards.map(c => [c.id, c.element]));
-
       cards.forEach(cd => {
         const el = cd.element;
 
@@ -1568,8 +1588,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getParentInfo(childId) {
     if (!window.Engine) return null;
-    const { meta } = Engine.recalc(serializeState());
-    const p = meta.parentOf[childId];
+    if (!lastEngineMeta || !lastEngineMeta.parentOf) {
+      const recalculated = Engine.recalc(serializeState());
+      lastEngineMeta = recalculated.meta;
+    }
+    const p = lastEngineMeta.parentOf?.[childId];
     if (!p) return null;
     return { parentId: p.parentId, side: (p.side === 'right' ? 'R' : 'L') };
   }
@@ -2035,23 +2058,41 @@ document.addEventListener('DOMContentLoaded', () => {
       notesListBtn.disabled = !hasAnyNoteWithText;
     }
   }
-// ВСТАВЬТЕ ЭТОТ КОД ПЕРЕД ФУНКЦИЕЙ exportToSvg
-const imageToDataUri = (url) => {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => resolve(null); // Если картинка не загрузилась, просто идем дальше
-        img.src = url;
+  const imageToDataUri = (url) => {
+    if (!url) return Promise.resolve(null);
+    const cached = imageDataUriCache.get(url);
+    if (cached) {
+      return cached instanceof Promise ? cached : Promise.resolve(cached);
+    }
+    const loader = new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const dataUri = canvas.toDataURL('image/png');
+          imageDataUriCache.set(url, dataUri);
+          resolve(dataUri);
+        } catch (err) {
+          imageDataUriCache.delete(url);
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        imageDataUriCache.delete(url);
+        resolve(null);
+      };
+      img.src = url;
     });
-};
+    imageDataUriCache.set(url, loader);
+    return loader;
+  };
+
+async function exportToSvg() {
 async function exportToSvg() {
     if (cards.length === 0) {
         alert("На доске нет элементов для экспорта.");
@@ -2075,7 +2116,7 @@ async function exportToSvg() {
     const contentHeight = maxY - minY;
     const viewBox = `0 0 ${contentWidth + PADDING * 2} ${contentHeight + PADDING * 2}`;
 
-const getCleanedCardHtml = async (cardData) => { // Добавили async
+const getCleanedCardHtml = async (cardData) => {
         const tempBody = document.createElement('div');
         tempBody.innerHTML = cardData.bodyHTML;
         const pvControls = tempBody.querySelector('.active-pv-controls');
@@ -2669,6 +2710,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
