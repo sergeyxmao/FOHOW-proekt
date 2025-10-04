@@ -2499,6 +2499,111 @@ const PAPER_SIZES = {
 };
 const DEFAULT_DPI = 96;
 
+const PNG_PPM_FACTOR = 39.37007874015748; // Inches in a meter
+const PNG_SIGNATURE_LENGTH = 8;
+
+const PNG_CRC_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) {
+            c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        table[n] = c >>> 0;
+    }
+    return table;
+})();
+
+function crc32(bytes) {
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+        crc = PNG_CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+}
+
+function createPngChunk(type, data) {
+    const chunk = new Uint8Array(8 + data.length + 4);
+    const view = new DataView(chunk.buffer);
+    view.setUint32(0, data.length, false);
+    for (let i = 0; i < 4; i++) {
+        chunk[4 + i] = type.charCodeAt(i);
+    }
+    chunk.set(data, 8);
+    const crc = crc32(chunk.subarray(4, 8 + data.length));
+    view.setUint32(8 + data.length, crc, false);
+    return chunk;
+}
+
+function readUint32BE(bytes, offset) {
+    return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0, false);
+}
+
+function injectDpiIntoPngBytes(bytes, dpi) {
+    if (!bytes || bytes.length < PNG_SIGNATURE_LENGTH) return bytes;
+    const signature = bytes.subarray(0, PNG_SIGNATURE_LENGTH);
+    const pxPerMeter = Math.max(1, Math.round(dpi * PNG_PPM_FACTOR));
+    const physData = new Uint8Array(9);
+    const physView = new DataView(physData.buffer);
+    physView.setUint32(0, pxPerMeter, false);
+    physView.setUint32(4, pxPerMeter, false);
+    physData[8] = 1; // unit specifier: meters
+
+    const physChunk = createPngChunk('pHYs', physData);
+    const chunks = [signature];
+    let offset = PNG_SIGNATURE_LENGTH;
+    let physInserted = false;
+
+    while (offset < bytes.length) {
+        const length = readUint32BE(bytes, offset);
+        const typeStart = offset + 4;
+        const dataStart = offset + 8;
+        const dataEnd = dataStart + length;
+        const chunkEnd = dataEnd + 4;
+        const type = String.fromCharCode(
+            bytes[typeStart],
+            bytes[typeStart + 1],
+            bytes[typeStart + 2],
+            bytes[typeStart + 3]
+        );
+
+        if (type === 'pHYs') {
+            chunks.push(physChunk);
+            physInserted = true;
+        } else {
+            chunks.push(bytes.subarray(offset, chunkEnd));
+            if (type === 'IHDR' && !physInserted) {
+                chunks.push(physChunk);
+                physInserted = true;
+            }
+        }
+
+        offset = chunkEnd;
+    }
+
+    if (!physInserted) {
+        chunks.splice(1, 0, physChunk);
+    }
+
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const result = new Uint8Array(totalLength);
+    let position = 0;
+    for (const chunk of chunks) {
+        result.set(chunk, position);
+        position += chunk.length;
+    }
+    return result;
+}
+
+async function canvasToPngWithDpi(canvas, dpi) {
+    const safeDpi = Number.isFinite(dpi) && dpi > 0 ? dpi : DEFAULT_DPI;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) return null;
+    const arrayBuffer = await blob.arrayBuffer();
+    const updatedBytes = injectDpiIntoPngBytes(new Uint8Array(arrayBuffer), safeDpi);
+    return new Blob([updatedBytes], { type: 'image/png' });
+}
+
 // Главная функция, которая будет вызываться кнопкой "Печать"
 async function prepareForPrint() {
     if (cards.length === 0) {
@@ -2793,10 +2898,20 @@ async function processPrint(exportType) {
 
             if (exportType === 'png') {
                 statusLabel.textContent = 'Сохранение PNG...';
-                const link = document.createElement('a');
-                link.download = `scheme-${selectedFormat}.png`;
-                link.href = sourceDataUrl;
-                link.click();
+                const pngBlob = await canvasToPngWithDpi(sourceCanvas, selectedDpi);
+                if (pngBlob) {
+                    const link = document.createElement('a');
+                    const objectUrl = URL.createObjectURL(pngBlob);
+                    link.download = `scheme-${selectedFormat}.png`;
+                    link.href = objectUrl;
+                    link.click();
+                    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+                } else {
+                    const linkFallback = document.createElement('a');
+                    linkFallback.download = `scheme-${selectedFormat}.png`;
+                    linkFallback.href = sourceDataUrl;
+                    linkFallback.click();
+                }
             } else if (exportType === 'pdf') {
                 statusLabel.textContent = 'Создание PDF...';
 
@@ -2947,6 +3062,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
