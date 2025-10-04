@@ -2496,7 +2496,6 @@ const PAPER_SIZES = {
     a3: { width: 297, height: 420 },
     a2: { width: 420, height: 594 },
     a1: { width: 594, height: 841 },
-    a0: { width: 841, height: 1189 },
 };
 const DEFAULT_DPI = 96;
 
@@ -2533,7 +2532,6 @@ function createPrintModal() {
                             <option value="a3">A3</option>
                             <option value="a2">A2</option>
                             <option value="a1">A1</option>
-                            <option value="a0">A0</option>
                         </select>
                     </div>
                     <div class="print-control-group">
@@ -2790,11 +2788,14 @@ async function processPrint(exportType) {
             const offsetY = (targetHeightPx - drawHeight) / 2;
             exportCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
 
+            const sourceCanvas = exportCanvas;
+            const sourceDataUrl = sourceCanvas.toDataURL('image/png');
+
             if (exportType === 'png') {
                 statusLabel.textContent = 'Сохранение PNG...';
                 const link = document.createElement('a');
                 link.download = `scheme-${selectedFormat}.png`;
-                link.href = exportCanvas.toDataURL('image/png');
+                link.href = sourceDataUrl;
                 link.click();
             } else if (exportType === 'pdf') {
                 statusLabel.textContent = 'Создание PDF...';
@@ -2808,8 +2809,8 @@ async function processPrint(exportType) {
                     const cols = Math.ceil(paperWidth / a4.width);
                     const rows = Math.ceil(paperHeight / a4.height);
                     
-                    const sliceWidthPx = canvas.width / cols;
-                    const sliceHeightPx = canvas.height / rows;
+                    const sliceWidthPx = sourceCanvas.width / cols;
+                    const sliceHeightPx = sourceCanvas.height / rows;
                     
                     for (let r = 0; r < rows; r++) {
                         for (let c = 0; c < cols; c++) {
@@ -2824,7 +2825,7 @@ async function processPrint(exportType) {
                     }
                     tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`);
                 } else {
-                    const doc = new jsPDFLib({ orientation: currentOrientation, unit: 'mm', format: selectedFormat });                    const canvasAspectRatio = canvas.width / canvas.height;
+                            tempCtx.drawImage(sourceCanvas, c * sliceWidthPx, r * sliceHeightPx, sliceWidthPx, sliceHeightPx, 0, 0, sliceWidthPx, sliceHeightPx);
                     const paperAspectRatio = paperWidth / paperHeight;
                     let imgWidth, imgHeight;
                     if (canvasAspectRatio > paperAspectRatio) {
@@ -2834,7 +2835,7 @@ async function processPrint(exportType) {
                         imgHeight = paperHeight;
                         imgWidth = paperHeight * canvasAspectRatio;
                     }
-                    doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+                    doc.addImage(sourceDataUrl, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
                     doc.save(`scheme-${selectedFormat}.pdf`);
                 }
             }
@@ -2946,6 +2947,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
