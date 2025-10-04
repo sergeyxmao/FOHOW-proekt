@@ -69,10 +69,42 @@
       </defs>
     </svg>
   </div>
-  
+
+  <div id="auth-modal" class="auth-modal" hidden>
+    <div class="auth-modal__overlay" aria-hidden="true"></div>
+    <div class="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title" aria-describedby="auth-modal-description">
+      <form class="auth-modal__form" data-auth-form>
+        <h2 id="auth-modal-title" class="auth-modal__title">Доступ к проекту</h2>
+        <p id="auth-modal-description" class="auth-modal__description">
+          Введите пароль для продолжения работы с интерактивной доской.
+        </p>
+        <div class="auth-modal__field">
+          <label class="auth-modal__label" for="auth-password-input">Пароль</label>
+          <input
+            id="auth-password-input"
+            class="auth-modal__input"
+            type="password"
+            name="password"
+            autocomplete="current-password"
+            inputmode="text"
+            required
+            minlength="1"
+          />
+        </div>
+        <p class="auth-modal__error" data-auth-error aria-live="assertive" hidden></p>
+        <ul class="auth-modal__hints" aria-label="Подсказки по доступу">
+          <li>Пароль предоставляется администрацией проекта.</li>
+          <li>Нажмите Enter или кнопку «Войти», чтобы подтвердить ввод.</li>
+          <li>При возникновении вопросов свяжитесь с <a href="https://t.me/MarketingFohow" target="_blank" rel="noopener noreferrer">@MarketingFohow</a>.</li>
+        </ul>
+        <button type="submit" class="auth-modal__submit">Войти</button>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  
+
   <script src="engine.js"></script>
   <!-- ПОДКЛЮЧАЕМ НОВЫЙ ФАЙЛ ПЕРЕД ОСНОВНЫМ СКРИПТОМ -->
   <script src="card-features.js"></script> 
@@ -80,4 +112,5 @@
 </body>
 
 </html>
+
 
