@@ -2329,8 +2329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return loader;
   };
 
-async function exportToSvg() {
-async function exportToSvg() {
+  async function exportToSvg() {
     if (cards.length === 0) {
         alert("На доске нет элементов для экспорта.");
         return;
@@ -2947,6 +2946,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
