@@ -32,8 +32,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const SNAP_TOLERANCE = 5;
   const ACTIVE_PV_BASE = 330;
 
-  let canvasState = { x: 0, y: 0, scale: 1, isPanning: false, lastMouseX: 0, lastMouseY: 0 };
-  let activeState = {
+  let canvasState = {
+    x: 0,
+    y: 0,
+    scale: 1,
+    isPanning: false,
+    lastPointerX: 0,
+    lastPointerY: 0,
+    panPointerId: null,
+    panCaptureTarget: null
+  };  let activeState = {
     currentColor: '#0f62fe',
     currentThickness: 5,
     selectedLine: null,
@@ -46,7 +54,11 @@ document.addEventListener('DOMContentLoaded', () => {
     guidesEnabled: true,
     isGridVisible: false,
     lineStart: null,
-    previewLine: null
+    previewLine: null,
+    linePointerId: null,
+    lineCaptureTarget: null,
+    selectionPointerId: null,
+    selectionCaptureTarget: null
   };
   let cards = [];
   let lines = [];
@@ -59,6 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastSavedSnapshot = null;
   let lastEngineMeta = null;
   const imageDataUriCache = new Map();
+  const activePointers = new Map();
+  let pinchState = null;
 
   const vGuide = document.createElement('div');
   vGuide.className = 'guide-line vertical';
@@ -121,8 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lastRange = range;
   }
   function hideNumPop(){ numPop.style.display='none'; lastRange = null; }
-  document.addEventListener('selectionchange', () => requestAnimationFrame(showNumPop));
-  document.addEventListener('mousedown', (e) => {
+  document.addEventListener('pointerdown', (e) => {
     if (!e.target.closest('.num-color-pop') && !e.target.closest('.value[contenteditable="true"]')) hideNumPop();
   });
   numPop.addEventListener('click', (e) => {
@@ -150,64 +163,187 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setupGlobalEventListeners() {
-    window.addEventListener('mousedown', (e) => {
-      if (
-        e.target.closest('.ui-panel-left') ||
-        e.target.closest('.ui-panel-right') ||
-        e.target.closest('.note-window') ||
-        e.target.closest('.card-context-menu')
-      ) return;
+    const shouldIgnorePointer = (target) => (
+      target.closest('.ui-panel-left') ||
+      target.closest('.ui-panel-right') ||
+      target.closest('.note-window') ||
+      target.closest('.card-context-menu')
+    );
+
+    const updateTrackedPointer = (e) => {
+      const pointer = activePointers.get(e.pointerId);
+      if (pointer) {
+        pointer.x = e.clientX;
+        pointer.y = e.clientY;
+        pointer.type = e.pointerType;
+      }
+    };
+
+    const tryStartPinch = () => {
+      if (pinchState) return;
+      const touches = Array.from(activePointers.entries()).filter(([, info]) => info.type === 'touch');
+      if (touches.length < 2) return;
+      const [first, second] = touches;
+      const distance = Math.hypot(second[1].x - first[1].x, second[1].y - first[1].y);
+      if (!distance) return;
+      pinchState = {
+        id1: first[0],
+        id2: second[0],
+        initialDistance: distance,
+        initialScale: canvasState.scale,
+        prevMidX: (first[1].x + second[1].x) / 2,
+        prevMidY: (first[1].y + second[1].y) / 2
+      };
+      if (canvasState.isPanning && canvasState.panPointerId != null) {
+        if (canvasState.panCaptureTarget && canvasState.panCaptureTarget.releasePointerCapture) {
+          try { canvasState.panCaptureTarget.releasePointerCapture(canvasState.panPointerId); } catch (_) { /* noop */ }
+        }
+        canvasState.isPanning = false;
+        canvasState.panPointerId = null;
+        canvasState.panCaptureTarget = null;
+        document.body.style.cursor = 'default';
+      }
+      if (activeState.isSelecting) {
+        endMarqueeSelection();
+      }
+    };
+
+    const handlePinchMove = () => {
+      if (!pinchState) return;
+      const first = activePointers.get(pinchState.id1);
+      const second = activePointers.get(pinchState.id2);
+      if (!first || !second) return;
+      const midX = (first.x + second.x) / 2;
+      const midY = (first.y + second.y) / 2;
+      if (pinchState.prevMidX != null && pinchState.prevMidY != null) {
+        canvasState.x += midX - pinchState.prevMidX;
+        canvasState.y += midY - pinchState.prevMidY;
+      }
+      const distance = Math.hypot(second.x - first.x, second.y - first.y);
+      if (distance > 0) {
+        const prevScale = canvasState.scale;
+        const newScale = Math.max(0.1, Math.min(3, pinchState.initialScale * (distance / pinchState.initialDistance)));
+        const ratio = newScale / prevScale;
+        canvasState.x = midX - (midX - canvasState.x) * ratio;
+        canvasState.y = midY - (midY - canvasState.y) * ratio;
+        canvasState.scale = newScale;
+      }
+      pinchState.prevMidX = midX;
+      pinchState.prevMidY = midY;
+      updateCanvasTransform();
+    };
+
+    const endPinch = (pointerId) => {
+      if (!pinchState) return;
+      if (pointerId === pinchState.id1 || pointerId === pinchState.id2) {
+        pinchState = null;
+      }
+    };
+
+    window.addEventListener('pointerdown', (e) => {
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+      if (e.pointerType === 'touch') tryStartPinch();
+
+      if (shouldIgnorePointer(e.target)) return;
+      if (pinchState && e.pointerType === 'touch') return;
 
       if (e.button === 1) {
         e.preventDefault();
         canvasState.isPanning = true;
-        canvasState.lastMouseX = e.clientX;
-        canvasState.lastMouseY = e.clientY;
+        canvasState.panPointerId = e.pointerId;
+        canvasState.lastPointerX = e.clientX;
+        canvasState.lastPointerY = e.clientY;
+        if (e.target instanceof Element && e.target.setPointerCapture) {
+          e.target.setPointerCapture(e.pointerId);
+          canvasState.panCaptureTarget = e.target;
+        } else {
+          canvasState.panCaptureTarget = null;
+        }
         document.body.style.cursor = 'move';
         return;
       }
 
       if (e.button === 0) {
         if (!e.target.closest('.card')) {
-             if (activeState.selectedLine) {
-                activeState.selectedLine.element.classList.remove('selected');
-                activeState.selectedLine = null;
+          if (activeState.selectedLine) {
+            activeState.selectedLine.element.classList.remove('selected');
+            activeState.selectedLine = null;
+          }
+          if (activeState.isSelectionMode && activePointers.size === 1) {
+            startMarqueeSelection(e);
+            activeState.selectionPointerId = e.pointerId;
+            if (e.target instanceof Element && e.target.setPointerCapture) {
+              e.target.setPointerCapture(e.pointerId);
+              activeState.selectionCaptureTarget = e.target;
+            } else {
+              activeState.selectionCaptureTarget = null;
             }
-            if (activeState.isSelectionMode) {
-                startMarqueeSelection(e);
-            } else if (!e.ctrlKey) {
-                clearSelection();
-            }
-        } else {
-            if (activeState.selectedLine) {
-                activeState.selectedLine.element.classList.remove('selected');
-                activeState.selectedLine = null;
-            }
+          } else if (!e.ctrlKey) {
+            clearSelection();
+          }
+        } else if (activeState.selectedLine) {
+          activeState.selectedLine.element.classList.remove('selected');
+          activeState.selectedLine = null;
         }
       }
     });
 
-    window.addEventListener('mousemove', (e) => {
-      if (canvasState.isPanning) {
-        const dx = e.clientX - canvasState.lastMouseX;
-        const dy = e.clientY - canvasState.lastMouseY;
-        canvasState.x += dx; canvasState.y += dy;
-        canvasState.lastMouseX = e.clientX;
-        canvasState.lastMouseY = e.clientY;
+    window.addEventListener('pointermove', (e) => {
+      updateTrackedPointer(e);
+
+      if (pinchState && (e.pointerId === pinchState.id1 || e.pointerId === pinchState.id2)) {
+        handlePinchMove();
+        return;
+      }
+
+      if (canvasState.isPanning && e.pointerId === canvasState.panPointerId) {
+        const dx = e.clientX - canvasState.lastPointerX;
+        const dy = e.clientY - canvasState.lastPointerY;
+        canvasState.x += dx;
+        canvasState.y += dy;
+        canvasState.lastPointerX = e.clientX;
+        canvasState.lastPointerY = e.clientY;
         updateCanvasTransform();
-      } else if (activeState.isDrawingLine) {
+      } else if (activeState.isDrawingLine && activeState.linePointerId === e.pointerId) {
         const coords = getCanvasCoordinates(e.clientX, e.clientY);
         const startPoint = getPointCoords(activeState.lineStart.card, activeState.lineStart.side);
         updateLinePath(activeState.previewLine, startPoint, coords, activeState.lineStart.side, null);
-      } else if (activeState.isSelecting) {
+      } else if (activeState.isSelecting && activeState.selectionPointerId === e.pointerId) {
         updateMarqueeSelection(e);
       }
     });
 
-    window.addEventListener('mouseup', (e) => {
-      if (e.button === 1) { canvasState.isPanning = false; document.body.style.cursor = 'default'; }
-      if (e.button === 0 && activeState.isSelecting) endMarqueeSelection(e);
-    });
+    const handlePointerEnd = (e) => {
+      activePointers.delete(e.pointerId);
+      endPinch(e.pointerId);
+
+      if (canvasState.isPanning && e.pointerId === canvasState.panPointerId) {
+        canvasState.isPanning = false;
+        if (canvasState.panCaptureTarget && canvasState.panCaptureTarget.releasePointerCapture) {
+          try { canvasState.panCaptureTarget.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+        }
+        canvasState.panPointerId = null;
+        canvasState.panCaptureTarget = null;
+        document.body.style.cursor = 'default';
+      }
+
+      if (activeState.isSelecting && e.pointerId === activeState.selectionPointerId) {
+        endMarqueeSelection(e);
+        if (activeState.selectionCaptureTarget && activeState.selectionCaptureTarget.releasePointerCapture) {
+          try { activeState.selectionCaptureTarget.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+        }
+        activeState.selectionPointerId = null;
+        activeState.selectionCaptureTarget = null;
+      }
+
+      if (activeState.linePointerId === e.pointerId && e.type === 'pointercancel') {
+        cancelDrawing();
+        activeState.linePointerId = null;
+      }
+    };
+
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerEnd);
 
     window.addEventListener('wheel', (e) => {
       if (e.target.closest('.ui-panel-left') || e.target.closest('.ui-panel-right')) return;
@@ -439,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyCardBadges(cardData);
     }
 
-    card.addEventListener('mousedown', (e) => {
+    card.addEventListener('pointerdown', (e) => {
         if (e.ctrlKey) {
             e.stopPropagation();
             toggleCardSelection(cardData);
@@ -516,13 +652,44 @@ document.addEventListener('DOMContentLoaded', () => {
       saveState();
     }));
     card.querySelectorAll('.connection-point').forEach(point => {
-      point.addEventListener('mousedown', (e) => {
+      point.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
-        if (!activeState.isDrawingLine) startDrawingLine(cardData, point.dataset.side);
-        else { endDrawingLine(cardData, point.dataset.side); saveState(); }
+        if (pinchState && e.pointerType === 'touch') return;
+        if (!activeState.isDrawingLine) {
+          activeState.linePointerId = e.pointerId;
+          if (point.setPointerCapture) {
+            try { point.setPointerCapture(e.pointerId); activeState.lineCaptureTarget = point; } catch (_) { activeState.lineCaptureTarget = null; }
+          } else {
+            activeState.lineCaptureTarget = null;
+          }
+          startDrawingLine(cardData, point.dataset.side);
+        } else if (!activeState.linePointerId || activeState.linePointerId === e.pointerId) {
+          endDrawingLine(cardData, point.dataset.side);
+          saveState();
+          if (activeState.lineCaptureTarget && activeState.lineCaptureTarget.releasePointerCapture) {
+            try { activeState.lineCaptureTarget.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+          }
+          activeState.linePointerId = null;
+          activeState.lineCaptureTarget = null;
+        }
+      });
+      point.addEventListener('pointerup', (e) => {
+        if (activeState.linePointerId === e.pointerId && activeState.lineCaptureTarget === point && point.releasePointerCapture) {
+          try { point.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+          activeState.lineCaptureTarget = null;
+        }
+      });
+      point.addEventListener('pointercancel', (e) => {
+        if (activeState.linePointerId === e.pointerId) {
+          if (activeState.lineCaptureTarget && activeState.lineCaptureTarget.releasePointerCapture) {
+            try { activeState.lineCaptureTarget.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+          }
+          cancelDrawing();
+          activeState.linePointerId = null;
+          activeState.lineCaptureTarget = null;
+        }
       });
     });
-
     updateNotesButtonState();
     return cardData;
   }
@@ -560,8 +727,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function makeDraggable(element, cardData) {
-    element.addEventListener('mousedown', (e) => {
+    element.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
+      if (pinchState && e.pointerType === 'touch') return;
 
       let dragSet = new Set();
 
@@ -611,14 +779,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const startMouseX = e.clientX, startMouseY = e.clientY;
+      const pointerId = e.pointerId;
+      const startPointerX = e.clientX;
+      const startPointerY = e.clientY;
       const staticCards = cards.filter(c => !activeState.selectedCards.has(c));
 
-      function onMouseMove(e2) {
-        let dx_canvas = (e2.clientX - startMouseX) / canvasState.scale;
-        let dy_canvas = (e2.clientY - startMouseY) / canvasState.scale;
-        const dx_viewport = e2.clientX - startMouseX;
-        const dy_viewport = e2.clientY - startMouseY;
+      if (element.setPointerCapture) {
+        try { element.setPointerCapture(pointerId); } catch (_) { /* noop */ }
+      }
+
+      const onPointerMove = (e2) => {
+        if (e2.pointerId !== pointerId) return;
+        let dx_canvas = (e2.clientX - startPointerX) / canvasState.scale;
+        let dy_canvas = (e2.clientY - startPointerY) / canvasState.scale;
+        const dx_viewport = e2.clientX - startPointerX;
+        const dy_viewport = e2.clientY - startPointerY;
 
         if (activeState.guidesEnabled) {
           let snapX = null, snapY = null;
@@ -663,11 +838,16 @@ document.addEventListener('DOMContentLoaded', () => {
             dragged.card.note.window.style.top  = `${dragged.noteStartY + dy_viewport}px`;
           }
         });
-      }
+      };
 
-      function onMouseUp() {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+      const finishDrag = (e2) => {
+        if (e2.pointerId !== pointerId) return;
+        if (element.releasePointerCapture) {
+          try { element.releasePointerCapture(pointerId); } catch (_) { /* noop */ }
+        }
+        element.removeEventListener('pointermove', onPointerMove);
+        element.removeEventListener('pointerup', finishDrag);
+        element.removeEventListener('pointercancel', cancelDrag);
         vGuide.style.display = 'none'; hGuide.style.display = 'none';
         draggedCards.forEach(dragged => {
             if (dragged.card.note && dragged.card.note.window) {
@@ -676,9 +856,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         saveState();
-      }
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
+      };
+
+      const cancelDrag = (e2) => {
+        if (e2.pointerId !== pointerId) return;
+        if (element.releasePointerCapture) {
+          try { element.releasePointerCapture(pointerId); } catch (_) { /* noop */ }
+        }
+        element.removeEventListener('pointermove', onPointerMove);
+        element.removeEventListener('pointerup', finishDrag);
+        element.removeEventListener('pointercancel', cancelDrag);
+        vGuide.style.display = 'none'; hGuide.style.display = 'none';
+      };
+
+      element.addEventListener('pointermove', onPointerMove);
+      element.addEventListener('pointerup', finishDrag);
+      element.addEventListener('pointercancel', cancelDrag);
     });
   }
 
@@ -718,9 +911,21 @@ document.addEventListener('DOMContentLoaded', () => {
     activeState.isDrawingLine = false;
     activeState.lineStart = null;
     activeState.previewLine = null;
+    activeState.linePointerId = null;
+    activeState.lineCaptureTarget = null;
   }
 
-  function cancelDrawing() { if (activeState.previewLine) activeState.previewLine.remove(); activeState.isDrawingLine = false; activeState.lineStart = null; activeState.previewLine = null; }
+  function cancelDrawing() {
+    if (activeState.previewLine) activeState.previewLine.remove();
+    activeState.isDrawingLine = false;
+    activeState.lineStart = null;
+    activeState.previewLine = null;
+    if (activeState.lineCaptureTarget && activeState.linePointerId != null && activeState.lineCaptureTarget.releasePointerCapture) {
+      try { activeState.lineCaptureTarget.releasePointerCapture(activeState.linePointerId); } catch (_) { /* noop */ }
+    }
+    activeState.linePointerId = null;
+    activeState.lineCaptureTarget = null;
+  }
 
   function updateLinePath(pathElement, p1, p2, side1, side2) {
     let finalP2 = { ...p2 }, midP1 = { ...p1 };
@@ -841,6 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function startMarqueeSelection(e) {
     if (!e.ctrlKey) clearSelection();
     activeState.isSelecting = true;
+    activeState.selectionPointerId = e.pointerId;
     marqueeStart.x = e.clientX; marqueeStart.y = e.clientY;
     baseSelection = e.ctrlKey ? new Set(activeState.selectedCards) : new Set();
 
@@ -876,6 +1082,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function endMarqueeSelection() {
     activeState.isSelecting = false;
+    if (activeState.selectionCaptureTarget && activeState.selectionPointerId != null && activeState.selectionCaptureTarget.releasePointerCapture) {
+      try { activeState.selectionCaptureTarget.releasePointerCapture(activeState.selectionPointerId); } catch (_) { /* noop */ }
+    }
+    activeState.selectionPointerId = null;
+    activeState.selectionCaptureTarget = null;
     if (selectionBox) {
         selectionBox.style.display = 'none';
         selectionBox.style.width = '0px';
@@ -1209,8 +1420,8 @@ document.addEventListener('DOMContentLoaded', () => {
       exportHtmlBtn.addEventListener('click', async () => {
         try {
           const bodyStyle = getComputedStyle(document.body);
-          const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');let p=!1,lx=0,ly=0,x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale};function u(){c.style.transform=\`translate(\${x}px,\${y}px) scale(\${s})\`}window.addEventListener('mousedown',e=>{if(e.button===1){p=!0;lx=e.clientX;ly=e.clientY;document.body.style.cursor='move'}}),window.addEventListener('mousemove',e=>{if(p){const d=e.clientX-lx,t=e.clientY-ly;x+=d,y+=t,lx=e.clientX,ly=e.clientY,u()}}),window.addEventListener('mouseup',e=>{e.button===1&&(p=!1,document.body.style.cursor='default')}),window.addEventListener('wheel',e=>{e.preventDefault();const a=-.001*e.deltaY,n=Math.max(.1,Math.min(5,s+a)),m=e.clientX,w=e.clientY;x=m-(m-x)*(n/s),y=w-(w-y)*(n/s),s=n,u()},{passive:!1}),u()});<\/script>`;
-          const canvasClone = canvas.cloneNode(true);
+          const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');if(!c)return;let x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale},pan=!1,panId=null,lastX=0,lastY=0;const pointers=new Map;let pinch=null;const clamp=v=>Math.max(.1,Math.min(5,v));const update=()=>{c.style.transform='translate('+x+'px,'+y+'px) scale('+s+')';};const tryPinch=()=>{if(pinch)return;const t=[...pointers.entries()].filter(([,i])=>i.type==='touch');if(t.length<2)return;const[a,b]=t;const d=Math.hypot(b[1].x-a[1].x,b[1].y-a[1].y);if(!d)return;if(pan&&panId!=null){c.releasePointerCapture&&c.releasePointerCapture(panId);document.body.style.cursor='default';}pan=!1;panId=null;pinch={a:a[0],b:b[0],d,scale:s,midX:(a[1].x+b[1].x)/2,midY:(a[1].y+b[1].y)/2};};const handlePinch=()=>{if(!pinch)return;const a=pointers.get(pinch.a),b=pointers.get(pinch.b);if(!a||!b)return;const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;x+=midX-pinch.midX;y+=midY-pinch.midY;const dist=Math.hypot(b.x-a.x,b.y-a.y);if(dist){const ns=clamp(pinch.scale*dist/pinch.d);const ratio=ns/s;x=midX-(midX-x)*ratio;y=midY-(midY-y)*ratio;s=ns;}pinch.midX=midX;pinch.midY=midY;update();};const endPinch=id=>{if(pinch&&(id===pinch.a||id===pinch.b))pinch=null;};c.addEventListener('pointerdown',e=>{pointers.set(e.pointerId,{x:e.clientX,y=e.clientY,type=e.pointerType});if(e.pointerType==='touch'){tryPinch();if(!pinch&&!pan){pan=!0;panId=e.pointerId;lastX=e.clientX;lastY=e.clientY;c.setPointerCapture&&c.setPointerCapture(e.pointerId);}}else if(e.button===1){pan=!0;panId=e.pointerId;lastX=e.clientX;lastY=e.clientY;c.setPointerCapture&&c.setPointerCapture(e.pointerId);document.body.style.cursor='move';}});c.addEventListener('pointermove',e=>{const info=pointers.get(e.pointerId);if(info){info.x=e.clientX;info.y=e.clientY;}if(pinch&&(e.pointerId===pinch.a||e.pointerId===pinch.b)){handlePinch();return;}if(pan&&e.pointerId===panId){x+=e.clientX-lastX;y+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;update();}});const stop=e=>{pointers.delete(e.pointerId);endPinch(e.pointerId);if(pan&&e.pointerId===panId){pan=!1;panId=null;document.body.style.cursor='default';c.releasePointerCapture&&c.releasePointerCapture(e.pointerId);}};c.addEventListener('pointerup',stop);c.addEventListener('pointercancel',stop);c.addEventListener('wheel',e=>{e.preventDefault();const ns=clamp(s-.001*e.deltaY);const ratio=ns/s;const fx=e.clientX,fy=e.clientY;x=fx-(fx-x)*ratio;y=fy-(fy-y)*ratio;s=ns;update();},{passive:!1});update();});<\/script>`; 
+		  const canvasClone = canvas.cloneNode(true);
 
           const selectorsToRemove = [
             '.note-resize-handle',
@@ -1903,22 +2114,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const header = noteWindow.querySelector('.note-header');
-    header.addEventListener('mousedown', (e) => {
+    header.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      if (pinchState && e.pointerType === 'touch') return;
+      const pointerId = e.pointerId;
       const startX = e.clientX, startY = e.clientY;
       const startNoteX = note.x, startNoteY = note.y;
-      function onMove(e2) {
+
+      if (header.setPointerCapture) {
+        try { header.setPointerCapture(pointerId); } catch (_) { /* noop */ }
+      }
+
+      const onMove = (e2) => {
+        if (e2.pointerId !== pointerId) return;
         const dx = e2.clientX - startX; const dy = e2.clientY - startY;
         note.x = startNoteX + dx; note.y = startNoteY + dy;
         noteWindow.style.left = `${note.x}px`; noteWindow.style.top = `${note.y}px`;
-      }
-      function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
+      };
+
+      const finish = (e2) => {
+        if (e2.pointerId !== pointerId) return;
+        if (header.releasePointerCapture) {
+          try { header.releasePointerCapture(pointerId); } catch (_) { /* noop */ }
+        }
+        header.removeEventListener('pointermove', onMove);
+        header.removeEventListener('pointerup', finish);
+        header.removeEventListener('pointercancel', cancel);
         saveState();
-      }
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      };
+
+      const cancel = (e2) => {
+        if (e2.pointerId !== pointerId) return;
+        if (header.releasePointerCapture) {
+          try { header.releasePointerCapture(pointerId); } catch (_) { /* noop */ }
+        }
+        header.removeEventListener('pointermove', onMove);
+        header.removeEventListener('pointerup', finish);
+        header.removeEventListener('pointercancel', cancel);
+      };
+
+      header.addEventListener('pointermove', onMove);
+      header.addEventListener('pointerup', finish);
+      header.addEventListener('pointercancel', cancel);
     });
 
     new ResizeObserver(() => {
@@ -1929,7 +2166,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setupNoteAutoClose() {
-    document.addEventListener('mousedown', (e) => {
+    document.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.note-window') || e.target.closest('.note-btn')) return;
       cards.forEach(cd => {
         const n = cd.note;
@@ -2034,7 +2271,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dropdown.style.display === 'block') hide(); else show();
     });
 
-    document.addEventListener('mousedown', (e) => {
+    document.addEventListener('pointerdown', (e) => {
       if (e.target === notesListBtn || e.target.closest('#notes-dropdown')) return;
       hide();
     });
@@ -2710,6 +2947,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
