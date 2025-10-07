@@ -544,6 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="card-title" contenteditable="false">${titleText}</span>
         <div class="fendou-badge">FENDOU</div>
         <img class="rank-badge" src="" alt="Rank">
+        <button class="card-close-btn" type="button" title="Удалить карточку">×</button>
       </div>
       <button class="header-color-picker-btn" title="Выбрать цвет заголовка"></button>
       <div class="card-control-btn color-changer" data-color-index="${opts.colorIndex ?? 0}"></div>
@@ -670,6 +671,15 @@ document.addEventListener('DOMContentLoaded', () => {
       bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
     }
 
+    const closeBtn = card.querySelector('.card-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteCard(cardData);
+        saveState();
+      });
+    }
+
     const noteBtn = card.querySelector('.note-btn');
     if (cardData.note && hasAnyEntry(cardData.note)) {
       noteBtn.classList.add('has-text');
@@ -763,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function makeDraggable(element, cardData) {
-    const interactiveDragBlockSelector = '.card-control-btn, .note-btn, .active-btn, .header-color-picker-btn, .color-changer, .body-color-changer, [contenteditable="true"], button, input, textarea, select, label, a[href]';
+    const interactiveDragBlockSelector = '.card-control-btn, .note-btn, .active-btn, .header-color-picker-btn, .color-changer, .body-color-changer, .card-title, [contenteditable="true"], button, input, textarea, select, label, a[href]';
     element.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
       if (pinchState && e.pointerType === 'touch') return;
@@ -2080,30 +2090,89 @@ document.addEventListener('DOMContentLoaded', () => {
     saveState();
   });
 
+  function getNoteEntryInfo(entry) {
+    if (!entry) return { text: '', updatedAt: null };
+    if (typeof entry === 'string') return { text: entry, updatedAt: null };
+    if (typeof entry === 'object') {
+      const text = typeof entry.text === 'string' ? entry.text : '';
+      const updatedAt = typeof entry.updatedAt === 'string' ? entry.updatedAt : null;
+      return { text, updatedAt };
+    }
+    return { text: '', updatedAt: null };
+  }
+
+  function setNoteEntryValue(note, date, value) {
+    if (!note.entries) note.entries = {};
+    const raw = value ?? '';
+    const trimmed = raw.trim();
+    if (trimmed) {
+      note.entries[date] = { text: raw, updatedAt: new Date().toISOString() };
+    } else {
+      delete note.entries[date];
+    }
+  }
+
+  function formatNoteDateTime(dateStr, updatedAt) {
+    let datePart = dateStr;
+    if (typeof dateStr === 'string') {
+      const segments = dateStr.split('-');
+      if (segments.length === 3) {
+        datePart = `${segments[2]}.${segments[1]}.${segments[0]}`;
+      }
+    }
+    let timePart = '--:--';
+    if (updatedAt) {
+      const dt = new Date(updatedAt);
+      if (!Number.isNaN(dt.getTime())) {
+        const hours = String(dt.getHours()).padStart(2, '0');
+        const minutes = String(dt.getMinutes()).padStart(2, '0');
+        timePart = `${hours}.${minutes}`;
+      }
+    }
+    return { datePart, timePart };
+  }
+
   function hasAnyEntry(note) {
     if (!note) return false;
     if (note.entries && typeof note.entries === 'object') {
-      return Object.values(note.entries).some(v => v && String(v).trim().length > 0);
+      return Object.values(note.entries).some((entry) => {
+        const info = getNoteEntryInfo(entry);
+        return info.text.trim().length > 0;
+      });
     }
-    return !!(note.text && String(note.text).trim().length > 0);
+    return false;
   }
 
   function ensureNoteStructure(note) {
-    if (!note.entries) note.entries = {};
+    if (!note.entries || typeof note.entries !== 'object') note.entries = {};
     if (!note.colors)  note.colors  = {};
     if (!note.selectedDate) note.selectedDate = new Date().toISOString().slice(0,10);
     if (!note.highlightColor) note.highlightColor = '#f44336';
+    Object.entries({ ...note.entries }).forEach(([date, entry]) => {
+      const info = getNoteEntryInfo(entry);
+      if (!info.text.trim()) {
+        delete note.entries[date];
+      } else {
+        note.entries[date] = { text: info.text, updatedAt: info.updatedAt || null };
+      }
+    });
     if (note.text && !note.entries[note.selectedDate]) {
-      note.entries[note.selectedDate] = note.text;
+      note.entries[note.selectedDate] = { text: note.text, updatedAt: null };
       note.text = '';
     }
   }
 
-   function toggleNote(cardData) {
+  function setCardNoteHighlight(cardData, isActive) {
+    if (!cardData || !cardData.element) return;
+    cardData.element.classList.toggle('note-active', !!isActive);
+  }
+
+  function toggleNote(cardData) {
     if (cardData.note && cardData.note.window) {
       cardData.note.window.remove();
       cardData.note.window = null;
       cardData.note.visible = false;
+      setCardNoteHighlight(cardData, false);
     } else {
       if (!cardData.note) {
         const cardRect = cardData.element.getBoundingClientRect();
@@ -2117,6 +2186,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       cardData.note.visible = true;
       createNoteWindow(cardData);
+      setCardNoteHighlight(cardData, true);
     }
     saveState();
     updateNotesButtonState();
@@ -2154,10 +2224,10 @@ document.addEventListener('DOMContentLoaded', () => {
         .clr-dot.active{box-shadow:0 0 0 2px rgba(0,0,0,.25), inset 0 0 0 2px #fff}
       </style>
       <div class="note-header">
-        <button class="note-close-btn" title="Закрыть">×</button>
+        <button class="note-close-btn" type="button" title="Закрыть">×</button>
         <div class="note-tools">
           <div class="clr-dot" data-color="#f44336" title="Красный" style="background:#f44336"></div>
-          <div class="clr-dot" data-color="#ffca28" title="Жёлтый"  style="background:#ffca28"></div>
+          <div class="clr-dot" data-color="#4caf50" title="Зелёный" style="background:#4caf50"></div>
           <div class="clr-dot" data-color="#42a5f5" title="Синий"   style="background:#42a5f5"></div>
         </div>
       </div>
@@ -2180,17 +2250,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.appendChild(noteWindow);
     note.window = noteWindow;
+    setCardNoteHighlight(cardData, true);
 
+    const header = noteWindow.querySelector('.note-header');
+    const textarea = noteWindow.querySelector('.note-textarea');
+    const noteBtn  = cardData.element.querySelector('.note-btn');
     const colorDots = noteWindow.querySelectorAll('.clr-dot');
+
+    const applyAccent = () => {
+      const accent = note.colors[note.selectedDate] || note.highlightColor;
+      if (accent) {
+        note.highlightColor = accent;
+        noteWindow.style.setProperty('--note-accent', accent);
+      } else {
+        noteWindow.style.removeProperty('--note-accent');
+      }
+    };
+
     function updateColorDotsActive() {
       const currentColor = note.colors[note.selectedDate] || note.highlightColor;
-      colorDots.forEach(d => d.classList.toggle('active', d.getAttribute('data-color') === currentColor));
+      colorDots.forEach((d) => d.classList.toggle('active', d.getAttribute('data-color') === currentColor));
+      applyAccent();
     }
     colorDots.forEach(dot => {
       dot.addEventListener('click', () => {
         const c = dot.getAttribute('data-color');
+        if (!c) return;
         note.colors[note.selectedDate] = c;
-        updateColorDotsActive(); renderCalendar(); saveState();
+        note.highlightColor = c;
+        updateColorDotsActive();
+        renderCalendar();
+        saveState();
+        if (notesDropdownApi?.isOpen()) notesDropdownApi.refresh?.();
       });
     });
 
@@ -2202,6 +2293,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function ymd(d) { return d.toISOString().slice(0,10); }
     function formatMonthYear(d) { return d.toLocaleDateString('ru-RU',{month:'long', year:'numeric'}); }
+
+    const updateTextareaValue = () => {
+      const info = getNoteEntryInfo(note.entries[note.selectedDate]);
+      textarea.value = info.text;
+    };
 
     function renderCalendar() {
       calGrid.innerHTML = `
@@ -2236,92 +2332,114 @@ document.addEventListener('DOMContentLoaded', () => {
       const dateStr = ymd(dateObj);
       cell.textContent = String(dateObj.getDate());
       if (dateStr === note.selectedDate) cell.classList.add('selected');
-      const hasEntry = !!(note.entries[dateStr] && String(note.entries[dateStr]).trim().length > 0);
+      const entryInfo = getNoteEntryInfo(note.entries[dateStr]);
+      const hasEntry = entryInfo.text.trim().length > 0;
       if (hasEntry) {
         cell.classList.add('has-entry');
         const dayColor = note.colors[dateStr] || note.highlightColor;
         cell.style.background = dayColor;
         cell.style.color = '#fff';
+      } else {
+        cell.style.background = '';
+        cell.style.color = '';
       }
       cell.addEventListener('click', () => {
         note.selectedDate = dateStr;
         renderCalendar();
-        textarea.value = note.entries[note.selectedDate] || '';
+        updateTextareaValue();
         updateColorDotsActive();
       });
       return cell;
     }
 
-    prevBtn.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth() - 1); renderCalendar(); updateColorDotsActive(); });
-    nextBtn.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth() + 1); renderCalendar(); updateColorDotsActive(); });
+    prevBtn.addEventListener('click', () => {
+      viewDate.setMonth(viewDate.getMonth() - 1);
+      renderCalendar();
+      updateColorDotsActive();
+      updateTextareaValue();
+    });
+    nextBtn.addEventListener('click', () => {
+      viewDate.setMonth(viewDate.getMonth() + 1);
+      renderCalendar();
+      updateColorDotsActive();
+      updateTextareaValue();
+    });
     renderCalendar();
     updateColorDotsActive();
+    updateTextareaValue();
 
-    const textarea = noteWindow.querySelector('.note-textarea');
-    const noteBtn  = cardData.element.querySelector('.note-btn');
-    textarea.value = note.entries[note.selectedDate] || '';
     textarea.addEventListener('input', () => {
       const val = textarea.value;
-      if (val && val.trim()) note.entries[note.selectedDate] = val;
-      else delete note.entries[note.selectedDate];
+      setNoteEntryValue(note, note.selectedDate, val);
       if (hasAnyEntry(note)) { noteBtn.classList.add('has-text'); noteBtn.textContent = '❗'; }
       else { noteBtn.classList.remove('has-text'); noteBtn.textContent = '📝'; }
       renderCalendar();
       updateNotesButtonState();
+      if (notesDropdownApi?.isOpen()) notesDropdownApi.refresh?.();
     });
-    textarea.addEventListener('blur', saveState);
-
-    noteWindow.querySelector('.note-close-btn').addEventListener('click', () => {
-      note.visible = false;
-      noteWindow.remove();
-      note.window = null;
-      saveState();			
+    textarea.addEventListener('blur', () => {
+      saveState();
+      if (notesDropdownApi?.isOpen()) notesDropdownApi.refresh?.();
     });
 
-    const header = noteWindow.querySelector('.note-header');
-    header.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      if (pinchState && e.pointerType === 'touch') return;
-      const pointerId = e.pointerId;
-      const startX = e.clientX, startY = e.clientY;
-      const startNoteX = note.x, startNoteY = note.y;
-
-      if (header.setPointerCapture) {
-        try { header.setPointerCapture(pointerId); } catch (_) { /* noop */ }
-      }
-
-      const onMove = (e2) => {
-        if (e2.pointerId !== pointerId) return;
-        const dx = e2.clientX - startX; const dy = e2.clientY - startY;
-        note.x = startNoteX + dx; note.y = startNoteY + dy;
-        noteWindow.style.left = `${note.x}px`; noteWindow.style.top = `${note.y}px`;
-      };
-
-      const finish = (e2) => {
-        if (e2.pointerId !== pointerId) return;
-        if (header.releasePointerCapture) {
-          try { header.releasePointerCapture(pointerId); } catch (_) { /* noop */ }
-        }
-        header.removeEventListener('pointermove', onMove);
-        header.removeEventListener('pointerup', finish);
-        header.removeEventListener('pointercancel', cancel);
+    const closeBtn = noteWindow.querySelector('.note-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        note.visible = false;
+        noteWindow.remove();
+        note.window = null;
+        setCardNoteHighlight(cardData, false);
         saveState();
-      };
+        updateNotesButtonState();
+      });
+    }
 
-      const cancel = (e2) => {
-        if (e2.pointerId !== pointerId) return;
-        if (header.releasePointerCapture) {
-          try { header.releasePointerCapture(pointerId); } catch (_) { /* noop */ }
+    if (header) {
+      header.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (pinchState && e.pointerType === 'touch') return;
+        const pointerId = e.pointerId;
+        const startX = e.clientX, startY = e.clientY;
+        const startNoteX = note.x, startNoteY = note.y;
+
+        if (header.setPointerCapture) {
+          try { header.setPointerCapture(pointerId); } catch (_) { /* noop */ }
         }
-        header.removeEventListener('pointermove', onMove);
-        header.removeEventListener('pointerup', finish);
-        header.removeEventListener('pointercancel', cancel);
-      };
 
-      header.addEventListener('pointermove', onMove);
-      header.addEventListener('pointerup', finish);
-      header.addEventListener('pointercancel', cancel);
-    });
+        const onMove = (e2) => {
+          if (e2.pointerId !== pointerId) return;
+          const dx = e2.clientX - startX; const dy = e2.clientY - startY;
+          note.x = startNoteX + dx; note.y = startNoteY + dy;
+          noteWindow.style.left = `${note.x}px`; noteWindow.style.top = `${note.y}px`;
+        };
+
+        const finish = (e2) => {
+          if (e2.pointerId !== pointerId) return;
+          if (header.releasePointerCapture) {
+            try { header.releasePointerCapture(pointerId); } catch (_) { /* noop */ }
+          }
+          header.removeEventListener('pointermove', onMove);
+          header.removeEventListener('pointerup', finish);
+          header.removeEventListener('pointercancel', cancel);
+          saveState();
+        };
+
+        const cancel = (e2) => {
+          if (e2.pointerId !== pointerId) return;
+          if (header.releasePointerCapture) {
+            try { header.releasePointerCapture(pointerId); } catch (_) { /* noop */ }
+          }
+          header.removeEventListener('pointermove', onMove);
+          header.removeEventListener('pointerup', finish);
+          header.removeEventListener('pointercancel', cancel);
+        };
+
+        header.addEventListener('pointermove', onMove);
+        header.addEventListener('pointerup', finish);
+        header.addEventListener('pointercancel', cancel);
+      });
+    }
 
     new ResizeObserver(() => {
       const w = noteWindow.offsetWidth; const h = noteWindow.offsetHeight;
@@ -2333,12 +2451,19 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupNoteAutoClose() {
     document.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.note-window') || e.target.closest('.note-btn')) return;
+      let changed = false;
       cards.forEach(cd => {
         const n = cd.note;
         if (n && n.window && !hasAnyEntry(n)) {
           n.visible = false; n.window.remove(); n.window = null;
+          setCardNoteHighlight(cd, false);
+          changed = true;
         }
       });
+      if (changed) {
+        saveState();
+        updateNotesButtonState();
+      }
     });
   }
 
@@ -2350,10 +2475,14 @@ document.addEventListener('DOMContentLoaded', () => {
         note.visible = false;
         note.window.remove();
         note.window = null;
+        setCardNoteHighlight(cd, false);
         closed = true;
       }
     });
-    if (closed) saveState();
+    if (closed) {
+      saveState();
+      updateNotesButtonState();
+    }
     return closed;
   }
 
@@ -2373,33 +2502,42 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!cd.note) return;
         const note = cd.note;
         ensureNoteStructure(note);
-        Object.entries(note.entries).forEach(([date, text]) => {
-          const pure = String(text || '').trim();
+        Object.entries(note.entries).forEach(([date, entry]) => {
+          const info = getNoteEntryInfo(entry);
+          const pure = info.text.trim();
           if (!pure) return;
           const firstLine = pure.split('\n')[0];
           const color = (note.colors && note.colors[date]) || note.highlightColor || '#f44336';
-          items.push({ card: cd, date, color, firstLine });
+          items.push({ card: cd, date, color, firstLine, updatedAt: info.updatedAt });
         });
       });
-      items.sort((a,b) => a.date > b.date ? -1 : 1);
+      items.sort((a,b) => {
+        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : new Date(`${a.date}T00:00:00`).getTime();
+        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : new Date(`${b.date}T00:00:00`).getTime();
+        if (!Number.isNaN(timeA) && !Number.isNaN(timeB) && timeA !== timeB) return timeB - timeA;
+        if (a.date === b.date) return 0;
+        return a.date > b.date ? -1 : 1;
+      });
 
       if (items.length === 0) {
         dropdown.innerHTML = `<div class="note-item" style="cursor:default;opacity:.7">Заметок нет</div>`;
         return;
       }
 
-      dropdown.innerHTML = items.map(it => `
+      dropdown.innerHTML = items.map(it => {
+        const { datePart, timePart } = formatNoteDateTime(it.date, it.updatedAt);
+        return `
         <div class="note-item" data-card="${it.card.id}" data-date="${it.date}">
           <div class="note-item-content">
             <div class="note-dot" style="background:${it.color}"></div>
             <div class="note-meta">
-              <div class="note-date">${it.date.split('-').reverse().join('.')}</div>
+              <div class="note-date">${datePart} - ${timePart}</div>
               <div class="note-text-preview">${escapeHtml(it.firstLine).slice(0,80)}</div>
             </div>
           </div>
           <button class="note-delete-btn" title="Удалить">×</button>
         </div>
-      `).join('');
+      `; }).join('');
 
       dropdown.querySelectorAll('.note-item').forEach(el => {
         el.querySelector('.note-item-content').addEventListener('click', () => {
@@ -2428,6 +2566,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const noteBtn = cardData.element.querySelector('.note-btn');
             if (!hasAnyEntry(cardData.note)) {
               noteBtn.classList.remove('has-text'); noteBtn.textContent = '📝';
+              if (cardData.note.window) {
+                cardData.note.window.remove();
+                cardData.note.window = null;
+                cardData.note.visible = false;
+                setCardNoteHighlight(cardData, false);
+              }
             }
             saveState(); buildList(); updateNotesButtonState();
           }
@@ -2458,7 +2602,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     notesDropdownApi = {
       hide,
-      isOpen: () => dropdown.style.display === 'block'
+      isOpen: () => dropdown.style.display === 'block',
+      refresh: buildList
     };
   }
 
@@ -2885,6 +3030,13 @@ function createPrintModal() {
     const previewArea = document.getElementById('print-preview-area');
     const statusLabel = document.getElementById('print-status-label');
 
+    tileCheckbox.checked = false;
+    tileCheckbox.disabled = true;
+
+    pdfBtn.disabled = true;
+    pdfBtn.title = 'Функция временно недоступна';
+    pdfBtn.setAttribute('aria-disabled', 'true');
+
     let currentOrientation;
     let selectedDpi = parseInt(dpiSelect.value, 10) || DEFAULT_DPI;
 
@@ -2946,8 +3098,8 @@ function createPrintModal() {
 
     async function updatePreview() {
         const selectedFormat = formatSelect.value;
-        tileCheckbox.disabled = selectedFormat === 'a4';
-        if (selectedFormat === 'a4') tileCheckbox.checked = false;
+        tileCheckbox.checked = false;
+        tileCheckbox.disabled = true;
 
         const paperSize = PAPER_SIZES[selectedFormat];
         const isLandscape = currentOrientation === 'landscape';
@@ -2998,7 +3150,8 @@ function createPrintModal() {
     
 async function processPrint(exportType) {
         statusLabel.textContent = 'Подготовка рендера...';
-        [pdfBtn, pngBtn].forEach(b => b.disabled = true);
+        pngBtn.disabled = true;
+        pdfBtn.disabled = true;
 
         const state = serializeState();
         const PADDING = 100;
@@ -3019,6 +3172,15 @@ async function processPrint(exportType) {
         renderContainer.appendChild(printCanvas);
         document.body.appendChild(renderContainer);
 
+        if (exportType === 'png') {
+            renderContainer.querySelectorAll('.card').forEach((cardEl) => {
+                cardEl.style.boxSizing = 'border-box';
+                cardEl.style.backgroundClip = 'padding-box';
+                cardEl.style.border = '2px solid rgba(17, 24, 39, 0.2)';
+                cardEl.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.18)';
+            });
+        }
+
         if (contentCheckbox.checked) renderContainer.classList.add('content-hidden');
         if (colorCheckbox.checked) {
             renderContainer.classList.add('outline-mode');
@@ -3029,7 +3191,8 @@ async function processPrint(exportType) {
         if (exportType === 'pdf' && !jsPDFLib) {
             console.error('jsPDF library is not available on the page.');
             statusLabel.textContent = 'Не удалось загрузить модуль PDF.';
-            [pdfBtn, pngBtn].forEach(b => b.disabled = false);
+            pngBtn.disabled = false;
+            pdfBtn.disabled = true;
             return;
         }
 
@@ -3157,7 +3320,8 @@ async function processPrint(exportType) {
             document.body.removeChild(renderContainer);
             setTimeout(() => {
                 statusLabel.textContent = '';
-                [pdfBtn, pngBtn].forEach(b => b.disabled = false);
+                pngBtn.disabled = false;
+                pdfBtn.disabled = true;
             }, 3000);
         }
     }
@@ -3272,3 +3436,4 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
