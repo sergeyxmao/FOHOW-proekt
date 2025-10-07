@@ -1,0 +1,8 @@
+{
+  "name": "fohow-proekt",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "lint": "node --check auth.js && node --check card-features.js && node --check engine.js && node --check script.js"
+  }
+}
