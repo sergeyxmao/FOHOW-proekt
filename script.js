@@ -2329,7 +2329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const prevBtn    = noteWindow.querySelector('.prev');
     const nextBtn    = noteWindow.querySelector('.next');
     let viewDate     = parseYMDToDate(note.selectedDate) || new Date();
-␊
+
     function ymd(d) { return formatLocalYMD(d); }
     function formatMonthYear(d) { return d.toLocaleDateString('ru-RU',{month:'long', year:'numeric'}); }
 
@@ -3479,5 +3479,6 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
