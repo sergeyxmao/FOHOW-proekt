@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const notesListBtn = document.getElementById('notes-list-btn');
   const preparePrintBtn = document.getElementById('prepare-print-btn');
   const toggleGuidesBtn = document.getElementById('toggle-guides-btn');
-  const toggleGridBtn = document.getElementById('toggle-grid-btn');
   const hierarchicalDragModeBtn = document.getElementById('hierarchical-drag-mode-btn');
 
   const thicknessSlider = document.getElementById('thickness-slider');
@@ -52,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
     isHierarchicalDragMode: false,
     isGlobalLineMode: false,
     guidesEnabled: true,
-    isGridVisible: false,
     lineStart: null,
     previewLine: null,
     linePointerId: null,
@@ -62,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   let cards = [];
   let lines = [];
-  let gridOverlay = null;
   let notesDropdownApi = null;
   const cardColors = ['#5D8BF4', '#38A3A5', '#E87A5D', '#595959'];
 
@@ -84,13 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.body.appendChild(hGuide);
 
   if (!canvas || !svgLayer) return;
-
-  gridOverlay = document.createElement('div');
-  gridOverlay.id = 'canvas-grid-overlay';
-  gridOverlay.className = 'canvas-grid-overlay';
-  gridOverlay.style.display = 'none';
-  canvas.prepend(gridOverlay);
-  updateGridOverlayVisibility();
 
   if (addCardBtn) addCardBtn.addEventListener('click', () => { createCard(); saveState(); });
   if (addLargeCardBtn) addLargeCardBtn.addEventListener('click', () => { createCard({ isLarge: true }); saveState(); });
@@ -153,15 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
     catch(_) { const frag = lastRange.extractContents(); span.appendChild(frag); lastRange.insertNode(span); }
     hideNumPop(); saveState();
   });
-
-  function updateGridOverlayVisibility() {
-    if (gridOverlay) {
-      gridOverlay.style.display = activeState.isGridVisible ? 'block' : 'none';
-    }
-    if (toggleGridBtn) {
-      toggleGridBtn.classList.toggle('active', activeState.isGridVisible);
-    }
-  }
 
   function setupGlobalEventListeners() {
     const shouldIgnorePointer = (target) => (
@@ -560,10 +541,9 @@ document.addEventListener('DOMContentLoaded', () => {
     card.innerHTML = `
       <div class="card-header" style="${opts.headerBg ? `background:${opts.headerBg}` : ''}">
         <div class="slf-badge">SLF</div>
-        <span class="card-title" contenteditable="true">${titleText}</span>
+        <span class="card-title" contenteditable="false">${titleText}</span>
         <div class="fendou-badge">FENDOU</div>
         <img class="rank-badge" src="" alt="Rank">
-        <span class="close-btn" title="Удалить">×</span>
       </div>
       <button class="header-color-picker-btn" title="Выбрать цвет заголовка"></button>
       <div class="card-control-btn color-changer" data-color-index="${opts.colorIndex ?? 0}"></div>
@@ -600,7 +580,44 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleCardSelection(cardData);
         }
     });
-    card.querySelector('.close-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteCard(cardData); saveState(); });
+    const titleEl = card.querySelector('.card-title');
+    let isTitleEditing = false;
+    if (titleEl) {
+      titleEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (isTitleEditing) return;
+        isTitleEditing = true;
+        titleEl.setAttribute('contenteditable', 'true');
+        try {
+          titleEl.focus({ preventScroll: true });
+        } catch (_) {
+          titleEl.focus();
+        }
+        const selection = window.getSelection();
+        if (selection) {
+          const range = document.createRange();
+          range.selectNodeContents(titleEl);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      });
+      const finishTitleEditing = () => {
+        if (!isTitleEditing) return;
+        isTitleEditing = false;
+        titleEl.setAttribute('contenteditable', 'false');
+        saveState();
+      };
+      titleEl.addEventListener('blur', finishTitleEditing);
+      titleEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          titleEl.blur();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          titleEl.blur();
+        }
+      });
+    }
     makeDraggable(card, cardData);
 
     const headerColorBtn = card.querySelector('.header-color-picker-btn');
@@ -972,13 +989,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (toggleGridBtn) {
-      toggleGridBtn.addEventListener('click', () => {
-        activeState.isGridVisible = !activeState.isGridVisible;
-        updateGridOverlayVisibility();
-      });
-      updateGridOverlayVisibility();
-    }
   }
 
   function deleteCard(cardData) {
@@ -1441,8 +1451,142 @@ document.addEventListener('DOMContentLoaded', () => {
       exportHtmlBtn.addEventListener('click', async () => {
         try {
           const bodyStyle = getComputedStyle(document.body);
-          const viewOnlyScript = `<script>document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('canvas');if(!c)return;let x=${canvasState.x},y=${canvasState.y},s=${canvasState.scale},pan=!1,panId=null,lastX=0,lastY=0;const pointers=new Map;let pinch=null;const clamp=v=>Math.max(.1,Math.min(5,v));const update=()=>{c.style.transform='translate('+x+'px,'+y+'px) scale('+s+')';};const tryPinch=()=>{if(pinch)return;const t=[...pointers.entries()].filter(([,i])=>i.type==='touch');if(t.length<2)return;const[a,b]=t;const d=Math.hypot(b[1].x-a[1].x,b[1].y-a[1].y);if(!d)return;if(pan&&panId!=null){c.releasePointerCapture&&c.releasePointerCapture(panId);document.body.style.cursor='default';}pan=!1;panId=null;pinch={a:a[0],b:b[0],d,scale:s,midX:(a[1].x+b[1].x)/2,midY:(a[1].y+b[1].y)/2};};const handlePinch=()=>{if(!pinch)return;const a=pointers.get(pinch.a),b=pointers.get(pinch.b);if(!a||!b)return;const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;x+=midX-pinch.midX;y+=midY-pinch.midY;const dist=Math.hypot(b.x-a.x,b.y-a.y);if(dist){const ns=clamp(pinch.scale*dist/pinch.d);const ratio=ns/s;x=midX-(midX-x)*ratio;y=midY-(midY-y)*ratio;s=ns;}pinch.midX=midX;pinch.midY=midY;update();};const endPinch=id=>{if(pinch&&(id===pinch.a||id===pinch.b))pinch=null;};c.addEventListener('pointerdown',e=>{pointers.set(e.pointerId,{x:e.clientX,y=e.clientY,type=e.pointerType});if(e.pointerType==='touch'){tryPinch();if(!pinch&&!pan){pan=!0;panId=e.pointerId;lastX=e.clientX;lastY=e.clientY;c.setPointerCapture&&c.setPointerCapture(e.pointerId);}}else if(e.button===1){pan=!0;panId=e.pointerId;lastX=e.clientX;lastY=e.clientY;c.setPointerCapture&&c.setPointerCapture(e.pointerId);document.body.style.cursor='move';}});c.addEventListener('pointermove',e=>{const info=pointers.get(e.pointerId);if(info){info.x=e.clientX;info.y=e.clientY;}if(pinch&&(e.pointerId===pinch.a||e.pointerId===pinch.b)){handlePinch();return;}if(pan&&e.pointerId===panId){x+=e.clientX-lastX;y+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;update();}});const stop=e=>{pointers.delete(e.pointerId);endPinch(e.pointerId);if(pan&&e.pointerId===panId){pan=!1;panId=null;document.body.style.cursor='default';c.releasePointerCapture&&c.releasePointerCapture(e.pointerId);}};c.addEventListener('pointerup',stop);c.addEventListener('pointercancel',stop);c.addEventListener('wheel',e=>{e.preventDefault();const ns=clamp(s-.001*e.deltaY);const ratio=ns/s;const fx=e.clientX,fy=e.clientY;x=fx-(fx-x)*ratio;y=fy-(fy-y)*ratio;s=ns;update();},{passive:!1});update();});<\/script>`; 
-		  const canvasClone = canvas.cloneNode(true);
+          const viewOnlyScript = `<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const c = document.getElementById('canvas');
+  if (!c) return;
+  let x = ${canvasState.x}, y = ${canvasState.y}, s = ${canvasState.scale};
+  let pan = false, panId = null, lastX = 0, lastY = 0;
+  const pointers = new Map();
+  let pinch = null;
+  const clamp = (v) => Math.max(0.1, Math.min(5, v));
+  const update = () => {
+    c.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + s + ')';
+  };
+  const tryPinch = () => {
+    if (pinch) return;
+    const touches = [...pointers.entries()].filter(([, info]) => info.type === 'touch');
+    if (touches.length < 2) return;
+    const [a, b] = touches;
+    const dist = Math.hypot(b[1].x - a[1].x, b[1].y - a[1].y);
+    if (!dist) return;
+    if (pan && panId != null) {
+      if (c.releasePointerCapture) {
+        try { c.releasePointerCapture(panId); } catch (err) {}
+      }
+      document.body.style.cursor = 'default';
+    }
+    pan = false;
+    panId = null;
+    pinch = {
+      a: a[0],
+      b: b[0],
+      d: dist,
+      scale: s,
+      midX: (a[1].x + b[1].x) / 2,
+      midY: (a[1].y + b[1].y) / 2
+    };
+  };
+  const handlePinch = () => {
+    if (!pinch) return;
+    const a = pointers.get(pinch.a);
+    const b = pointers.get(pinch.b);
+    if (!a || !b) return;
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    x += midX - pinch.midX;
+    y += midY - pinch.midY;
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    if (dist) {
+      const nextScale = clamp(pinch.scale * dist / pinch.d);
+      const ratio = nextScale / s;
+      x = midX - (midX - x) * ratio;
+      y = midY - (midY - y) * ratio;
+      s = nextScale;
+    }
+    pinch.midX = midX;
+    pinch.midY = midY;
+    update();
+  };
+  const endPinch = (id) => {
+    if (pinch && (id === pinch.a || id === pinch.b)) {
+      pinch = null;
+    }
+  };
+  c.addEventListener('pointerdown', (e) => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+    if (e.pointerType === 'touch') {
+      tryPinch();
+      if (!pinch && !pan) {
+        pan = true;
+        panId = e.pointerId;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        if (c.setPointerCapture) {
+          try { c.setPointerCapture(e.pointerId); } catch (err) {}
+        }
+        document.body.style.cursor = 'move';
+      }
+    } else if (e.button === 1) {
+      e.preventDefault();
+      pan = true;
+      panId = e.pointerId;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (c.setPointerCapture) {
+        try { c.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+      document.body.style.cursor = 'move';
+    }
+  });
+  c.addEventListener('pointermove', (e) => {
+    const info = pointers.get(e.pointerId);
+    if (info) {
+      info.x = e.clientX;
+      info.y = e.clientY;
+    }
+    if (pinch && (e.pointerId === pinch.a || e.pointerId === pinch.b)) {
+      handlePinch();
+      return;
+    }
+    if (pan && e.pointerId === panId) {
+      e.preventDefault();
+      x += e.clientX - lastX;
+      y += e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      update();
+    }
+  });
+  const stop = (e) => {
+    pointers.delete(e.pointerId);
+    endPinch(e.pointerId);
+    if (pan && e.pointerId === panId) {
+      pan = false;
+      panId = null;
+      document.body.style.cursor = 'default';
+      if (c.releasePointerCapture) {
+        try { c.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+    }
+  };
+  c.addEventListener('pointerup', stop);
+  c.addEventListener('pointercancel', stop);
+  c.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const nextScale = clamp(s - 0.001 * e.deltaY);
+    const ratio = nextScale / s;
+    const fx = e.clientX;
+    const fy = e.clientY;
+    x = fx - (fx - x) * ratio;
+    y = fy - (fy - y) * ratio;
+    s = nextScale;
+    update();
+  }, { passive: false });
+  update();
+});
+<\/script>`;
+          const canvasClone = canvas.cloneNode(true);
 
           const selectorsToRemove = [
             '.note-resize-handle',
@@ -1531,7 +1675,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cssText = await response.text();
             buildAndDownload(cssText);
           } catch (err) {
-            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.canvas-grid-overlay{position:absolute;inset:0;pointer-events:none;background-size:70px 70px;background-image:linear-gradient(0deg, rgba(255,99,132,.35) 1px, transparent 1px),linear-gradient(90deg, rgba(255,99,132,.35) 1px, transparent 1px);opacity:.3}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
+            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
             buildAndDownload(minimalCss);
           }
         } catch (err) {
@@ -2438,7 +2582,7 @@ const getCleanedCardHtml = async (cardData) => {
         return rawHtml.replace(/(<img[^>]+)>/g, '$1 />');
     };
 
- // Определяем дополнительное пространство вокруг лицензии для предотвращения обрезки
+ // Определяем дополнительное пространство вокруг карточки для предотвращения обрезки
     const EXTRA_PADDING_TOP = 60;  // Запас высоты сверху для надписи "FENDOU"
     const EXTRA_PADDING_SIDE = 50; // Запас ширины сбоку для значка ранга
 
@@ -2488,8 +2632,10 @@ const getCleanedCardHtml = async (cardData) => {
     }).join('\n');
 
 
+    const panScript = `<script><![CDATA[(function(){const svg=document.documentElement;const content=document.getElementById&&document.getElementById('svg-pan-content');if(!svg||!content||!svg.addEventListener)return;let isPanning=false,panId=null,lastX=0,lastY=0,offsetX=0,offsetY=0;const update=()=>content.setAttribute('transform','translate('+offsetX+' '+offsetY+')');const endPan=(e)=>{if(!isPanning||e.pointerId!==panId)return;isPanning=false;panId=null;svg.style.cursor='grab';if(svg.releasePointerCapture){try{svg.releasePointerCapture(e.pointerId);}catch(err){}}};svg.addEventListener('pointerdown',function(e){if(e.button!==1)return;e.preventDefault();isPanning=true;panId=e.pointerId;lastX=e.clientX;lastY=e.clientY;svg.style.cursor='grabbing';if(svg.setPointerCapture){try{svg.setPointerCapture(e.pointerId);}catch(err){}}});svg.addEventListener('pointermove',function(e){if(!isPanning||e.pointerId!==panId)return;e.preventDefault();offsetX+=e.clientX-lastX;offsetY+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;update();});svg.addEventListener('pointerup',endPan);svg.addEventListener('pointercancel',endPan);svg.addEventListener('wheel',function(e){if(isPanning)e.preventDefault();},{passive:false});svg.style.cursor='grab';update();})();]]></script>`;
+
     const svgContent = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${contentWidth + PADDING * 2}" height="${contentHeight + PADDING * 2}">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${contentWidth + PADDING * 2}" height="${contentHeight + PADDING * 2}" style="touch-action:none;cursor:grab;">
             <defs>
                 <style>
                     .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: visible; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; }                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
@@ -2516,8 +2662,11 @@ const getCleanedCardHtml = async (cardData) => {
                   <circle cx="5" cy="5" r="4"/>
                 </marker>
             </defs>
-            <g style="color: black;">${lineObjects}</g>
-            ${cardObjects}
+            <g id="svg-pan-content">
+                <g style="color: black;">${lineObjects}</g>
+                ${cardObjects}
+            </g>
+            ${panScript}
         </svg>`;
 
     const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
@@ -2981,7 +3130,12 @@ async function processPrint(exportType) {
                     }
                     tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`);
                 } else {
-                            tempCtx.drawImage(sourceCanvas, c * sliceWidthPx, r * sliceHeightPx, sliceWidthPx, sliceHeightPx, 0, 0, sliceWidthPx, sliceHeightPx);
+                    const doc = new jsPDFLib({
+                        orientation: isLandscape ? 'landscape' : 'portrait',
+                        unit: 'mm',
+                        format: selectedFormat
+                    });
+                    const canvasAspectRatio = sourceCanvas.width / sourceCanvas.height;
                     const paperAspectRatio = paperWidth / paperHeight;
                     let imgWidth, imgHeight;
                     if (canvasAspectRatio > paperAspectRatio) {
@@ -3118,16 +3272,3 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
