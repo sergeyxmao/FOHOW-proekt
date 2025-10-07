@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let cards = [];
   let lines = [];
   let gridOverlay = null;
+  let notesDropdownApi = null;
   const cardColors = ['#5D8BF4', '#38A3A5', '#E87A5D', '#595959'];
 
   let undoStack = [];
@@ -304,10 +305,15 @@ document.addEventListener('DOMContentLoaded', () => {
         canvasState.lastPointerX = e.clientX;
         canvasState.lastPointerY = e.clientY;
         updateCanvasTransform();
-      } else if (activeState.isDrawingLine && activeState.linePointerId === e.pointerId) {
-        const coords = getCanvasCoordinates(e.clientX, e.clientY);
-        const startPoint = getPointCoords(activeState.lineStart.card, activeState.lineStart.side);
-        updateLinePath(activeState.previewLine, startPoint, coords, activeState.lineStart.side, null);
+      } else if (activeState.isDrawingLine) {
+        if (activeState.linePointerId == null) {
+          activeState.linePointerId = e.pointerId;
+        }
+        if (activeState.linePointerId === e.pointerId) {
+          const coords = getCanvasCoordinates(e.clientX, e.clientY);
+          const startPoint = getPointCoords(activeState.lineStart.card, activeState.lineStart.side);
+          updateLinePath(activeState.previewLine, startPoint, coords, activeState.lineStart.side, null);
+        }
       } else if (activeState.isSelecting && activeState.selectionPointerId === e.pointerId) {
         updateMarqueeSelection(e);
       }
@@ -336,9 +342,16 @@ document.addEventListener('DOMContentLoaded', () => {
         activeState.selectionCaptureTarget = null;
       }
 
-      if (activeState.linePointerId === e.pointerId && e.type === 'pointercancel') {
-        cancelDrawing();
-        activeState.linePointerId = null;
+      if (activeState.isDrawingLine && activeState.linePointerId === e.pointerId) {
+        if (e.type === 'pointercancel') {
+          cancelDrawing();
+        } else {
+          if (activeState.lineCaptureTarget && activeState.lineCaptureTarget.releasePointerCapture) {
+            try { activeState.lineCaptureTarget.releasePointerCapture(e.pointerId); } catch (_) { /* noop */ }
+          }
+          activeState.linePointerId = null;
+          activeState.lineCaptureTarget = null;
+        }
       }
     };
 
@@ -362,6 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (e.key === 'Escape') {
         if (activeState.isDrawingLine) cancelDrawing();
+        if (activeState.isSelecting) endMarqueeSelection();
         if (activeState.isSelectionMode || activeState.isHierarchicalDragMode) {
           activeState.isSelectionMode = false;
           activeState.isHierarchicalDragMode = false;
@@ -372,6 +386,10 @@ document.addEventListener('DOMContentLoaded', () => {
             activeState.selectedLine.element.classList.remove('selected');
             activeState.selectedLine = null;
         }
+        const closedNotes = closeAllNoteWindows();
+        if (notesDropdownApi?.isOpen()) notesDropdownApi.hide();
+        if (closedNotes) updateNotesButtonState();
+        hideNumPop();
       }
       if (e.key === 'Delete') deleteSelection();
 
@@ -419,6 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateDragModeButtons();
         });
     }
+    updateDragModeButtons();
   }
 
   function updateDragModeButtons() {
@@ -2179,6 +2198,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function closeAllNoteWindows() {
+    let closed = false;
+    cards.forEach(cd => {
+      const note = cd.note;
+      if (note && note.window) {
+        note.visible = false;
+        note.window.remove();
+        note.window = null;
+        closed = true;
+      }
+    });
+    if (closed) saveState();
+    return closed;
+  }
+
   function setupNotesDropdown() {
     if (!notesListBtn) return;
     let dropdown = document.querySelector('#notes-dropdown');
@@ -2277,6 +2311,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === notesListBtn || e.target.closest('#notes-dropdown')) return;
       hide();
     });
+
+    notesDropdownApi = {
+      hide,
+      isOpen: () => dropdown.style.display === 'block'
+    };
   }
 
   function updateNotesButtonState() {
@@ -2987,26 +3026,40 @@ async function processPrint(exportType) {
         printCanvas.appendChild(printSvgLayer);
 
         const cardElements = new Map();
+        const EXTRA_PADDING_TOP = 60;
+        const EXTRA_PADDING_SIDE = 50;
+
         for (const cardData of state.cards) {
              const tempBody = document.createElement('div');
              tempBody.innerHTML = cardData.bodyHTML;
              tempBody.querySelector('.active-pv-controls')?.remove();
              const cleanedBodyHTML = tempBody.innerHTML;
 
+             const cardWidth = parseInt(cardData.width, 10) || 380;
+             const cardHeight = 280;
+
+             const wrapper = document.createElement('div');
+             wrapper.className = 'print-card-wrapper';
+             wrapper.style.position = 'absolute';
+             wrapper.style.left = `${cardData.x - bounds.minX + PADDING - EXTRA_PADDING_SIDE}px`;
+             wrapper.style.top  = `${cardData.y - bounds.minY + PADDING - EXTRA_PADDING_TOP}px`;
+             wrapper.style.width = `${cardWidth + EXTRA_PADDING_SIDE * 2}px`;
+             wrapper.style.height = `${cardHeight + EXTRA_PADDING_TOP}px`;
+
              const cardEl = document.createElement('div');
              cardEl.className = 'card';
              if (cardData.isDarkMode) cardEl.classList.add('dark-mode');
-             cardEl.style.width = cardData.width || '380px';
-             cardEl.style.left = `${cardData.x - bounds.minX + PADDING}px`;
-             cardEl.style.top = `${cardData.y - bounds.minY + PADDING}px`;
+             cardEl.style.width = `${cardWidth}px`;
+             cardEl.style.left = `${EXTRA_PADDING_SIDE}px`;
+             cardEl.style.top = `${EXTRA_PADDING_TOP}px`;
              cardEl.style.borderColor = cardData.headerBg;
-             
+
              let rankSrc = '';
              if (cardData.badges?.rank) {
                 const dataUri = await imageToDataUri(`rank-${cardData.badges.rank}.png`);
                 if(dataUri) rankSrc = dataUri;
              }
-             
+
              cardEl.innerHTML = `
                  <div class="card-header" style="background:${cardData.headerBg};">
                      <div class="slf-badge ${cardData.badges?.slf ? 'visible' : ''}">SLF</div>
@@ -3014,12 +3067,13 @@ async function processPrint(exportType) {
                      <div class="fendou-badge ${cardData.badges?.fendou ? 'visible' : ''}">FENDOU</div>
                      <img class="rank-badge ${cardData.badges?.rank ? 'visible' : ''}" src="${rankSrc}" alt="Rank">
                  </div>
-                 <div class="card-body ${cardData.bodyClass}">${cleanedBodyHTML}</div>
+                 <div class="card-body ${cardData.bodyClass || ''}">${cleanedBodyHTML}</div>
              `;
-             printCanvas.appendChild(cardEl);
-             cardElements.set(cardData.id, cardEl);
+             wrapper.appendChild(cardEl);
+             printCanvas.appendChild(wrapper);
+             cardElements.set(cardData.id, { wrapper, width: cardWidth, height: cardHeight });
         }
-        
+
         await new Promise(resolve => setTimeout(resolve, 50));
 
         state.lines.forEach(lineData => {
@@ -3027,11 +3081,11 @@ async function processPrint(exportType) {
             const endEl = cardElements.get(lineData.endId);
             if (!startEl || !endEl) return;
 
-            const getPrintCoords = (el, side) => {
-              const x = parseFloat(el.style.left);
-              const y = parseFloat(el.style.top);
-              const w = parseInt(el.style.width) || 380;
-              const h = 280; // Fixed height
+            const getPrintCoords = (info, side) => {
+              const x = parseFloat(info.wrapper.style.left) + EXTRA_PADDING_SIDE;
+              const y = parseFloat(info.wrapper.style.top) + EXTRA_PADDING_TOP;
+              const w = info.width;
+              const h = info.height;
               switch (side) {
                 case 'top': return { x: x + w / 2, y: y };
                 case 'bottom': return { x: x + w / 2, y: y + h };
@@ -3042,7 +3096,7 @@ async function processPrint(exportType) {
             const p1 = getPrintCoords(startEl, lineData.startSide);
             const p2 = getPrintCoords(endEl, lineData.endSide);
             if(!p1 || !p2) return;
-            
+
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('class', 'line');
             path.setAttribute('stroke', lineData.color);
@@ -3064,6 +3118,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
