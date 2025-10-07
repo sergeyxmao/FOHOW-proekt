@@ -553,7 +553,6 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="connection-point right" data-side="right"></div>
       <div class="connection-point bottom" data-side="bottom"></div>
       <div class="connection-point left" data-side="left"></div>
-      ${!opts.isLarge ? `<button class="card-control-btn body-color-changer" title="Сменить фон">🖌️</button>` : ''}
       <div class="card-controls">
         <button class="card-control-btn note-btn" title="Заметка">📝</button>
       </div>
@@ -666,11 +665,6 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
     });
 
-    const bodyColorChanger = card.querySelector('.body-color-changer');
-    if (bodyColorChanger) {
-      bodyColorChanger.addEventListener('click', (e) => { e.stopPropagation(); card.classList.toggle('dark-mode'); saveState(); });
-    }
-
     const closeBtn = card.querySelector('.card-close-btn');
     if (closeBtn) {
       closeBtn.addEventListener('click', (e) => {
@@ -773,8 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function makeDraggable(element, cardData) {
-    const interactiveDragBlockSelector = '.card-control-btn, .note-btn, .active-btn, .header-color-picker-btn, .color-changer, .body-color-changer, .card-title, [contenteditable="true"], button, input, textarea, select, label, a[href]';
-    element.addEventListener('pointerdown', (e) => {
+    const interactiveDragBlockSelector = '.card-control-btn, .note-btn, .active-btn, .header-color-picker-btn, .color-changer, .card-title, [contenteditable="true"], button, input, textarea, select, label, a[href]';    element.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
       if (pinchState && e.pointerType === 'touch') return;
       if (e.target.closest(interactiveDragBlockSelector)) return;
@@ -1604,7 +1597,6 @@ document.addEventListener('DOMContentLoaded', () => {
             '.card-controls',
             '.close-btn',
             '.header-color-picker-btn',
-            '.body-color-changer',
             '.connection-point',
             '.color-changer',
             '.active-pv-controls'
@@ -1757,9 +1749,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (localR < 0) localR = 0;
             const leftBalance = Math.max(0, (r.L || 0) + aBonusL + localL);
             const rightBalance = Math.max(0, (r.R || 0) + aBonusR + localR);
-            const displayLeft = hasManualNumbers ? manualLeft + leftBalance : leftBalance;
-            const displayRight = hasManualNumbers ? manualRight + rightBalance : rightBalance;
-            value.textContent = `${displayLeft} / ${displayRight}`;
+            if (hasManualNumbers) {
+              value.textContent = formatManualBalance({ left: manualLeft, right: manualRight });
+            } else {
+              value.textContent = `${leftBalance} / ${rightBalance}`;
+            }
           }
         });
       });
@@ -2090,6 +2084,30 @@ document.addEventListener('DOMContentLoaded', () => {
     saveState();
   });
 
+  function formatLocalYMD(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function normalizeYMD(value) {
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return formatLocalYMD(parsed);
+  }
+
+  function parseYMDToDate(value) {
+    const normalized = normalizeYMD(value);
+    if (!normalized) return null;
+    const parts = normalized.split('-').map(Number);
+    if (parts.length !== 3) return null;
+    const [year, month, day] = parts;
+    return new Date(year, month - 1, day);
+  }
+
   function getNoteEntryInfo(entry) {
     if (!entry) return { text: '', updatedAt: null };
     if (typeof entry === 'string') return { text: entry, updatedAt: null };
@@ -2103,12 +2121,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setNoteEntryValue(note, date, value) {
     if (!note.entries) note.entries = {};
+    const key = normalizeYMD(date);
+    if (!key) return;
     const raw = value ?? '';
     const trimmed = raw.trim();
     if (trimmed) {
-      note.entries[date] = { text: raw, updatedAt: new Date().toISOString() };
+      note.entries[key] = { text: raw, updatedAt: new Date().toISOString() };
     } else {
-      delete note.entries[date];
+      delete note.entries[key];
     }
   }
 
@@ -2146,14 +2166,33 @@ document.addEventListener('DOMContentLoaded', () => {
   function ensureNoteStructure(note) {
     if (!note.entries || typeof note.entries !== 'object') note.entries = {};
     if (!note.colors)  note.colors  = {};
-    if (!note.selectedDate) note.selectedDate = new Date().toISOString().slice(0,10);
+    else {
+      const normalizedColors = {};
+      Object.entries(note.colors).forEach(([date, color]) => {
+        const normalizedDate = normalizeYMD(date);
+        if (normalizedDate) normalizedColors[normalizedDate] = color;
+      });
+      note.colors = normalizedColors;
+    }
+    if (!note.selectedDate) note.selectedDate = formatLocalYMD(new Date());
+    else note.selectedDate = normalizeYMD(note.selectedDate) || formatLocalYMD(new Date());
     if (!note.highlightColor) note.highlightColor = '#f44336';
     Object.entries({ ...note.entries }).forEach(([date, entry]) => {
       const info = getNoteEntryInfo(entry);
       if (!info.text.trim()) {
         delete note.entries[date];
       } else {
-        note.entries[date] = { text: info.text, updatedAt: info.updatedAt || null };
+        const normalizedDate = normalizeYMD(date);
+        if (!normalizedDate) {
+          delete note.entries[date];
+          return;
+        }
+        if (normalizedDate !== date) {
+          delete note.entries[date];
+          note.entries[normalizedDate] = { text: info.text, updatedAt: info.updatedAt || null };
+        } else {
+          note.entries[date] = { text: info.text, updatedAt: info.updatedAt || null };
+        }
       }
     });
     if (note.text && !note.entries[note.selectedDate]) {
@@ -2178,7 +2217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cardRect = cardData.element.getBoundingClientRect();
         cardData.note = {
           text: '', entries: {}, colors: {},
-          selectedDate: new Date().toISOString().slice(0,10),
+          selectedDate: formatLocalYMD(new Date()),
           highlightColor: '#f44336',
           width: 260, height: 380, visible: false, window: null,
           x: cardRect.right + 15, y: cardRect.top
@@ -2289,9 +2328,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const calGrid    = noteWindow.querySelector('.cal-grid');
     const prevBtn    = noteWindow.querySelector('.prev');
     const nextBtn    = noteWindow.querySelector('.next');
-    let viewDate     = new Date(note.selectedDate);
-
-    function ymd(d) { return d.toISOString().slice(0,10); }
+    let viewDate     = parseYMDToDate(note.selectedDate) || new Date();
+␊
+    function ymd(d) { return formatLocalYMD(d); }
     function formatMonthYear(d) { return d.toLocaleDateString('ru-RU',{month:'long', year:'numeric'}); }
 
     const updateTextareaValue = () => {
@@ -2344,7 +2383,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cell.style.color = '';
       }
       cell.addEventListener('click', () => {
-        note.selectedDate = dateStr;
+        note.selectedDate = normalizeYMD(dateStr) || dateStr;
         renderCalendar();
         updateTextareaValue();
         updateColorDotsActive();
@@ -2397,6 +2436,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (header) {
       header.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.note-close-btn')) return;
         e.preventDefault();
         if (pinchState && e.pointerType === 'touch') return;
         const pointerId = e.pointerId;
@@ -2511,13 +2551,16 @@ document.addEventListener('DOMContentLoaded', () => {
           items.push({ card: cd, date, color, firstLine, updatedAt: info.updatedAt });
         });
       });
-      items.sort((a,b) => {
-        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : new Date(`${a.date}T00:00:00`).getTime();
-        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : new Date(`${b.date}T00:00:00`).getTime();
-        if (!Number.isNaN(timeA) && !Number.isNaN(timeB) && timeA !== timeB) return timeB - timeA;
-        if (a.date === b.date) return 0;
-        return a.date > b.date ? -1 : 1;
+      items.sort((a, b) => {
+        const baseA = parseYMDToDate(a.date)?.getTime() ?? Number.POSITIVE_INFINITY;
+        const baseB = parseYMDToDate(b.date)?.getTime() ?? Number.POSITIVE_INFINITY;
+        if (baseA !== baseB) return baseA - baseB;
+        const updA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const updB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        if (!Number.isNaN(updA) && !Number.isNaN(updB) && updA !== updB) return updA - updB;
+        return a.firstLine.localeCompare(b.firstLine);
       });
+
 
       if (items.length === 0) {
         dropdown.innerHTML = `<div class="note-item" style="cursor:default;opacity:.7">Заметок нет</div>`;
@@ -2550,7 +2593,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!cardData.note) toggleNote(cardData);
           const note = cardData.note;
           ensureNoteStructure(note);
-          note.selectedDate = el.dataset.date;
+          note.selectedDate = normalizeYMD(el.dataset.date) || el.dataset.date;
           note.x = cardRect.right + 15; note.y = cardRect.top;
           note.visible = true;
           createNoteWindow(cardData);
@@ -3436,4 +3479,5 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
