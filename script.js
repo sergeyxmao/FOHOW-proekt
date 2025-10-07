@@ -727,11 +727,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function makeDraggable(element, cardData) {
-    const interactiveDragBlockSelector = '.card-control-btn, .note-btn, .active-btn, .header-color-picker-btn, .color-changer, .body-color-changer, [contenteditable="true"], button, input, textarea, select, label, a[href]';
     element.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
       if (pinchState && e.pointerType === 'touch') return;
-      if (e.target.closest(interactiveDragBlockSelector)) return;
 
       let dragSet = new Set();
 
@@ -3064,7 +3062,6 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
-
 
 
 
