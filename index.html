@@ -14,6 +14,7 @@
     <button id="undo-btn" class="ui-btn" title="Отменить (Ctrl+Z)">↶</button>
     <button id="redo-btn" class="ui-btn" title="Повторить (Ctrl+Shift+Z)">↷</button>
 
+    <button id="left-panel-toggle" class="ui-btn ui-panel-toggle" title="Свернуть панель" aria-expanded="true">❮</button>
     <button id="save-project-btn" class="ui-btn" title="Сохранить проект (JSON)">💾</button>
     <button id="export-html-btn" class="ui-btn" title="Экспорт в HTML (просмотр)">📄</button>
     <button id="export-svg-btn" class="ui-btn" title="Экспорт в SVG (вектор)">🖋️</button>
@@ -35,7 +36,7 @@
     <div id="line-controls-panel" class="line-controls-panel">
       <div id="line-color-trigger" class="line-color-trigger" title="Выбрать цвет линии"></div>
       <input type="color" id="hidden-line-color-picker" value="#0f62fe" style="display:none;">
-      <div class="line-controls-col">
+     <div class="line-controls-col">
         <label for="thickness-slider">Толщина: <span id="thickness-value">5</span>px</label>
         <div class="thickness-row">
           <input type="range" id="thickness-slider" class="thickness-slider" min="1" max="20" value="5" step="1"/>
@@ -52,6 +53,8 @@
           <span class="animation-unit">сек</span>
         </label>
       </div>
+
+      <button id="right-panel-toggle" class="ui-btn panel-collapse-btn" title="Свернуть настройки" aria-expanded="true">❯</button>
     </div>
 	
     <div id="gradient-selector" class="gradient-selector">
@@ -121,4 +124,5 @@
 </body>
 
 </html>
+
 
