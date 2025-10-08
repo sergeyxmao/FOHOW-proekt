@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const DEFAULT_ANIMATION_DURATION = 2000;
   const MIN_ANIMATION_DURATION = 2000;
   const MAX_ANIMATION_DURATION = 999000;
+  const MAX_ANIMATION_LOOP_DURATION = 3000; // ограничиваем длительность одного цикла анимации для плавности
   let canvasState = {
     x: 0,
     y: 0,
@@ -1796,11 +1797,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getHighlightTimingConfig() {
-    const base = Number.isFinite(animationSettings.durationMs) ? animationSettings.durationMs : DEFAULT_ANIMATION_DURATION;
-    const cssDuration = Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, base));
+    const base = Number.isFinite(animationSettings.durationMs)
+      ? animationSettings.durationMs
+      : DEFAULT_ANIMATION_DURATION;
+    const sanitizedDuration = Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, base));
+    const cssDuration = Math.min(MAX_ANIMATION_LOOP_DURATION, sanitizedDuration);
     return {
       cssDuration,
-      autoRemoveDuration: cssDuration
+      autoRemoveDuration: sanitizedDuration
     };
   }
 
@@ -3935,6 +3939,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
