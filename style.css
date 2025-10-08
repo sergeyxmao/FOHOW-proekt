@@ -250,7 +250,7 @@ html,body{
 }
 
 .animation-duration-input{
-  width:46px;
+  width:calc(3ch + 12px);
   height:42px;
   border-radius:14px;
   border:1px solid rgba(167,178,204,.45);
@@ -1132,6 +1132,7 @@ html,body{
     border-radius: 18px;
   }
 }
+
 
 
 
