@@ -2623,42 +2623,61 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `; }).join('');
 
-      dropdown.querySelectorAll('.note-item').forEach(el => {
-        el.querySelector('.note-item-content').addEventListener('click', () => {
-          const cardData = cards.find(c => c.id === el.dataset.card);
-          if (!cardData) return;
-          if (cardData.note && cardData.note.window) {
-            cardData.note.window.remove(); cardData.note.window = null;
+        dropdown.querySelectorAll('.note-item').forEach(el => {
+          const contentBtn = el.querySelector('.note-item-content');
+          if (contentBtn) {
+            contentBtn.addEventListener('click', () => {
+              const cardData = cards.find(c => c.id === el.dataset.card);
+              if (!cardData) return;
+              if (cardData.note && cardData.note.window) {
+                cardData.note.window.remove(); cardData.note.window = null;
+              }
+              const cardRect = cardData.element.getBoundingClientRect();
+              if (!cardData.note) toggleNote(cardData);
+              const note = cardData.note;
+              ensureNoteStructure(note);
+              note.selectedDate = normalizeYMD(el.dataset.date) || el.dataset.date;
+              note.x = cardRect.right + 15; note.y = cardRect.top;
+              note.visible = true;
+              createNoteWindow(cardData);
+              saveState();
+              hide();
+            });
           }
-          const cardRect = cardData.element.getBoundingClientRect();
-          if (!cardData.note) toggleNote(cardData);
-          const note = cardData.note;
-          ensureNoteStructure(note);
-          note.selectedDate = normalizeYMD(el.dataset.date) || el.dataset.date;
-          note.x = cardRect.right + 15; note.y = cardRect.top;
-          note.visible = true;
-          createNoteWindow(cardData);
-          saveState();
-          hide();
-        });
 
-          const cardData = cards.find(c => c.id === el.dataset.card);
-          if (cardData && cardData.note && cardData.note.entries[el.dataset.date]) {
-            delete cardData.note.entries[el.dataset.date];
-            if (!hasAnyEntry(cardData.note) && cardData.note.window) {
-              cardData.note.window.remove();
-              cardData.note.window = null;
-              cardData.note.visible = false;
-              setCardNoteHighlight(cardData, false);
-            }
-            updateNoteButtonAppearance(cardData);
-            saveState(); buildList(); updateNotesButtonState();
+          const deleteBtn = el.querySelector('.note-delete-btn');
+          if (deleteBtn) {
+            deleteBtn.addEventListener('click', (event) => {
+              event.stopPropagation();
+              const cardData = cards.find(c => c.id === el.dataset.card);
+              if (cardData && cardData.note && cardData.note.entries[el.dataset.date]) {
+                delete cardData.note.entries[el.dataset.date];
+                if (!hasAnyEntry(cardData.note) && cardData.note.window) {
+                  cardData.note.window.remove();
+                  cardData.note.window = null;
+                  cardData.note.visible = false;
+                  setCardNoteHighlight(cardData, false);
+                }
+                updateNoteButtonAppearance(cardData);
+                saveState();
+                buildList();
+                updateNotesButtonState();
+              }
+            });
           }
         });
-      });
     }
 
-    function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+    function escapeHtml(s) {
+      const replacements = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return s.replace(/[&<>"']/g, (m) => replacements[m]);
+    }
     function show() {
       buildList();
       const r = notesListBtn.getBoundingClientRect();
@@ -2686,11 +2705,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-    cards.forEach(cardData => {
-        updateNoteButtonAppearance(cardData);
+  function updateNotesButtonState() {
+    cards.forEach((cardData) => {
+      updateNoteButtonAppearance(cardData);
     });
     if (notesListBtn) {
-      const hasAnyNoteWithText = cards.some(c => c.note && hasAnyEntry(c.note));
+      const hasAnyNoteWithText = cards.some((c) => c.note && hasAnyEntry(c.note));
       notesListBtn.disabled = !hasAnyNoteWithText;
     }
   }
@@ -3505,6 +3525,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
