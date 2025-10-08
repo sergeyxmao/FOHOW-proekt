@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const thicknessValue = document.getElementById('thickness-value');
   const lineColorTrigger = document.getElementById('line-color-trigger');
   const hiddenLineColorPicker = document.getElementById('hidden-line-color-picker');
+  const animationInfiniteToggle = document.getElementById('animation-infinite-toggle');
+  const animationDurationInput = document.getElementById('animation-duration-input');
   const applyAllToggle = document.getElementById('apply-all-toggle');
 
   const GRID_SIZE = 70;
@@ -30,7 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const HISTORY_LIMIT = 50;
   const SNAP_TOLERANCE = 5;
   const ACTIVE_PV_BASE = 330;
-
+  const DEFAULT_ANIMATION_DURATION = 1600;
+  const MIN_ANIMATION_DURATION = 100;
   let canvasState = {
     x: 0,
     y: 0,
@@ -76,7 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const lastActivePvValues = new Map();
   const partHighlightTimers = new WeakMap();
   const lineHighlightTimers = new WeakMap();
-
+  const animationSettings = {
+    infinite: false,
+    durationMs: DEFAULT_ANIMATION_DURATION
+  };
   const vGuide = document.createElement('div');
   vGuide.className = 'guide-line vertical';
   document.body.appendChild(vGuide);
@@ -451,6 +457,47 @@ document.addEventListener('DOMContentLoaded', () => {
         thicknessSlider.style.setProperty('--brand', activeState.currentColor);
     };
     updateSliderTrack(activeState.currentThickness);
+
+    const updateAnimationControls = () => {
+      if (animationInfiniteToggle) {
+        animationInfiniteToggle.classList.toggle('active', animationSettings.infinite);
+        animationInfiniteToggle.setAttribute('aria-pressed', animationSettings.infinite ? 'true' : 'false');
+      }
+      if (animationDurationInput) {
+        const seconds = animationSettings.durationMs / 1000;
+        const formattedSeconds = Number.isFinite(seconds) ? (Math.round(seconds * 1000) / 1000) : (DEFAULT_ANIMATION_DURATION / 1000);
+        animationDurationInput.value = String(formattedSeconds);
+      }
+    };
+    updateAnimationControls();
+
+    const applyDurationFromInput = (value) => {
+      if (typeof value !== 'string') return false;
+      const normalized = value.replace(',', '.').trim();
+      if (!normalized) return false;
+      const seconds = Number.parseFloat(normalized);
+      if (!Number.isFinite(seconds) || seconds <= 0) return false;
+      const ms = Math.round(seconds * 1000);
+      animationSettings.durationMs = Math.max(MIN_ANIMATION_DURATION, ms);
+      return true;
+    };
+
+    if (animationInfiniteToggle) {
+      animationInfiniteToggle.addEventListener('click', () => {
+        animationSettings.infinite = !animationSettings.infinite;
+        updateAnimationControls();
+      });
+    }
+
+    if (animationDurationInput) {
+      animationDurationInput.addEventListener('change', (e) => {
+        if (!applyDurationFromInput(e.target.value)) {
+          updateAnimationControls();
+          return;
+        }
+        updateAnimationControls();
+      });
+    }
 
     applyAllToggle.addEventListener('click', () => {
       activeState.isGlobalLineMode = !activeState.isGlobalLineMode;
@@ -1728,6 +1775,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  function getHighlightTimingConfig() {
+    const base = Number.isFinite(animationSettings.durationMs) ? animationSettings.durationMs : DEFAULT_ANIMATION_DURATION;
+    const cssDuration = Math.max(MIN_ANIMATION_DURATION, base);
+    return {
+      cssDuration,
+      autoRemoveDuration: animationSettings.infinite ? null : cssDuration
+    };
+  }
+
   function clearLineHighlightState(lineEl) {
     const timers = lineHighlightTimers.get(lineEl);
     if (timers) {
@@ -1739,8 +1795,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function applyLineHighlight(lineEl, type, duration = 1600) {
+  function applyLineHighlight(lineEl, type) {
     if (!lineEl) return;
+    const { cssDuration, autoRemoveDuration } = getHighlightTimingConfig();
     const className = type === 'pv' ? 'line--pv-highlight' : 'line--balance-highlight';
     lineEl.classList.remove(className);
     try {
@@ -1748,15 +1805,23 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (_) {
       try { lineEl.getBoundingClientRect(); } catch (__) { /* noop */ }
     }
+    lineEl.style.setProperty('--line-animation-duration', `${cssDuration}ms`);
     lineEl.classList.add(className);
-    if (!duration) return;
-
     let perLine = lineHighlightTimers.get(lineEl);
+    if (perLine && perLine.has(className)) {
+      clearTimeout(perLine.get(className));
+      perLine.delete(className);
+      if (perLine.size === 0) {
+        lineHighlightTimers.delete(lineEl);
+        perLine = null;
+      }
+    }
+    if (autoRemoveDuration == null) return;
+
     if (!perLine) {
       perLine = new Map();
       lineHighlightTimers.set(lineEl, perLine);
     }
-    if (perLine.has(className)) clearTimeout(perLine.get(className));
     const timer = setTimeout(() => {
       lineEl.classList.remove(className);
       const stored = lineHighlightTimers.get(lineEl);
@@ -1764,7 +1829,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stored.delete(className);
         if (stored.size === 0) lineHighlightTimers.delete(lineEl);
       }
-    }, duration);
+    }, autoRemoveDuration);
     perLine.set(className, timer);
   }
 
@@ -1802,6 +1867,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    const timing = getHighlightTimingConfig();
+    const highlightOptions = {
+      autoRemoveDuration: timing.autoRemoveDuration,
+      animationDuration: timing.cssDuration
+    };
+
     if (!highlightCandidates || highlightCandidates.size === 0) {
       previous.forEach((_, id) => {
         const cardEl = idToElementMap.get(id);
@@ -1823,30 +1894,28 @@ document.addEventListener('DOMContentLoaded', () => {
       setPartHighlight(valueEl, 'R', false);
     });
 
-    const applied = new Map();
-    highlightCandidates.forEach((sides, id) => {
-      const cardEl = idToElementMap.get(id);
-      const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
-      if (!valueEl) return;
-      if (valueEl.dataset.manualBalance === 'true') {
-        setPartHighlight(valueEl, 'L', false);
-        setPartHighlight(valueEl, 'R', false);
-        return;
-      }
-
-      const appliedSides = { left: false, right: false };
-      if (sides.left) {
-        if (setPartHighlight(valueEl, 'L', true)) appliedSides.left = true;
-      } else {
-        setPartHighlight(valueEl, 'L', false);
-      }
-      if (sides.right) {
-        if (setPartHighlight(valueEl, 'R', true)) appliedSides.right = true;
-      } else {
-        setPartHighlight(valueEl, 'R', false);
-      }
-
-      if (appliedSides.left || appliedSides.right) {
+      const applied = new Map();
+      highlightCandidates.forEach((sides, id) => {
+        const cardEl = idToElementMap.get(id);
+        const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
+        if (!valueEl) return;
+        if (valueEl.dataset.manualBalance === 'true') {
+          setPartHighlight(valueEl, 'L', false);
+          setPartHighlight(valueEl, 'R', false);
+          return;
+        }
+        const appliedSides = { left: false, right: false };
+        if (sides.left) {
+          if (setPartHighlight(valueEl, 'L', true, highlightOptions)) appliedSides.left = true;
+        } else {
+          setPartHighlight(valueEl, 'L', false);
+        }
+        if (sides.right) {
+          if (setPartHighlight(valueEl, 'R', true, highlightOptions)) appliedSides.right = true;
+        } else {
+          setPartHighlight(valueEl, 'R', false);
+        }
+        if (appliedSides.left || appliedSides.right) {
         applied.set(id, appliedSides);
       }
     });
@@ -1894,6 +1963,7 @@ document.addEventListener('DOMContentLoaded', () => {
       part = getValuePart(valueEl, side);
     }
     if (!part) return false;
+    const { autoRemoveDuration, animationDuration } = options;
     if (!shouldHighlight) {
       part.classList.remove('balance-highlight');
       const timer = partHighlightTimers.get(part);
@@ -1903,19 +1973,27 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return false;
     }
+    if (Number.isFinite(animationDuration)) {
+      part.style.setProperty('--balance-animation-duration', `${Math.max(MIN_ANIMATION_DURATION, animationDuration)}ms`);
+    }
     part.classList.remove('balance-highlight');
     void part.offsetWidth;
     part.classList.add('balance-highlight');
-    const { autoRemoveDuration } = options;
-    if (autoRemoveDuration) {
+    if (autoRemoveDuration == null || autoRemoveDuration <= 0) {
       const prevTimer = partHighlightTimers.get(part);
-      if (prevTimer) clearTimeout(prevTimer);
-      const newTimer = setTimeout(() => {
-        part.classList.remove('balance-highlight');
+      if (prevTimer) {
+        clearTimeout(prevTimer);
         partHighlightTimers.delete(part);
-      }, autoRemoveDuration);
-      partHighlightTimers.set(part, newTimer);
+      }
+      return true;
     }
+    const prevTimer = partHighlightTimers.get(part);
+    if (prevTimer) clearTimeout(prevTimer);
+    const newTimer = setTimeout(() => {
+      part.classList.remove('balance-highlight');
+      partHighlightTimers.delete(part);
+    }, autoRemoveDuration);
+    partHighlightTimers.set(part, newTimer);
     return true;
   }
 
@@ -2292,6 +2370,17 @@ document.addEventListener('DOMContentLoaded', () => {
         hidden.dataset[localKey] = String(newUnits);
       }
 
+      if (newUnits > beforeUnits) {
+        const balanceValueEl = getBalanceValueElement(curEl);
+        if (balanceValueEl) {
+          const timing = getHighlightTimingConfig();
+          setPartHighlight(balanceValueEl, curSide === 'L' ? 'L' : 'R', true, {
+            autoRemoveDuration: timing.autoRemoveDuration,
+            animationDuration: timing.cssDuration
+          });
+        }
+      }
+
       if (applied > 0 && parentInfo && curCard?.id) {
         highlightLineBetween(parentInfo.parentId, curCard.id, parentInfo.side, 'pv');
       }
@@ -2319,14 +2408,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const highlightLeft = prev ? L > prev.L : L > 0;
     const highlightRight = prev ? R > prev.R : R > 0;
 
+    const timing = getHighlightTimingConfig();
+    const highlightOptions = {
+      autoRemoveDuration: timing.autoRemoveDuration,
+      animationDuration: timing.cssDuration
+    };
+
     if (highlightLeft) {
-      setPartHighlight(valEl, 'L', true, { autoRemoveDuration: 1600 });
+      setPartHighlight(valEl, 'L', true, highlightOptions);
     } else {
       setPartHighlight(valEl, 'L', false);
     }
 
     if (highlightRight) {
-      setPartHighlight(valEl, 'R', true, { autoRemoveDuration: 1600 });
+      setPartHighlight(valEl, 'R', true, highlightOptions);
     } else {
       setPartHighlight(valEl, 'R', false);
     }
@@ -3819,6 +3914,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
