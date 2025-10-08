@@ -71,6 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const imageDataUriCache = new Map();
   const activePointers = new Map();
   let pinchState = null;
+  const lastCalculatedBalances = new Map();
+  let highlightedBalanceCards = new Set();
 
   const vGuide = document.createElement('div');
   vGuide.className = 'guide-line vertical';
@@ -1686,6 +1688,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function applyBalanceHighlights(highlightCandidates, idToElementMap) {
+    const previous = new Set();
+    highlightedBalanceCards.forEach((id) => {
+      if (idToElementMap.has(id)) previous.add(id);
+    });
+
+    if (!highlightCandidates || highlightCandidates.size === 0) {
+      const stillActive = new Set();
+      previous.forEach((id) => {
+        const cardEl = idToElementMap.get(id);
+        const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
+        if (valueEl && valueEl.dataset.manualBalance !== 'true') {
+          stillActive.add(id);
+        } else if (valueEl) {
+          valueEl.classList.remove('balance-highlight');
+        }
+      });
+      highlightedBalanceCards = stillActive;
+      return;
+    }
+
+    previous.forEach((id) => {
+      if (!highlightCandidates.has(id)) {
+        const cardEl = idToElementMap.get(id);
+        const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
+        if (valueEl) valueEl.classList.remove('balance-highlight');
+      }
+    });
+
+    const applied = new Set();
+    highlightCandidates.forEach((id) => {
+      const cardEl = idToElementMap.get(id);
+      const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
+      if (!valueEl) return;
+      if (valueEl.dataset.manualBalance === 'true') {
+        valueEl.classList.remove('balance-highlight');
+        return;
+      }
+      valueEl.classList.remove('balance-highlight');
+      void valueEl.offsetWidth;
+      valueEl.classList.add('balance-highlight');
+      applied.add(id);
+    });
+
+    highlightedBalanceCards = applied;
+  }
+
   function recalculateAndRender(stateOverride = null) {
     try {
       if (!window.Engine) {
@@ -1697,8 +1746,10 @@ document.addEventListener('DOMContentLoaded', () => {
       lastEngineMeta = meta;
 
       const id2el = new Map(cards.map(c => [c.id, c.element]));
+      const highlightCandidates = new Set();
       cards.forEach(cd => {
         const el = cd.element;
+        const cardResult = result[cd.id];
 
         ensureActiveControls(el);
 
@@ -1738,7 +1789,7 @@ document.addEventListener('DOMContentLoaded', () => {
               }
             }
 
-            const r = result[cd.id] || { L: 0, R: 0, total: 0 };
+            const r = cardResult || { L: 0, R: 0, total: 0 };
             let localL = hidden ? parseInt(hidden.dataset.locall || '0', 10) : 0;
             let localR = hidden ? parseInt(hidden.dataset.localr || '0', 10) : 0;
             if (!Number.isFinite(localL)) localL = 0;
@@ -1747,6 +1798,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (localR < 0) localR = 0;
             const leftBalance = Math.max(0, (r.L || 0) + aBonusL + localL);
             const rightBalance = Math.max(0, (r.R || 0) + aBonusR + localR);
+            if (!hasManualNumbers && cardResult) {
+              const prev = lastCalculatedBalances.get(cd.id);
+              const prevL = prev && Number.isFinite(prev.L) ? prev.L : null;
+              const prevR = prev && Number.isFinite(prev.R) ? prev.R : null;
+              const nextL = Number.isFinite(cardResult.L) ? cardResult.L : 0;
+              const nextR = Number.isFinite(cardResult.R) ? cardResult.R : 0;
+              if ((prevL !== null && nextL > prevL) || (prevR !== null && nextR > prevR)) {
+                highlightCandidates.add(cd.id);
+              }
+            }
             if (hasManualNumbers) {
               value.textContent = formatManualBalance({ left: manualLeft, right: manualRight });
             } else {
@@ -1754,6 +1815,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         });
+      });
+
+      applyBalanceHighlights(highlightCandidates, id2el);
+
+      Object.entries(result || {}).forEach(([cardId, data]) => {
+        const nextL = data && Number.isFinite(data.L) ? data.L : 0;
+        const nextR = data && Number.isFinite(data.R) ? data.R : 0;
+        lastCalculatedBalances.set(cardId, { L: nextL, R: nextR });
+      });
+
+      Array.from(lastCalculatedBalances.keys()).forEach((cardId) => {
+        if (!result[cardId]) {
+          lastCalculatedBalances.delete(cardId);
+        }
       });
     } catch (e) {
       console.warn('Recalc/render error:', e);
@@ -3525,6 +3600,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
