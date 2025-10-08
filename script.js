@@ -72,7 +72,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const activePointers = new Map();
   let pinchState = null;
   const lastCalculatedBalances = new Map();
-  let highlightedBalanceCards = new Set();
+  let highlightedBalanceParts = new Map();
+  const lastActivePvValues = new Map();
+  const partHighlightTimers = new WeakMap();
 
   const vGuide = document.createElement('div');
   vGuide.className = 'guide-line vertical';
@@ -1689,50 +1691,123 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function applyBalanceHighlights(highlightCandidates, idToElementMap) {
-    const previous = new Set();
-    highlightedBalanceCards.forEach((id) => {
-      if (idToElementMap.has(id)) previous.add(id);
-    });
-
-    if (!highlightCandidates || highlightCandidates.size === 0) {
-      const stillActive = new Set();
-      previous.forEach((id) => {
-        const cardEl = idToElementMap.get(id);
-        const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
-        if (valueEl && valueEl.dataset.manualBalance !== 'true') {
-          stillActive.add(id);
-        } else if (valueEl) {
-          valueEl.classList.remove('balance-highlight');
-        }
-      });
-      highlightedBalanceCards = stillActive;
-      return;
-    }
-
-    previous.forEach((id) => {
-      if (!highlightCandidates.has(id)) {
-        const cardEl = idToElementMap.get(id);
-        const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
-        if (valueEl) valueEl.classList.remove('balance-highlight');
+    const previous = new Map();
+    highlightedBalanceParts.forEach((sides, id) => {
+      if (idToElementMap.has(id)) {
+        previous.set(id, { left: !!sides.left, right: !!sides.right });
       }
     });
 
-    const applied = new Set();
-    highlightCandidates.forEach((id) => {
+    if (!highlightCandidates || highlightCandidates.size === 0) {
+      previous.forEach((_, id) => {
+        const cardEl = idToElementMap.get(id);
+        const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
+        if (!valueEl) return;
+        setPartHighlight(valueEl, 'L', false);
+        setPartHighlight(valueEl, 'R', false);
+      });
+      highlightedBalanceParts = new Map();
+      return;
+    }
+
+    previous.forEach((_, id) => {
+      if (highlightCandidates.has(id)) return;
+      const cardEl = idToElementMap.get(id);
+      const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
+      if (!valueEl) return;
+      setPartHighlight(valueEl, 'L', false);
+      setPartHighlight(valueEl, 'R', false);
+    });
+
+    const applied = new Map();
+    highlightCandidates.forEach((sides, id) => {
       const cardEl = idToElementMap.get(id);
       const valueEl = cardEl ? getBalanceValueElement(cardEl) : null;
       if (!valueEl) return;
       if (valueEl.dataset.manualBalance === 'true') {
-        valueEl.classList.remove('balance-highlight');
+        setPartHighlight(valueEl, 'L', false);
+        setPartHighlight(valueEl, 'R', false);
         return;
       }
-      valueEl.classList.remove('balance-highlight');
-      void valueEl.offsetWidth;
-      valueEl.classList.add('balance-highlight');
-      applied.add(id);
+
+      const appliedSides = { left: false, right: false };
+      if (sides.left) {
+        if (setPartHighlight(valueEl, 'L', true)) appliedSides.left = true;
+      } else {
+        setPartHighlight(valueEl, 'L', false);
+      }
+      if (sides.right) {
+        if (setPartHighlight(valueEl, 'R', true)) appliedSides.right = true;
+      } else {
+        setPartHighlight(valueEl, 'R', false);
+      }
+
+      if (appliedSides.left || appliedSides.right) {
+        applied.set(id, appliedSides);
+      }
     });
 
-    highlightedBalanceCards = applied;
+    highlightedBalanceParts = applied;
+  }
+
+  function renderSplitValue(valueEl, leftValue, rightValue) {
+    if (!valueEl) return;
+    const leftText = String(leftValue ?? '0');
+    const rightText = String(rightValue ?? '0');
+    valueEl.innerHTML = `<span class="value-part value-left">${leftText}</span> <span class="value-separator">/</span> <span class="value-part value-right">${rightText}</span>`;
+  }
+
+  function ensureSplitValueStructure(valueEl) {
+    if (!valueEl) return false;
+    const hasLeft = valueEl.querySelector('.value-left');
+    const hasRight = valueEl.querySelector('.value-right');
+    if (hasLeft && hasRight) return true;
+    const text = (valueEl.textContent || '').trim();
+    const match = /^(\d+)\s*\/\s*(\d+)/.exec(text);
+    if (!match) return false;
+    renderSplitValue(valueEl, match[1], match[2]);
+    return true;
+  }
+
+  function getValuePart(valueEl, side) {
+    if (!valueEl) return null;
+    if (!ensureSplitValueStructure(valueEl)) return null;
+    const selector = side === 'L' ? '.value-left' : '.value-right';
+    return valueEl.querySelector(selector);
+  }
+
+  function setPartHighlight(valueEl, side, shouldHighlight, options = {}) {
+    let part = null;
+    const selector = side === 'L' ? '.value-left' : '.value-right';
+    if (valueEl.dataset.manualBalance === 'true') {
+      part = valueEl.querySelector(selector);
+    } else {
+      part = getValuePart(valueEl, side);
+    }
+    if (!part) return false;
+    if (!shouldHighlight) {
+      part.classList.remove('balance-highlight');
+      const timer = partHighlightTimers.get(part);
+      if (timer) {
+        clearTimeout(timer);
+        partHighlightTimers.delete(part);
+      }
+      return false;
+    }
+    part.classList.remove('balance-highlight');
+    void part.offsetWidth;
+    part.classList.add('balance-highlight');
+    const { autoRemoveDuration } = options;
+    if (autoRemoveDuration) {
+      const prevTimer = partHighlightTimers.get(part);
+      if (prevTimer) clearTimeout(prevTimer);
+      const newTimer = setTimeout(() => {
+        part.classList.remove('balance-highlight');
+        partHighlightTimers.delete(part);
+      }, autoRemoveDuration);
+      partHighlightTimers.set(part, newTimer);
+    }
+    return true;
   }
 
   function recalculateAndRender(stateOverride = null) {
@@ -1746,7 +1821,7 @@ document.addEventListener('DOMContentLoaded', () => {
       lastEngineMeta = meta;
 
       const id2el = new Map(cards.map(c => [c.id, c.element]));
-      const highlightCandidates = new Set();
+      const highlightCandidates = new Map();
       cards.forEach(cd => {
         const el = cd.element;
         const cardResult = result[cd.id];
@@ -1804,14 +1879,21 @@ document.addEventListener('DOMContentLoaded', () => {
               const prevR = prev && Number.isFinite(prev.R) ? prev.R : null;
               const nextL = Number.isFinite(cardResult.L) ? cardResult.L : 0;
               const nextR = Number.isFinite(cardResult.R) ? cardResult.R : 0;
-              if ((prevL !== null && nextL > prevL) || (prevR !== null && nextR > prevR)) {
-                highlightCandidates.add(cd.id);
+              if (prevL !== null && nextL > prevL) {
+                const entry = highlightCandidates.get(cd.id) || { left: false, right: false };
+                entry.left = true;
+                highlightCandidates.set(cd.id, entry);
+              }
+              if (prevR !== null && nextR > prevR) {
+                const entry = highlightCandidates.get(cd.id) || { left: false, right: false };
+                entry.right = true;
+                highlightCandidates.set(cd.id, entry);
               }
             }
             if (hasManualNumbers) {
               value.textContent = formatManualBalance({ left: manualLeft, right: manualRight });
             } else {
-              value.textContent = `${leftBalance} / ${rightBalance}`;
+              renderSplitValue(value, leftBalance, rightBalance);
             }
           }
         });
@@ -2112,7 +2194,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function setActivePV(cardEl, L, R) {
     const { valEl } = parseActivePV(cardEl);
-    if (valEl) valEl.textContent = `${L} / ${R}`;
+    if (!valEl) return;
+
+    renderSplitValue(valEl, L, R);
+
+    const cardData = findCardByElement(cardEl);
+    const cardId = cardData?.id;
+    if (!cardId) return;
+
+    const prev = lastActivePvValues.get(cardId);
+    const highlightLeft = prev ? L > prev.L : L > 0;
+    const highlightRight = prev ? R > prev.R : R > 0;
+
+    if (highlightLeft) {
+      setPartHighlight(valEl, 'L', true, { autoRemoveDuration: 1600 });
+    } else {
+      setPartHighlight(valEl, 'L', false);
+    }
+
+    if (highlightRight) {
+      setPartHighlight(valEl, 'R', true, { autoRemoveDuration: 1600 });
+    } else {
+      setPartHighlight(valEl, 'R', false);
+    }
+
+    lastActivePvValues.set(cardId, { L, R });
   }
 
   canvas.addEventListener('click', (e) => {
@@ -3600,6 +3706,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
