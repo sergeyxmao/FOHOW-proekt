@@ -8,6 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const gradientSelector = document.getElementById('gradient-selector');
   const undoBtn = document.getElementById('undo-btn');
   const redoBtn = document.getElementById('redo-btn');
+  const leftPanel = document.querySelector('.ui-panel-left');
+  const rightPanel = document.querySelector('.ui-panel-right');
+  const leftPanelToggle = document.getElementById('left-panel-toggle');
+  const rightPanelToggle = document.getElementById('right-panel-toggle');
   const loadProjectBtn = document.getElementById('load-project-btn');
   const loadProjectInput = document.getElementById('load-project-input');
   const selectionModeBtn = document.getElementById('selection-mode-btn');
@@ -108,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNotesDropdown();
   setupNoteAutoClose();
   setupGuides();
+  setupPanelToggles();
 
   if (window.initializeCardFeatures) {
     initializeCardFeatures(() => cards, saveState);
@@ -408,6 +413,26 @@ document.addEventListener('DOMContentLoaded', () => {
         activeState.guidesEnabled = !activeState.guidesEnabled;
         toggleGuidesBtn.classList.toggle('active', activeState.guidesEnabled);
     });
+  }
+
+  function setupPanelToggles() {
+    if (leftPanel && leftPanelToggle) {
+      leftPanelToggle.addEventListener('click', () => {
+        const collapsed = leftPanel.classList.toggle('collapsed');
+        leftPanelToggle.textContent = collapsed ? '❯' : '❮';
+        leftPanelToggle.setAttribute('aria-expanded', String(!collapsed));
+        leftPanelToggle.setAttribute('title', collapsed ? 'Развернуть панель' : 'Свернуть панель');
+      });
+    }
+
+    if (rightPanel && rightPanelToggle) {
+      rightPanelToggle.addEventListener('click', () => {
+        const collapsed = rightPanel.classList.toggle('collapsed');
+        rightPanelToggle.textContent = collapsed ? '❮' : '❯';
+        rightPanelToggle.setAttribute('aria-expanded', String(!collapsed));
+        rightPanelToggle.setAttribute('title', collapsed ? 'Развернуть настройки' : 'Свернуть настройки');
+      });
+    }
   }
 
   function setupDragModes() {
@@ -3914,6 +3939,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
