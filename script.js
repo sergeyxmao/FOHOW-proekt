@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let highlightedBalanceParts = new Map();
   const lastActivePvValues = new Map();
   const partHighlightTimers = new WeakMap();
+  const lineHighlightTimers = new WeakMap();
 
   const vGuide = document.createElement('div');
   vGuide.className = 'guide-line vertical';
@@ -998,7 +999,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function deleteCard(cardData) {
     lines = lines.filter(line => {
-      if (line.startCard.id === cardData.id || line.endCard.id === cardData.id) { line.element.remove(); return false; }
+      if (line.startCard.id === cardData.id || line.endCard.id === cardData.id) {
+        clearLineHighlightState(line.element);
+        line.element.remove();
+        return false;
+      }
       return true;
     });
     if (cardData.note && cardData.note.window) cardData.note.window.remove();
@@ -1009,6 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function deleteLine(lineData) {
+    clearLineHighlightState(lineData.element);
     lineData.element.remove();
     lines = lines.filter(l => l.id !== lineData.id);
     if (activeState.selectedLine && activeState.selectedLine.id === lineData.id) activeState.selectedLine = null;
@@ -1257,7 +1263,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadState(state, pushHistory = false) {
-    lines.forEach(l => l.element.remove()); lines = [];
+    lines.forEach(l => { clearLineHighlightState(l.element); l.element.remove(); }); lines = [];
     cards.forEach(c => { if (c.note && c.note.window) c.note.window.remove(); c.element.remove(); });
     cards = [];
     activeState.selectedCards.clear(); activeState.selectedLine = null;
@@ -1690,6 +1696,104 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function normalizeBranchSide(side) {
+    const s = String(side || '').toLowerCase();
+    return s === 'right' || s === 'r' ? 'R' : 'L';
+  }
+
+  function getCardTop(cardData) {
+    if (!cardData || !cardData.element) return 0;
+    const parsed = parseFloat(cardData.element.style.top);
+    if (Number.isFinite(parsed)) return parsed;
+    const rect = cardData.element.getBoundingClientRect();
+    return rect ? rect.top + window.scrollY : 0;
+  }
+
+  function getLineRelation(line) {
+    if (!line || !line.startCard || !line.endCard) return null;
+    const startTop = getCardTop(line.startCard);
+    const endTop = getCardTop(line.endCard);
+    if (!Number.isFinite(startTop) || !Number.isFinite(endTop)) return null;
+    if (startTop <= endTop) {
+      return {
+        parent: line.startCard,
+        child: line.endCard,
+        side: normalizeBranchSide(line.startSide)
+      };
+    }
+    return {
+      parent: line.endCard,
+      child: line.startCard,
+      side: normalizeBranchSide(line.endSide)
+    };
+  }
+
+  function clearLineHighlightState(lineEl) {
+    const timers = lineHighlightTimers.get(lineEl);
+    if (timers) {
+      timers.forEach((timer) => clearTimeout(timer));
+      lineHighlightTimers.delete(lineEl);
+    }
+    if (lineEl) {
+      lineEl.classList.remove('line--balance-highlight', 'line--pv-highlight');
+    }
+  }
+
+  function applyLineHighlight(lineEl, type, duration = 1600) {
+    if (!lineEl) return;
+    const className = type === 'pv' ? 'line--pv-highlight' : 'line--balance-highlight';
+    lineEl.classList.remove(className);
+    try {
+      void lineEl.getBBox();
+    } catch (_) {
+      try { lineEl.getBoundingClientRect(); } catch (__) { /* noop */ }
+    }
+    lineEl.classList.add(className);
+    if (!duration) return;
+
+    let perLine = lineHighlightTimers.get(lineEl);
+    if (!perLine) {
+      perLine = new Map();
+      lineHighlightTimers.set(lineEl, perLine);
+    }
+    if (perLine.has(className)) clearTimeout(perLine.get(className));
+    const timer = setTimeout(() => {
+      lineEl.classList.remove(className);
+      const stored = lineHighlightTimers.get(lineEl);
+      if (stored) {
+        stored.delete(className);
+        if (stored.size === 0) lineHighlightTimers.delete(lineEl);
+      }
+    }, duration);
+    perLine.set(className, timer);
+  }
+
+  function highlightLinesForParentSide(parentId, side, type) {
+    if (!parentId) return;
+    const normalizedSide = normalizeBranchSide(side);
+    lines.forEach((line) => {
+      const relation = getLineRelation(line);
+      if (!relation) return;
+      if (relation.parent.id !== parentId) return;
+      if (relation.side !== normalizedSide) return;
+      applyLineHighlight(line.element, type);
+    });
+  }
+
+  function highlightLineBetween(parentId, childId, side, type) {
+    if (!parentId || !childId) return;
+    const normalizedSide = normalizeBranchSide(side);
+    for (const line of lines) {
+      const relation = getLineRelation(line);
+      if (!relation) continue;
+      if (relation.parent.id !== parentId) continue;
+      if (relation.child.id !== childId) continue;
+      if (relation.side !== normalizedSide) continue;
+      applyLineHighlight(line.element, type);
+      break;
+    }
+  }
+
   function applyBalanceHighlights(highlightCandidates, idToElementMap) {
     const previous = new Map();
     highlightedBalanceParts.forEach((sides, id) => {
@@ -1748,6 +1852,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     highlightedBalanceParts = applied;
+
+    applied.forEach((sides, id) => {
+      if (sides.left) highlightLinesForParentSide(id, 'L', 'balance');
+      if (sides.right) highlightLinesForParentSide(id, 'R', 'balance');
+    });
   }
 
   function renderSplitValue(valueEl, leftValue, rightValue) {
@@ -2181,6 +2290,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (hidden) {
         hidden.dataset[localKey] = String(newUnits);
+      }
+
+      if (applied > 0 && parentInfo && curCard?.id) {
+        highlightLineBetween(parentInfo.parentId, curCard.id, parentInfo.side, 'pv');
       }
 
       if (!parentInfo || applied === 0) break;
@@ -3706,6 +3819,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
