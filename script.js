@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const thicknessValue = document.getElementById('thickness-value');
   const lineColorTrigger = document.getElementById('line-color-trigger');
   const hiddenLineColorPicker = document.getElementById('hidden-line-color-picker');
-  const animationInfiniteToggle = document.getElementById('animation-infinite-toggle');
   const animationDurationInput = document.getElementById('animation-duration-input');
   const applyAllToggle = document.getElementById('apply-all-toggle');
 
@@ -85,9 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const partHighlightTimers = new WeakMap();
   const lineHighlightTimers = new WeakMap();
   const animationSettings = {
-    infinite: false,
-    durationMs: DEFAULT_ANIMATION_DURATION,
-    infiniteResetScheduled: false
+    durationMs: DEFAULT_ANIMATION_DURATION
+  };
   };
   let refreshAnimationControls = null;
   const vGuide = document.createElement('div');
@@ -487,10 +485,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSliderTrack(activeState.currentThickness);
 
     const updateAnimationControls = () => {
-      if (animationInfiniteToggle) {
-        animationInfiniteToggle.classList.toggle('active', animationSettings.infinite);
-        animationInfiniteToggle.setAttribute('aria-pressed', animationSettings.infinite ? 'true' : 'false');
-      }
       if (animationDurationInput) {
         const currentDuration = Number.isFinite(animationSettings.durationMs)
           ? Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, animationSettings.durationMs))
@@ -502,7 +496,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
     updateAnimationControls();
-    refreshAnimationControls = updateAnimationControls;
 
     const applyDurationFromInput = (value) => {
       if (typeof value !== 'string') return false;
@@ -515,15 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
       animationSettings.durationMs = clamped;
       return true;
     };
-
-    if (animationInfiniteToggle) {
-      animationInfiniteToggle.addEventListener('click', () => {
-        animationSettings.infinite = !animationSettings.infinite;
-        animationSettings.infiniteResetScheduled = false;
-        updateAnimationControls();
-      });
-    }
-
+	  
     if (animationDurationInput) {
       animationDurationInput.addEventListener('change', (e) => {
         if (!applyDurationFromInput(e.target.value)) {
@@ -1813,20 +1798,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function getHighlightTimingConfig() {
     const base = Number.isFinite(animationSettings.durationMs) ? animationSettings.durationMs : DEFAULT_ANIMATION_DURATION;
     const cssDuration = Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, base));
-    const useInfinite = !!animationSettings.infinite;
-    if (useInfinite && !animationSettings.infiniteResetScheduled) {
-      animationSettings.infiniteResetScheduled = true;
-      Promise.resolve().then(() => {
-        animationSettings.infinite = false;
-        animationSettings.infiniteResetScheduled = false;
-        if (typeof refreshAnimationControls === 'function') {
-          refreshAnimationControls();
-        }
-      });
-    }
     return {
       cssDuration,
-      autoRemoveDuration: useInfinite ? null : cssDuration
+      autoRemoveDuration: cssDuration
     };
   }
 
@@ -3961,6 +3935,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
