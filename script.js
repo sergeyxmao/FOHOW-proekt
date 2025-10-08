@@ -36,8 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const HISTORY_LIMIT = 50;
   const SNAP_TOLERANCE = 5;
   const ACTIVE_PV_BASE = 330;
-  const DEFAULT_ANIMATION_DURATION = 1600;
-  const MIN_ANIMATION_DURATION = 100;
+  const DEFAULT_ANIMATION_DURATION = 2000;
+  const MIN_ANIMATION_DURATION = 2000;
+  const MAX_ANIMATION_DURATION = 60000;
   let canvasState = {
     x: 0,
     y: 0,
@@ -489,8 +490,12 @@ document.addEventListener('DOMContentLoaded', () => {
         animationInfiniteToggle.setAttribute('aria-pressed', animationSettings.infinite ? 'true' : 'false');
       }
       if (animationDurationInput) {
-        const seconds = animationSettings.durationMs / 1000;
-        const formattedSeconds = Number.isFinite(seconds) ? (Math.round(seconds * 1000) / 1000) : (DEFAULT_ANIMATION_DURATION / 1000);
+        const currentDuration = Number.isFinite(animationSettings.durationMs)
+          ? Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, animationSettings.durationMs))
+          : DEFAULT_ANIMATION_DURATION;
+        animationSettings.durationMs = currentDuration;
+        const seconds = currentDuration / 1000;
+        const formattedSeconds = Math.round(seconds * 1000) / 1000;
         animationDurationInput.value = String(formattedSeconds);
       }
     };
@@ -503,7 +508,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const seconds = Number.parseFloat(normalized);
       if (!Number.isFinite(seconds) || seconds <= 0) return false;
       const ms = Math.round(seconds * 1000);
-      animationSettings.durationMs = Math.max(MIN_ANIMATION_DURATION, ms);
+      const clamped = Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, ms));
+      animationSettings.durationMs = clamped;
       return true;
     };
 
@@ -1802,7 +1808,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getHighlightTimingConfig() {
     const base = Number.isFinite(animationSettings.durationMs) ? animationSettings.durationMs : DEFAULT_ANIMATION_DURATION;
-    const cssDuration = Math.max(MIN_ANIMATION_DURATION, base);
+    const cssDuration = Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, base));
     return {
       cssDuration,
       autoRemoveDuration: animationSettings.infinite ? null : cssDuration
@@ -1999,7 +2005,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
     if (Number.isFinite(animationDuration)) {
-      part.style.setProperty('--balance-animation-duration', `${Math.max(MIN_ANIMATION_DURATION, animationDuration)}ms`);
+      const sanitizedDuration = Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, animationDuration));
+      part.style.setProperty('--balance-animation-duration', `${sanitizedDuration}ms`);
     }
     part.classList.remove('balance-highlight');
     void part.offsetWidth;
@@ -3939,6 +3946,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
