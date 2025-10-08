@@ -22,20 +22,69 @@ html,body{
 /* Панели */
 .ui-panel-left{
   position:fixed; top:20px; left:20px; z-index:2000;
-  display:flex; align-items:center; gap:10px;
+  display:flex; align-items:center; gap:8px;
   background: var(--panel);
-  padding:8px 10px; border-radius: var(--radius); box-shadow: var(--shadow);
+  padding:6px 8px; border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.ui-panel-left.collapsed{
+  padding-right:6px;
+}
+.ui-panel-left.collapsed .ui-btn:not(#undo-btn):not(#redo-btn):not(.ui-panel-toggle){
+  display:none;
 }
 .ui-panel-right{
   position:fixed; top:20px; right:20px; z-index:2000;
   display:flex; flex-direction:column; align-items:flex-end; gap:14px;
 }
+.ui-panel-right.collapsed{
+  gap:10px;
+}
+.ui-panel-right.collapsed .line-controls-panel,
+.ui-panel-right.collapsed .gradient-selector,
+.ui-panel-right.collapsed .row{
+  align-self:flex-end;
+}
+.ui-panel-right.collapsed .line-controls-panel{
+  flex-direction:column;
+  align-items:center;
+  padding:8px;
+  gap:8px;
+}
+.ui-panel-right.collapsed .line-controls-col label,
+.ui-panel-right.collapsed .animation-label,
+.ui-panel-right.collapsed .animation-unit,
+.ui-panel-right.collapsed .gradient-title{
+  display:none;
+}
+.ui-panel-right.collapsed .thickness-row{
+  flex-direction:column;
+  gap:6px;
+}
+.ui-panel-right.collapsed .animation-controls{
+  flex-direction:column;
+  align-items:center;
+}
+.ui-panel-right.collapsed .row{
+  flex-direction:column;
+  gap:8px;
+}
+.ui-panel-right.collapsed .gradient-selector{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:8px;
+  width:auto;
+}
+.ui-panel-right.collapsed .grad-btn{
+  width:32px;
+  height:32px;
+}
 .ui-panel-right .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
 
-.ui-btn{
-  min-width:40px; height:40px; padding:0 10px;
-  background:#fff; border:1px solid #e5e7eb; border-radius:10px;
-  font-size:18px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.06);
+.ui-btn{␊
+  min-width:40px; height:40px; padding:0 10px;␊
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px;␊
+  font-size:18px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.06);␊
   transition:transform .15s, box-shadow .15s, background-color .15s, border-color .15s;
   display:grid; place-items:center; color:var(--ink);
 }
@@ -57,10 +106,34 @@ html,body{
 .add-btn--large{ font-size: 32px; font-weight: 500; line-height: 1; padding-bottom: 4px; }
 
 /* Обновленная панель управления линиями */
+.ui-panel-toggle{
+  position:absolute;
+  top:50%;
+  right:-18px;
+  transform:translateY(-50%);
+  min-width:32px;
+}
+.ui-panel-left.collapsed .ui-panel-toggle{
+  right:-18px;
+}
+.panel-collapse-btn,
+.ui-panel-toggle{
+  font-size:16px;
+  width:32px;
+  height:32px;
+  padding:0;
+  border-radius:8px;
+}
+.panel-collapse-btn{
+  margin-left:auto;
+}
+.ui-panel-right.collapsed .panel-collapse-btn{
+  margin-left:0;
+  align-self:flex-end;
+}
 .line-controls-panel{
-  display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center;
-  background:#fff; padding:10px 14px; border-radius:12px; box-shadow: var(--shadow);
-  min-width:240px;
+  display:inline-flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-start;
+  background:#fff; padding:10px 12px; border-radius:12px; box-shadow: var(--shadow);
 }
 .line-color-trigger{
   width:28px; height:28px; border-radius:50%;
@@ -78,10 +151,7 @@ html,body{
 }
 .apply-all-btn:hover{ border-color: #9ca3af; background: #f9fafb; }
 .apply-all-btn.active{ background: #eaf1ff; border-color: #0f62fe; color: #0f62fe; }
-.animation-controls{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#374151; justify-content:center; flex-basis:100%; flex-wrap:wrap; }
-.animation-label{ white-space:nowrap; }
-.animation-toggle{
-  width:32px; height:32px; border-radius:8px; border:1px solid #d1d5db; background:#fff;
+.animation-controls{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#374151; justify-content:flex-start; flex-wrap:wrap; }
   color:#6b7280; cursor:pointer; font-size:18px; font-weight:700; display:grid; place-items:center;
   transition:.2s;
 }
@@ -913,6 +983,7 @@ html,body{
     border-radius: 18px;
   }
 }
+
 
 
 
