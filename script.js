@@ -86,8 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const lineHighlightTimers = new WeakMap();
   const animationSettings = {
     infinite: false,
-    durationMs: DEFAULT_ANIMATION_DURATION
+    durationMs: DEFAULT_ANIMATION_DURATION,
+    infiniteResetScheduled: false
   };
+  let refreshAnimationControls = null;
   const vGuide = document.createElement('div');
   vGuide.className = 'guide-line vertical';
   document.body.appendChild(vGuide);
@@ -500,6 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
     updateAnimationControls();
+    refreshAnimationControls = updateAnimationControls;
 
     const applyDurationFromInput = (value) => {
       if (typeof value !== 'string') return false;
@@ -516,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (animationInfiniteToggle) {
       animationInfiniteToggle.addEventListener('click', () => {
         animationSettings.infinite = !animationSettings.infinite;
+        animationSettings.infiniteResetScheduled = false;
         updateAnimationControls();
       });
     }
@@ -1809,9 +1813,20 @@ document.addEventListener('DOMContentLoaded', () => {
   function getHighlightTimingConfig() {
     const base = Number.isFinite(animationSettings.durationMs) ? animationSettings.durationMs : DEFAULT_ANIMATION_DURATION;
     const cssDuration = Math.min(MAX_ANIMATION_DURATION, Math.max(MIN_ANIMATION_DURATION, base));
+    const useInfinite = !!animationSettings.infinite;
+    if (useInfinite && !animationSettings.infiniteResetScheduled) {
+      animationSettings.infiniteResetScheduled = true;
+      Promise.resolve().then(() => {
+        animationSettings.infinite = false;
+        animationSettings.infiniteResetScheduled = false;
+        if (typeof refreshAnimationControls === 'function') {
+          refreshAnimationControls();
+        }
+      });
+    }
     return {
       cssDuration,
-      autoRemoveDuration: animationSettings.infinite ? null : cssDuration
+      autoRemoveDuration: useInfinite ? null : cssDuration
     };
   }
 
@@ -3946,6 +3961,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
