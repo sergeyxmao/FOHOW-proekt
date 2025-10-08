@@ -125,7 +125,7 @@ html,body{
   flex-direction:column;
   gap:16px;
   align-items:stretch;
-  background:linear-gradient(145deg,#f7f9ff,#e7ecf7);
+  background:#fff;
   padding:16px 18px;
   border-radius:18px;
   box-shadow: 10px 12px 24px rgba(15,35,95,.16), -6px -6px 18px rgba(255,255,255,.85);
@@ -1158,6 +1158,7 @@ html,body{
     border-radius: 18px;
   }
 }
+
 
 
 
