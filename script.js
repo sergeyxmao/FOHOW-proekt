@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const ACTIVE_PV_BASE = 330;
   const DEFAULT_ANIMATION_DURATION = 2000;
   const MIN_ANIMATION_DURATION = 2000;
-  const MAX_ANIMATION_DURATION = 60000;
+  const MAX_ANIMATION_DURATION = 999000;
   let canvasState = {
     x: 0,
     y: 0,
@@ -47,8 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
     lastPointerY: 0,
     panPointerId: null,
     panCaptureTarget: null
-  };  let activeState = {
-    currentColor: '#0f62fe',
+  };
+
+  let activeState = {
     currentThickness: 5,
     selectedLine: null,
     selectedCards: new Set(),
@@ -85,7 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const lineHighlightTimers = new WeakMap();
   const animationSettings = {
     durationMs: DEFAULT_ANIMATION_DURATION
-  };
   };
   let refreshAnimationControls = null;
   const vGuide = document.createElement('div');
@@ -3935,6 +3935,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
