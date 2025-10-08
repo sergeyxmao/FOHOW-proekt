@@ -205,7 +205,15 @@ html,body{
   color:#111827; font-weight:800; font-size:20px; outline:none; padding:3px 6px; border-radius:5px;
   transition: color .3s ease, transform .35s ease, text-shadow .35s ease;
 }
-.value.balance-highlight{
+.value .value-part{
+  display:inline-block;
+  min-width:0.6em;
+}
+.value .value-separator{
+  display:inline-block;
+  padding:0 4px;
+}
+.value-part.balance-highlight{
   color:#d93025;
   display:inline-block;
   font-weight:900;
@@ -837,6 +845,7 @@ html,body{
     border-radius: 18px;
   }
 }
+
 
 
 
