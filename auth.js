@@ -1,18 +1,16 @@
 // auth.js - Защита с хэшированием паролей и контактами
 class PasswordProtector {
     constructor() {
-        // ЗДЕСЬ ВСТАВЬТЕ ХЭШИ ОТ ВАШИХ КОДОВ ДОСТУПА
+        // ЗДЕСЬ ВСТАВЬТЕ ХЭШИ ОТ ВАШИХ ПАРОЛЕЙ
         this.validHashes = [
-            "5b33003a928495b97792ac286d477b54dd20eb773c74ae2fb3653bc5950ad6dd", // Хэш от кода доступа
+            "5b33003a928495b97792ac286d477b54dd20eb773c74ae2fb3653bc5950ad6dd", // Хэш от пароля
 
         ];
 
         this.sessionKey = 'fohowAuth';
-        this.tokenStorageKey = 'fohowAuthToken';
         this.modalElement = document.getElementById('auth-modal');
         this.formElement = this.modalElement?.querySelector('[data-auth-form]') || null;
-        this.usernameInput = this.formElement?.querySelector('#auth-username-input') || null;
-        this.passwordInput = this.formElement?.querySelector('#auth-password-input') || null;
+        this.passwordInput = this.formElement?.querySelector('.auth-modal__input') || null;
         this.errorElement = this.modalElement?.querySelector('[data-auth-error]') || null;
         this.submitButton = this.formElement?.querySelector('.auth-modal__submit') || null;
         this.defaultSubmitText = this.submitButton?.textContent || '';
@@ -29,7 +27,6 @@ class PasswordProtector {
         }
 
         this.formElement.addEventListener('submit', this.handleSubmit);
-        this.usernameInput?.addEventListener('input', () => this.clearError());
         this.passwordInput.addEventListener('input', () => this.clearError());
         this.modalElement.addEventListener('keydown', this.handleKeyDown);
         document.addEventListener('focusin', this.handleDocumentFocus);
@@ -110,12 +107,6 @@ class PasswordProtector {
     }
 
     focusFirstElement() {
-        if (this.usernameInput) {
-            this.usernameInput.focus();
-            this.usernameInput.select?.();
-            return;
-        }
-
         if (this.passwordInput) {
             this.passwordInput.focus();
             this.passwordInput.select();
@@ -180,21 +171,14 @@ class PasswordProtector {
         }
 
         if (!window.crypto || !crypto.subtle) {
-            this.displayError('Браузер не поддерживает проверку кода доступа.');
+            this.displayError('Браузер не поддерживает проверку пароля.');
             return;
         }
 
-        const username = (this.usernameInput?.value || '').trim();
         const password = (this.passwordInput?.value || '').trim();
 
-        if (!username) {
-            this.displayError('Укажите ваш Telegram-аккаунт.');
-            this.usernameInput?.focus();
-            return;
-        }
-
         if (!password) {
-            this.displayError('Введите код доступа.');
+            this.displayError('Введите пароль.');
             this.focusFirstElement();
             return;
         }
@@ -204,104 +188,20 @@ class PasswordProtector {
         try {
             const inputHash = await this.sha256(password);
 
-            if (!this.validHashes.includes(inputHash)) {
-                this.displayError('Неверный код доступа. Попробуйте ещё раз.');
-                this.passwordInput?.focus();
-                this.passwordInput?.select();
-                return;
+            if (this.validHashes.includes(inputHash)) {
+                sessionStorage.setItem(this.sessionKey, 'authenticated');
+                this.clearError();
+                this.formElement?.reset();
+                this.closeModal();
+            } else {
+                this.displayError('Неверный пароль. Попробуйте ещё раз.');
+                this.focusFirstElement();
             }
-
-            const verificationResult = await this.verifySubscription(username, password);
-
-            if (!verificationResult.success) {
-                this.displayError(verificationResult.message || 'Не удалось подтвердить подписку.');
-                if (verificationResult.reason === 'invalid_code') {
-                    this.passwordInput?.focus();
-                    this.passwordInput?.select();
-                } else {
-                    this.usernameInput?.focus();
-                    this.usernameInput?.select?.();
-                }
-                return;
-            }
-
-            sessionStorage.setItem(this.sessionKey, 'authenticated');
-            if (verificationResult.accessToken) {
-                sessionStorage.setItem(this.tokenStorageKey, verificationResult.accessToken);
-            }
-
-            this.clearError();
-            this.formElement?.reset();
-            this.closeModal();
         } catch (error) {
-            console.error('Ошибка проверки кода доступа', error);
-            this.displayError('Не удалось проверить код доступа. Попробуйте позже.');
+            console.error('Ошибка проверки пароля', error);
+            this.displayError('Не удалось проверить пароль. Попробуйте позже.');
         } finally {
             this.togglePendingState(false);
-        }
-    }
-
-    async verifySubscription(username, password) {
-        if (typeof fetch !== 'function') {
-            return {
-                success: false,
-                message: 'Браузер не поддерживает проверку подписки. Обновите браузер или используйте другой.',
-                reason: 'unsupported',
-            };
-        }
-
-        const payload = {
-            username,
-            code: password,
-        };
-
-        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timeoutId = controller ? window.setTimeout(() => controller.abort(), 10000) : null;
-
-        try {
-            const response = await fetch('/api/check-subscription', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-                signal: controller?.signal,
-            });
-
-            const data = await response.json().catch(() => ({ success: false }));
-
-            if (!response.ok) {
-                return {
-                    success: false,
-                    message: data?.message || 'Проверка подписки недоступна. Попробуйте позже.',
-                    reason: data?.reason || 'server_error',
-                };
-            }
-
-            return {
-                success: Boolean(data.success),
-                message: data.message,
-                accessToken: data.accessToken,
-                reason: data.reason,
-            };
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                return {
-                    success: false,
-                    message: 'Сервер проверки долго не отвечает. Повторите попытку немного позже.',
-                    reason: 'timeout',
-                };
-            }
-
-            return {
-                success: false,
-                message: 'Произошла ошибка соединения. Проверьте интернет и попробуйте ещё раз.',
-                reason: 'network_error',
-            };
-        } finally {
-            if (timeoutId) {
-                window.clearTimeout(timeoutId);
-            }
         }
     }
 
