@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "lint": "node --check auth.js && node --check card-features.js && node --check engine.js && node --check script.js"
+    "lint": "node --check auth.js && node --check card-features.js && node --check engine.js && node --check script.js && node --check server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.1.5",
+    "node-fetch": "^2.6.12"
   }
 }
