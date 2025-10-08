@@ -2437,6 +2437,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (header) {
       header.addEventListener('pointerdown', (e) => {
         if (e.target.closest('.note-close-btn')) return;
+        if (e.target.closest('.note-tools')) return;
         e.preventDefault();
         if (pinchState && e.pointerType === 'touch') return;
         const pointerId = e.pointerId;
@@ -3479,6 +3480,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
