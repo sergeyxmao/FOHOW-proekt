@@ -112,7 +112,30 @@ html,body{
   marker-end: url(#marker-dot);
 }
 .line.selected{ stroke-dasharray:6 6; }
-
+.line--balance-highlight,
+.line--pv-highlight{
+  stroke-linecap:round;
+}
+.line--balance-highlight{
+  --line-highlight-color: rgba(217,48,37,.55);
+  stroke-dasharray:16;
+  animation: lineBalanceFlow 1.6s ease-in-out;
+  filter: drop-shadow(0 0 10px var(--line-highlight-color));
+}
+.line--pv-highlight{
+  --line-highlight-color: rgba(15,98,254,.45);
+  stroke-dasharray:14;
+  animation: linePvFlow 1.6s ease-in-out;
+  filter: drop-shadow(0 0 10px var(--line-highlight-color));
+}
+@keyframes lineBalanceFlow{
+  from{ stroke-dashoffset:24; }
+  to{ stroke-dashoffset:-24; }
+}
+@keyframes linePvFlow{
+  from{ stroke-dashoffset:18; }
+  to{ stroke-dashoffset:-18; }
+}
 /* Карточка */
 .card{
   position:absolute; width:var(--card-width);
@@ -845,6 +868,7 @@ html,body{
     border-radius: 18px;
   }
 }
+
 
 
 
