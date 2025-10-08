@@ -1821,6 +1821,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyLineHighlight(lineEl, type) {
     if (!lineEl) return;
+
+    // Перед запуском новой анимации обязательно сбрасываем предыдущую,
+    // чтобы не оставалось одновременно двух классов подсветки.
+    clearLineHighlightState(lineEl);
+
     const { cssDuration, autoRemoveDuration } = getHighlightTimingConfig();
     const className = type === 'pv' ? 'line--pv-highlight' : 'line--balance-highlight';
     lineEl.classList.remove(className);
@@ -3939,6 +3944,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
