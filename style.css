@@ -416,6 +416,9 @@ html,body{
   box-shadow: var(--license-card-shadow);
   transition: transform .15s ease, box-shadow .15s ease;
 }
+.card.card--large{
+  min-height:364px;
+}
 .card:hover{ transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,.16); }
 .card.selected{
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.6), 0 12px 26px rgba(0,0,0,.18);
@@ -504,29 +507,39 @@ html,body{
 /* Тело карточки */
 .card-body{
   padding:10px 14px 12px;
-  text-align:left;
-  background: var(--license-card-bg);
+  text-align:center;
+  background:#ffffff;
   border-radius:0 0 6px 6px;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  align-items:center;
+  gap:10px;
 }
-.card-body.dark-bg{ background:#2b2b2b; }
+.card-body.dark-bg{
+  background:#2b2b2b;
+  color:#f9fafb;
+}
+.card-body.dark-bg .label,
+.card-body.dark-bg .value{
+  color:#f9fafb;
+}
 
 .card-row{
   display:flex;
-  justify-content:flex-start;
-  align-items:flex-start;
-  gap:8px;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  text-align:center;
 }
 .card-row:first-child{ align-items:center; }
 .label{
   font-weight:600;
   color: var(--license-label-color);
-  width:118px;
+  width:auto;
   flex-shrink:0;
   font-size:13px;
   line-height:1.35;
+  text-align:center;
 }
 .value{
   color:#111827;
@@ -539,6 +552,7 @@ html,body{
   transition: color .3s ease, transform .35s ease, text-shadow .35s ease;
   display:inline-block;
   min-width:0;
+  text-align:center;
 }
 .value .value-part{
   display:inline-block;
@@ -1191,4 +1205,5 @@ html,body{
     border-radius: 18px;
   }
 }
+
 
