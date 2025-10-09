@@ -407,7 +407,7 @@ label {
   100%{ stroke-dashoffset:18; stroke: var(--line-color, currentColor); color: var(--line-color, currentColor); }
 }
 
-/* 6. Стили карточек
+/* 6. Стили карточек (ОБНОВЛЕННЫЙ ДИЗАЙН)
    -------------------------------------------------------------------------- */
 .card {
   position: absolute;
@@ -418,37 +418,42 @@ label {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   border: 1px solid var(--color-border);
 }
+
 .card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-xl);
 }
+
 .card.selected {
   border-color: var(--color-danger);
   box-shadow: 0 0 0 2px var(--color-danger), var(--shadow-xl);
 }
+
 .card-header {
   background: var(--color-brand);
   color: #fff;
-  padding: 0.75rem 1rem 0.75rem 4rem; /* Padding for SLF badge */
+  padding: 0.75rem 1rem;
   position: relative;
   height: 52px;
   box-sizing: border-box;
   border-radius: calc(var(--radius-xl) - 1px) calc(var(--radius-xl) - 1px) 0 0;
   cursor: grab;
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex; /* Используем Flexbox для идеального центрирования */
   align-items: center;
+  justify-content: center;
 }
+
 .card-title {
-  text-align: center;
-  font-size: 1.125rem;
+  font-size: 1.125rem; /* 18px */
+  font-weight: 600; /* Semibold */
   line-height: 1.2;
-  font-weight: 600;
   outline: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 0 2.5rem; /* Оставляем место по бокам для значков */
 }
+
 .card-close-btn {
   position: absolute;
   top: 0.5rem;
@@ -471,24 +476,31 @@ label {
   background: rgba(255, 255, 255, 0.2);
   transform: scale(1.1);
 }
+
 .card-body {
-  padding: 1rem;
+  padding: 1.25rem 1rem 1rem; /* Немного больше отступ сверху */
 }
+
 .card-row {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.875rem; /* 14px */
 }
+.card-row:last-child {
+  margin-bottom: 0;
+}
+
 .label {
-  font-weight: 500;
+  font-weight: 500; /* Medium */
+  font-size: 0.875rem; /* 14px */
   color: var(--color-text-secondary);
 }
 .value {
   color: var(--color-text-primary);
-  font-weight: 600;
-  font-size: 1.125rem;
+  font-weight: 600; /* Semibold */
+  font-size: 1.125rem; /* 18px */
   outline: none;
   padding: 2px 4px;
   border-radius: var(--radius-sm);
@@ -496,15 +508,6 @@ label {
 .value:focus {
   background: var(--color-brand-light);
   box-shadow: 0 0 0 2px var(--color-brand);
-}
-.value .value-part.balance-highlight {
-  color: var(--color-danger);
-  display: inline-block;
-  font-weight: 700;
-  animation: balancePulse var(--balance-animation-duration, 1.6s) ease-in-out infinite alternate;
-}
-@keyframes balancePulse{
-  from{ transform: scale(1.05); } to{ transform: scale(1.1); }
 }
 
 .coin-icon {
@@ -516,64 +519,25 @@ label {
 .coin-icon:hover {
   transform: scale(1.1);
 }
+
 .connection-point {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  z-index: 101;
-  background: #fff;
-  border: 3px solid var(--color-brand);
-  border-radius: 50%;
-  cursor: pointer;
-  transform: translate(-50%, -50%);
-  display: none;
-  transition: all 0.2s;
+  border: 3px solid var(--color-brand); /* Используем новый цвет */
 }
-.card:hover .connection-point { display: block; }
 .connection-point:hover {
-  background: var(--color-brand);
-  transform: scale(1.2) translate(-50%,-50%);
+  background: var(--color-brand); /* Используем новый цвет */
 }
-.connection-point.top { top: 0; left: 50%; }
-.connection-point.bottom { top: 100%; left: 50%; }
-.connection-point.left { top: 50%; left: 0; }
-.connection-point.right { top: 50%; left: 100%; }
 
-.card-controls {
-  position: absolute;
-  bottom: 0.5rem;
-  right: 0.5rem;
-  display: flex;
-  gap: 0.25rem;
+.value .value-part.balance-highlight {
+  color: var(--color-danger);
+  display: inline-block;
+  font-weight: 700;
+  animation: balancePulse var(--balance-animation-duration, 1.6s) ease-in-out infinite alternate;
 }
-.card-control-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  font-size: 16px;
-  display: grid;
-  place-items: center;
-  background: #fff;
-  transition: all 0.2s;
-  color: var(--color-text-secondary);
+@keyframes balancePulse{
+  from{ transform: scale(1.05); } to{ transform: scale(1.1); }
 }
-.card-control-btn:hover {
-  background-color: #f3f4f6;
-  transform: translateY(-1px);
-  color: var(--color-text-primary);
-}
-.note-btn.has-text {
-  background: var(--color-danger);
-  color: #fff;
-  border-color: var(--color-danger);
-}
-.note-btn.has-text:hover { background: #dc2626; }
 
-
-/* 7. Значки и темная тема
+/* 7. Значки и темная тема (ОБНОВЛЕННЫЙ ДИЗАЙН)
    -------------------------------------------------------------------------- */
 .slf-badge, .fendou-badge, .rank-badge {
   position: absolute;
@@ -1222,3 +1186,4 @@ label {
         border-radius: 18px;
     }
 }
+
