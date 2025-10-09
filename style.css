@@ -8,6 +8,12 @@
   --bg: #f5f7fb;
   --radius: 14px;
   --shadow: 0 8px 20px rgba(0,0,0,.12);
+  --license-card-bg: #eaf2ff;
+  --license-card-border: #99c2ff;
+  --license-card-shadow: 0 2px 4px rgba(0,0,0,.1);
+  --license-header-bg: #357ebd;
+  --license-header-text: #ffffff;
+  --license-label-color: #555555;
 }
 
 html,body{
@@ -402,11 +408,15 @@ html,body{
 }
 /* Карточка */
 .card{
-  position:absolute; width:var(--card-width);
-  background: var(--surface); border-radius:16px; box-shadow: var(--shadow);
+  position:absolute;
+  width:var(--card-width);
+  background: var(--license-card-bg);
+  border:1px solid var(--license-card-border);
+  border-radius:6px;
+  box-shadow: var(--license-card-shadow);
   transition: transform .15s ease, box-shadow .15s ease;
 }
-.card:hover{ transform:translateY(-1px); box-shadow:0 12px 26px rgba(0,0,0,.18); }
+.card:hover{ transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,0,0,.16); }
 .card.selected{
   box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.6), 0 12px 26px rgba(0,0,0,.18);
 }
@@ -424,21 +434,30 @@ html,body{
 }
 /* Заголовок карточки */
 .card-header{
-  background: var(--brand);
-  color:#fff;
-  padding:10px;
+  background: var(--license-header-bg);
+  color: var(--license-header-text);
+  padding:10px 16px;
   padding-right:44px;
   position:relative;
-  height:52px;
-  border-radius:16px 16px 0 0;
+  min-height:48px;
+  border-radius:6px 6px 0 0;
   cursor:grab;
-  display:grid;
-  grid-template-columns:auto 1fr auto;
+  display:flex;
   align-items:center;
-  gap:6px;
+  justify-content:center;
+  text-align:center;
+  gap:8px;
 }
 .card-title{
-  grid-column:2/3; text-align:center; font-size:20px; line-height:1; font-weight:800; letter-spacing:.3px; outline:none;
+  font-size:15px;
+  line-height:1.15;
+  font-weight:700;
+  letter-spacing:.2px;
+  outline:none;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .card-close-btn{
@@ -483,14 +502,43 @@ html,body{
 }
 
 /* Тело карточки */
-.card-body{ padding:15px; text-align:center; background:#fff; border-radius:0 0 16px 16px; }
+.card-body{
+  padding:10px 14px 12px;
+  text-align:left;
+  background: var(--license-card-bg);
+  border-radius:0 0 6px 6px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
 .card-body.dark-bg{ background:#2b2b2b; }
 
-.card-row{ display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:12px; }
-.label{ font-weight:700; color:#374151; }
+.card-row{
+  display:flex;
+  justify-content:flex-start;
+  align-items:flex-start;
+  gap:8px;
+}
+.card-row:first-child{ align-items:center; }
+.label{
+  font-weight:600;
+  color: var(--license-label-color);
+  width:118px;
+  flex-shrink:0;
+  font-size:13px;
+  line-height:1.35;
+}
 .value{
-  color:#111827; font-weight:800; font-size:20px; outline:none; padding:3px 6px; border-radius:5px;
+  color:#111827;
+  font-weight:700;
+  font-size:13px;
+  line-height:1.35;
+  outline:none;
+  padding:1px 3px;
+  border-radius:4px;
   transition: color .3s ease, transform .35s ease, text-shadow .35s ease;
+  display:inline-block;
+  min-width:0;
 }
 .value .value-part{
   display:inline-block;
@@ -498,7 +546,7 @@ html,body{
 }
 .value .value-separator{
   display:inline-block;
-  padding:0 4px;
+  padding:0 3px;
 }
 .value-part.balance-highlight{
   color:#d93025;
@@ -515,8 +563,13 @@ html,body{
 }
 .value:focus{ background:#fff8dc; box-shadow:0 0 6px 2px rgba(255,193,7,.35); }
 /* Монетка */
-.coin-icon{ width:28px; height:28px; cursor:pointer; transition:transform .15s; }
-.coin-icon:hover{ transform:scale(1.1); }
+.coin-icon{
+  width:26px;
+  height:26px;
+  flex-shrink:0;
+  cursor:pointer;
+  transition:transform .15s;
+}.coin-icon:hover{ transform:scale(1.1); }
 
 /* Точки соединения */
 .connection-point{
@@ -686,7 +739,13 @@ html,body{
 }
 
 .card.dark-mode,
-.card.dark-mode .card-body{ background:#2b2b2b; }
+.card.dark-mode .card-body{
+  background:#2b2b2b;
+}
+.card.dark-mode{
+  border-color:#4b5563;
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
+}
 .card.dark-mode .label{ color:#e5e7eb; }
 .card.dark-mode .value{ color:#f9fafb; }
 .card.dark-mode .card-header{ background:#1f2937 !important; }
@@ -1132,3 +1191,4 @@ html,body{
     border-radius: 18px;
   }
 }
+
