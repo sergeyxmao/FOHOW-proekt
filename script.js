@@ -40,6 +40,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const MIN_ANIMATION_DURATION = 2000;
   const MAX_ANIMATION_DURATION = 999000;
   const MAX_ANIMATION_LOOP_DURATION = 3000; // ограничиваем длительность одного цикла анимации для плавности
+  const BASE_CARD_WIDTH = 380;
+  const BASE_CARD_HEIGHT = 280;
+  const LARGE_CARD_SCALE = 1.3;
+  const LARGE_CARD_WIDTH = Math.round(BASE_CARD_WIDTH * LARGE_CARD_SCALE);
+  const LARGE_CARD_HEIGHT = Math.round(BASE_CARD_HEIGHT * LARGE_CARD_SCALE);
   let canvasState = {
     x: 0,
     y: 0,
@@ -584,14 +589,19 @@ document.addEventListener('DOMContentLoaded', () => {
     card.className = 'card'; card.id = cardId;
     if (opts.isDarkMode) card.classList.add('dark-mode');
 
+    const defaultWidth = opts.isLarge ? LARGE_CARD_WIDTH : BASE_CARD_WIDTH;
     if (opts.isLarge) {
-        card.style.width = '494px';
+        card.classList.add('card--large');
+        card.style.width = `${defaultWidth}px`;
+        card.style.minHeight = `${LARGE_CARD_HEIGHT}px`;
     } else if (opts.width) {
         card.style.width = opts.width;
     }
 
-    const CARD_WIDTH = card.offsetWidth || (opts.isLarge ? 494 : 380);
-    const CARD_HEIGHT = 280, PADDING = 50;
+    const widthFallback = opts.width ? parseInt(opts.width, 10) : defaultWidth;
+    const CARD_WIDTH = card.offsetWidth || widthFallback;
+    const CARD_HEIGHT = opts.isLarge ? LARGE_CARD_HEIGHT : BASE_CARD_HEIGHT;
+    const PADDING = 50;
     let initialX, initialY;
 
     if (opts.x != null) { initialX = opts.x; initialY = opts.y; }
@@ -1245,12 +1255,12 @@ document.addEventListener('DOMContentLoaded', () => {
         { startKey: 'lena', startSide: 'right', endKey: 'b', endSide: 'top', thickness: 4 },
     ];
 
-    const CARD_WIDTH = 380, LARGE_CARD_WIDTH = 494, CARD_HEIGHT = 280, PADDING = 50;
+    const CARD_WIDTH = BASE_CARD_WIDTH, CARD_HEIGHT = BASE_CARD_HEIGHT, PADDING = 50;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     templateCards.forEach(c => {
         const width = c.isLarge ? LARGE_CARD_WIDTH : CARD_WIDTH;
-        minX = Math.min(minX, c.x); minY = Math.min(minY, c.y); maxX = Math.max(maxX, c.x + width); maxY = Math.max(maxY, c.y + CARD_HEIGHT);
-    });
+        const height = c.isLarge ? LARGE_CARD_HEIGHT : CARD_HEIGHT;
+        minX = Math.min(minX, c.x); minY = Math.min(minY, c.y); maxX = Math.max(maxX, c.x + width); maxY = Math.max(maxY, c.y + height);    });
     const templateWidth = maxX - minX, templateHeight = maxY - minY;
 
     const canvasViewLeft = -canvasState.x / canvasState.scale;
@@ -4018,6 +4028,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
