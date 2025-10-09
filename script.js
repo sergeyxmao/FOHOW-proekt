@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const HISTORY_LIMIT = 50;
   const SNAP_TOLERANCE = 5;
   const ACTIVE_PV_BASE = 330;
+  const DEFAULT_LINE_COLOR = '#0f62fe';
   const DEFAULT_ANIMATION_DURATION = 2000;
   const MIN_ANIMATION_DURATION = 2000;
   const MAX_ANIMATION_DURATION = 999000;
@@ -52,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let activeState = {
     currentThickness: 5,
-    selectedLine: null,
+    currentColor: DEFAULT_LINE_COLOR,    selectedLine: null,
     selectedCards: new Set(),
     isDrawingLine: false,
     isSelecting: false,
@@ -472,16 +473,24 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupLineControls() {
     if (!thicknessSlider || !lineColorTrigger || !hiddenLineColorPicker || !applyAllToggle) return;
 
-    lineColorTrigger.style.backgroundColor = activeState.currentColor;
-    hiddenLineColorPicker.value = activeState.currentColor;
+    const ensureCurrentColor = () => {
+      const color = activeState.currentColor || DEFAULT_LINE_COLOR;
+      activeState.currentColor = color;
+      return color;
+    };
+
+    const initialColor = ensureCurrentColor();
+    lineColorTrigger.style.backgroundColor = initialColor;
+    hiddenLineColorPicker.value = initialColor;
     thicknessValue.textContent = activeState.currentThickness;
     thicknessSlider.value = activeState.currentThickness;
 
     const updateSliderTrack = (val) => {
+        const currentColor = ensureCurrentColor();
         const min = Number(thicknessSlider.min), max = Number(thicknessSlider.max);
         const percent = Math.round(((val - min) / (max - min)) * 100);
-        thicknessSlider.style.background = `linear-gradient(90deg, ${activeState.currentColor} 0%, ${activeState.currentColor} ${percent}%, #e5e7eb ${percent}%)`;
-        thicknessSlider.style.setProperty('--brand', activeState.currentColor);
+        thicknessSlider.style.background = `linear-gradient(90deg, ${currentColor} 0%, ${currentColor} ${percent}%, #e5e7eb ${percent}%)`;
+        thicknessSlider.style.setProperty('--brand', currentColor);
     };
     updateSliderTrack(activeState.currentThickness);
 
@@ -527,7 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     lineColorTrigger.addEventListener('click', () => hiddenLineColorPicker.click());
     hiddenLineColorPicker.addEventListener('input', (e) => {
-      const newColor = e.target.value;
+      const newColor = e.target.value || DEFAULT_LINE_COLOR;
       activeState.currentColor = newColor;
       lineColorTrigger.style.backgroundColor = newColor;
       updateSliderTrack(thicknessSlider.value);
@@ -992,10 +1001,11 @@ document.addEventListener('DOMContentLoaded', () => {
     activeState.lineStart = { card, side };
     activeState.previewLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     activeState.previewLine.setAttribute('class', 'line');
-    activeState.previewLine.setAttribute('stroke', activeState.currentColor);
+    const lineColor = activeState.currentColor || DEFAULT_LINE_COLOR;
+    activeState.previewLine.setAttribute('stroke', lineColor);
     activeState.previewLine.setAttribute('stroke-dasharray', '5,5');
     activeState.previewLine.setAttribute('stroke-width', activeState.currentThickness);
-    activeState.previewLine.style.setProperty('--line-color', activeState.currentColor);
+    activeState.previewLine.style.setProperty('--line-color', lineColor);
     activeState.previewLine.setAttribute('marker-start', 'url(#marker-dot)');
     activeState.previewLine.setAttribute('marker-end', 'url(#marker-dot)');
     svgLayer.appendChild(activeState.previewLine);
@@ -1006,13 +1016,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const lineElement = activeState.previewLine;
     lineElement.removeAttribute('stroke-dasharray');
 
+    const lineColor = activeState.currentColor || DEFAULT_LINE_COLOR;
     const lineData = {
       id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
       startCard: activeState.lineStart.card,
       startSide: activeState.lineStart.side,
       endCard: card,
       endSide: side,
-      color: activeState.currentColor,
+      color: lineColor,
       thickness: activeState.currentThickness,
       element: lineElement
     };
@@ -1126,10 +1137,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     thicknessSlider.value = lineData.thickness;
     thicknessValue.textContent = lineData.thickness;
-    hiddenLineColorPicker.value = lineData.color;
-    lineColorTrigger.style.backgroundColor = lineData.color;
+    const color = lineData.color || DEFAULT_LINE_COLOR;
+    hiddenLineColorPicker.value = color;
+    lineColorTrigger.style.backgroundColor = color;
     activeState.currentThickness = lineData.thickness;
-    activeState.currentColor = lineData.color;
+    activeState.currentColor = color;
     setupLineControls();
   }
 
@@ -1352,9 +1364,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!startCard || !endCard) return;
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('class', 'line');
-      path.setAttribute('stroke', ld.color);
+      const color = ld.color || DEFAULT_LINE_COLOR;
+      path.setAttribute('stroke', color);
       path.setAttribute('stroke-width', ld.thickness);
-      path.style.setProperty('--line-color', ld.color);
+      path.style.setProperty('--line-color', color);
       path.setAttribute('marker-start', 'url(#marker-dot)');
       path.setAttribute('marker-end', 'url(#marker-dot)');
       svgLayer.appendChild(path);
@@ -1363,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', () => {
         id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
         startCard, startSide: ld.startSide,
         endCard,   endSide: ld.endSide,
-        color: ld.color, thickness: ld.thickness, element: path
+        color, thickness: ld.thickness, element: path
       };
       lines.push(lineData);
       path.addEventListener('click', (e) => { e.stopPropagation(); selectLine(lineData); });
@@ -1427,8 +1440,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const copiedLines = [];
     lines.forEach(l => {
       if (selectedIds.has(l.startCard.id) && selectedIds.has(l.endCard.id)) {
-        copiedLines.push({ startId: l.startCard.id, startSide: l.startSide, endId: l.endCard.id, endSide: l.endSide, color: l.color, thickness: l.thickness });
-      }
+        copiedLines.push({ startId: l.startCard.id, startSide: l.startSide, endId: l.endCard.id, endSide: l.endSide, color: l.color || DEFAULT_LINE_COLOR, thickness: l.thickness });
+	  }
     });
     clipboard = { cards: copiedCards, lines: copiedLines };
   }
@@ -1460,9 +1473,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!startCard || !endCard) return;
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('class', 'line');
-        path.setAttribute('stroke', ld.color);
+        const color = ld.color || DEFAULT_LINE_COLOR;
+        path.setAttribute('stroke', color);
         path.setAttribute('stroke-width', ld.thickness);
-        path.style.setProperty('--line-color', ld.color);
+        path.style.setProperty('--line-color', color);
         path.setAttribute('marker-start', 'url(#marker-dot)');
         path.setAttribute('marker-end', 'url(#marker-dot)');
         svgLayer.appendChild(path);
@@ -1471,7 +1485,7 @@ document.addEventListener('DOMContentLoaded', () => {
           id: `line_${Date.now()}_${Math.floor(Math.random()*1000)}`,
           startCard, startSide: ld.startSide,
           endCard,   endSide: ld.endSide,
-          color: ld.color, thickness: ld.thickness, element: path
+          color, thickness: ld.thickness, element: path
         };
         lines.push(lineData);
         path.addEventListener('click', (e) => { e.stopPropagation(); selectLine(lineData); });
@@ -3281,8 +3295,8 @@ const getCleanedCardHtml = async (cardData) => {
         const midP1 = (line.startSide === 'left' || line.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
         const d = `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`;
 
-        return `<path d="${d}" stroke="${line.color}" stroke-width="${line.thickness}" fill="none" class="line" marker-start="url(#marker-dot)" marker-end="url(#marker-dot)" />`;
-    }).join('\n');
+        const color = line.color || DEFAULT_LINE_COLOR;
+        return `<path d="${d}" stroke="${color}" stroke-width="${line.thickness}" fill="none" class="line" marker-start="url(#marker-dot)" marker-end="url(#marker-dot)" />`;    }).join('\n');
 
 
     const panScript = `<script><![CDATA[(function(){const svg=document.documentElement;const content=document.getElementById&&document.getElementById('svg-pan-content');if(!svg||!content||!svg.addEventListener)return;let isPanning=false,panId=null,lastX=0,lastY=0,offsetX=0,offsetY=0;const update=()=>content.setAttribute('transform','translate('+offsetX+' '+offsetY+')');const endPan=(e)=>{if(!isPanning||e.pointerId!==panId)return;isPanning=false;panId=null;svg.style.cursor='grab';if(svg.releasePointerCapture){try{svg.releasePointerCapture(e.pointerId);}catch(err){}}};svg.addEventListener('pointerdown',function(e){if(e.button!==1)return;e.preventDefault();isPanning=true;panId=e.pointerId;lastX=e.clientX;lastY=e.clientY;svg.style.cursor='grabbing';if(svg.setPointerCapture){try{svg.setPointerCapture(e.pointerId);}catch(err){}}});svg.addEventListener('pointermove',function(e){if(!isPanning||e.pointerId!==panId)return;e.preventDefault();offsetX+=e.clientX-lastX;offsetY+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;update();});svg.addEventListener('pointerup',endPan);svg.addEventListener('pointercancel',endPan);svg.addEventListener('wheel',function(e){if(isPanning)e.preventDefault();},{passive:false});svg.style.cursor='grab';update();})();]]></script>`;
@@ -3925,9 +3939,10 @@ async function processPrint(exportType) {
 
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('class', 'line');
-            path.setAttribute('stroke', lineData.color);
+            const color = lineData.color || DEFAULT_LINE_COLOR;
+            path.setAttribute('stroke', color);
             path.setAttribute('stroke-width', lineData.thickness);
-            path.style.setProperty('--line-color', lineData.color);
+            path.style.setProperty('--line-color', color);
             path.setAttribute('marker-start', 'url(#marker-dot)');
             path.setAttribute('marker-end', 'url(#marker-dot)');
             let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
@@ -3944,6 +3959,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
