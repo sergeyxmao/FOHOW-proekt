@@ -3354,7 +3354,10 @@ const PAPER_SIZES = {
     a2: { width: 420, height: 594 },
     a1: { width: 594, height: 841 },
 };
+const ORIGINAL_FORMAT_KEY = 'original';
 const DEFAULT_DPI = 96;
+const MAX_CANVAS_DIMENSION = 16384;
+const MAX_EXPORT_DIMENSION = 16384;
 
 const PNG_PPM_FACTOR = 39.37007874015748; // Inches in a meter
 const PNG_SIGNATURE_LENGTH = 8;
@@ -3494,6 +3497,7 @@ function createPrintModal() {
                             <option value="a3">A3</option>
                             <option value="a2">A2</option>
                             <option value="a1">A1</option>
+                            <option value="original">Оригинальный размер</option>
                         </select>
                     </div>
                     <div class="print-control-group">
@@ -3623,16 +3627,32 @@ function createPrintModal() {
         tileCheckbox.checked = false;
         tileCheckbox.disabled = true;
 
-        const paperSize = PAPER_SIZES[selectedFormat];
-        const isLandscape = currentOrientation === 'landscape';
-        const paperWidth = isLandscape ? paperSize.height : paperSize.width;
-        const paperHeight = isLandscape ? paperSize.width : paperSize.height;
+        const bounds = getSchemeBounds();
+        if (bounds.width === 0 || bounds.height === 0) return;
 
-        const previewAspectRatio = paperWidth / paperHeight;
+        const PADDING = 100;
+        const contentTotalWidth = bounds.width + PADDING * 2;
+        const contentTotalHeight = bounds.height + PADDING * 2;
+
+        let previewWidthMm;
+        let previewHeightMm;
+
+        if (selectedFormat === ORIGINAL_FORMAT_KEY) {
+            previewWidthMm = contentTotalWidth;
+            previewHeightMm = contentTotalHeight;
+        } else {
+            const paperSize = PAPER_SIZES[selectedFormat];
+            if (!paperSize) return;
+            const isLandscape = currentOrientation === 'landscape';
+            previewWidthMm = isLandscape ? paperSize.height : paperSize.width;
+            previewHeightMm = isLandscape ? paperSize.width : paperSize.height;
+        }
+
+        const previewAspectRatio = previewHeightMm === 0 ? 1 : previewWidthMm / previewHeightMm;
         const previewContainer = document.querySelector('.print-preview-container');
         const containerWidth = previewContainer.clientWidth - 30;
         const containerHeight = previewContainer.clientHeight - 60;
-        
+
         let previewWidth = containerWidth;
         let previewHeight = containerWidth / previewAspectRatio;
 
@@ -3640,16 +3660,9 @@ function createPrintModal() {
             previewHeight = containerHeight;
             previewWidth = containerHeight * previewAspectRatio;
         }
-        
+
         previewArea.style.width = `${previewWidth}px`;
         previewArea.style.height = `${previewHeight}px`;
-
-        const bounds = getSchemeBounds();
-        if (bounds.width === 0 || bounds.height === 0) return;
-
-        const PADDING = 100;
-        const contentTotalWidth = bounds.width + PADDING * 2;
-        const contentTotalHeight = bounds.height + PADDING * 2;
 
         previewArea.innerHTML = '';
         const { printCanvas } = await createPrintableHtml(serializeState(), bounds, PADDING);
@@ -3726,7 +3739,6 @@ async function processPrint(exportType) {
             const dpiScale = selectedDpi / DEFAULT_DPI;
             const originalScale = Math.max(dpiScale, 2);
             let finalScale = originalScale;
-            const MAX_CANVAS_DIMENSION = 16384; // Безопасный лимит для большинства браузеров
 
             const requiredWidth = renderContainer.offsetWidth * originalScale;
             const requiredHeight = renderContainer.offsetHeight * originalScale;
@@ -3742,38 +3754,68 @@ async function processPrint(exportType) {
             const canvas = await html2canvas(renderContainer, { scale: finalScale, useCORS: true, logging: false });
 
             const selectedFormat = formatSelect.value;
-            const paper = PAPER_SIZES[selectedFormat];
+            const isOriginalFormat = selectedFormat === ORIGINAL_FORMAT_KEY;
             const isLandscape = currentOrientation === 'landscape';
-            const targetWidthMm = isLandscape ? paper.height : paper.width;
-            const targetHeightMm = isLandscape ? paper.width : paper.height;
             const pxPerMm = selectedDpi / 25.4;
-            const targetWidthPx = Math.round(targetWidthMm * pxPerMm);
-            const targetHeightPx = Math.round(targetHeightMm * pxPerMm);
 
+            let targetWidthPx;
+            let targetHeightPx;
+
+            if (isOriginalFormat) {
+                targetWidthPx = canvas.width;
+                targetHeightPx = canvas.height;
+            } else {
+                const paper = PAPER_SIZES[selectedFormat];
+                const targetWidthMm = isLandscape ? paper.height : paper.width;
+                const targetHeightMm = isLandscape ? paper.width : paper.height;
+                targetWidthPx = Math.round(targetWidthMm * pxPerMm);
+                targetHeightPx = Math.round(targetHeightMm * pxPerMm);
+            }
+
+            let exportWidth = Math.max(1, Math.round(targetWidthPx));
+            let exportHeight = Math.max(1, Math.round(targetHeightPx));
+
+            const exportLimitRatio = Math.min(
+                exportWidth > 0 ? MAX_EXPORT_DIMENSION / exportWidth : 1,
+                exportHeight > 0 ? MAX_EXPORT_DIMENSION / exportHeight : 1,
+                1
+            );
+
+            if (exportLimitRatio < 1) {
+                exportWidth = Math.max(1, Math.floor(exportWidth * exportLimitRatio));
+                exportHeight = Math.max(1, Math.floor(exportHeight * exportLimitRatio));
+                if (statusLabel.textContent === 'Создание изображения...') {
+                    statusLabel.textContent = 'Схема очень большая, разрешение снижено...';
+                }
+            }
 
             const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = targetWidthPx;
-            exportCanvas.height = targetHeightPx;
+            exportCanvas.width = exportWidth;
+            exportCanvas.height = exportHeight;
             const exportCtx = exportCanvas.getContext('2d');
             const backgroundColor = getComputedStyle(renderContainer).backgroundColor || '#ffffff';
             exportCtx.fillStyle = backgroundColor;
-            exportCtx.fillRect(0, 0, targetWidthPx, targetHeightPx);
+            exportCtx.fillRect(0, 0, exportWidth, exportHeight);
             exportCtx.imageSmoothingEnabled = true;
             exportCtx.imageSmoothingQuality = 'high';
 
-            const fitScale = Math.min(targetWidthPx / canvas.width, targetHeightPx / canvas.height);
+            const fitScale = Math.min(exportWidth / canvas.width, exportHeight / canvas.height);
             const drawWidth = canvas.width * fitScale;
             const drawHeight = canvas.height * fitScale;
-            const offsetX = (targetWidthPx - drawWidth) / 2;
-            const offsetY = (targetHeightPx - drawHeight) / 2;
+            const offsetX = (exportWidth - drawWidth) / 2;
+            const offsetY = (exportHeight - drawHeight) / 2;
             exportCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
 
             const sourceCanvas = exportCanvas;
             const sourceDataUrl = sourceCanvas.toDataURL('image/png');
 
+            const effectiveDpiX = targetWidthPx > 0 ? selectedDpi * (exportWidth / targetWidthPx) : selectedDpi;
+            const effectiveDpiY = targetHeightPx > 0 ? selectedDpi * (exportHeight / targetHeightPx) : selectedDpi;
+            const effectiveDpi = Math.max(1, Math.round(Math.min(effectiveDpiX, effectiveDpiY)));
+
             if (exportType === 'png') {
                 statusLabel.textContent = 'Сохранение PNG...';
-                const pngBlob = await canvasToPngWithDpi(sourceCanvas, selectedDpi);
+                const pngBlob = await canvasToPngWithDpi(sourceCanvas, effectiveDpi);
                 if (pngBlob) {
                     const link = document.createElement('a');
                     const objectUrl = URL.createObjectURL(pngBlob);
@@ -3790,48 +3832,62 @@ async function processPrint(exportType) {
             } else if (exportType === 'pdf') {
                 statusLabel.textContent = 'Создание PDF...';
 
-                const paperWidth = isLandscape ? paper.height : paper.width;
-                const paperHeight = isLandscape ? paper.width : paper.height;
-                
-                if (tileCheckbox.checked && selectedFormat !== 'a4') {
-                    const a4 = PAPER_SIZES['a4'];
-                    const tiledDoc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4'});                    
-                    const cols = Math.ceil(paperWidth / a4.width);
-                    const rows = Math.ceil(paperHeight / a4.height);
-                    
-                    const sliceWidthPx = sourceCanvas.width / cols;
-                    const sliceHeightPx = sourceCanvas.height / rows;
-                    
-                    for (let r = 0; r < rows; r++) {
-                        for (let c = 0; c < cols; c++) {
-                             if (r > 0 || c > 0) tiledDoc.addPage();
-                            const tempCanvas = document.createElement('canvas');
-                            tempCanvas.width = sliceWidthPx;
-                            tempCanvas.height = sliceHeightPx;
-                            const tempCtx = tempCanvas.getContext('2d');
-                            tempCtx.drawImage(canvas, c * sliceWidthPx, r * sliceHeightPx, sliceWidthPx, sliceHeightPx, 0, 0, sliceWidthPx, sliceHeightPx);
-                            tiledDoc.addImage(tempCanvas.toDataURL('image/png'), 'PNG', 0, 0, a4.width, a4.height, undefined, 'FAST');
-                        }
-                    }
-                    tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`);
-                } else {
+                if (isOriginalFormat) {
+                    const pxPerMmEffective = effectiveDpi / 25.4;
+                    const paperWidth = exportWidth / pxPerMmEffective;
+                    const paperHeight = exportHeight / pxPerMmEffective;
                     const doc = new jsPDFLib({
-                        orientation: isLandscape ? 'landscape' : 'portrait',
+                        orientation: paperWidth >= paperHeight ? 'landscape' : 'portrait',
                         unit: 'mm',
-                        format: selectedFormat
+                        format: [paperWidth, paperHeight]
                     });
-                    const canvasAspectRatio = sourceCanvas.width / sourceCanvas.height;
-                    const paperAspectRatio = paperWidth / paperHeight;
-                    let imgWidth, imgHeight;
-                    if (canvasAspectRatio > paperAspectRatio) {
-                        imgWidth = paperWidth;
-                        imgHeight = paperWidth / canvasAspectRatio;
-                    } else {
-                        imgHeight = paperHeight;
-                        imgWidth = paperHeight * canvasAspectRatio;
-                    }
-                    doc.addImage(sourceDataUrl, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+                    doc.addImage(sourceDataUrl, 'PNG', 0, 0, paperWidth, paperHeight, undefined, 'FAST');
                     doc.save(`scheme-${selectedFormat}.pdf`);
+                } else {
+                    const paper = PAPER_SIZES[selectedFormat];
+                    const paperWidth = isLandscape ? paper.height : paper.width;
+                    const paperHeight = isLandscape ? paper.width : paper.height;
+
+                    if (tileCheckbox.checked && selectedFormat !== 'a4') {
+                        const a4 = PAPER_SIZES['a4'];
+                        const tiledDoc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4'});
+                        const cols = Math.ceil(paperWidth / a4.width);
+                        const rows = Math.ceil(paperHeight / a4.height);
+
+                        const sliceWidthPx = sourceCanvas.width / cols;
+                        const sliceHeightPx = sourceCanvas.height / rows;
+
+                        for (let r = 0; r < rows; r++) {
+                            for (let c = 0; c < cols; c++) {
+                                 if (r > 0 || c > 0) tiledDoc.addPage();
+                                const tempCanvas = document.createElement('canvas');
+                                tempCanvas.width = sliceWidthPx;
+                                tempCanvas.height = sliceHeightPx;
+                                const tempCtx = tempCanvas.getContext('2d');
+                                tempCtx.drawImage(canvas, c * sliceWidthPx, r * sliceHeightPx, sliceWidthPx, sliceHeightPx, 0, 0, sliceWidthPx, sliceHeightPx);
+                                tiledDoc.addImage(tempCanvas.toDataURL('image/png'), 'PNG', 0, 0, a4.width, a4.height, undefined, 'FAST');
+                            }
+                        }
+                        tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`);
+                    } else {
+                        const doc = new jsPDFLib({
+                            orientation: isLandscape ? 'landscape' : 'portrait',
+                            unit: 'mm',
+                            format: selectedFormat
+                        });
+                        const canvasAspectRatio = sourceCanvas.width / sourceCanvas.height;
+                        const paperAspectRatio = paperWidth / paperHeight;
+                        let imgWidth, imgHeight;
+                        if (canvasAspectRatio > paperAspectRatio) {
+                            imgWidth = paperWidth;
+                            imgHeight = paperWidth / canvasAspectRatio;
+                        } else {
+                            imgHeight = paperHeight;
+                            imgWidth = paperHeight * canvasAspectRatio;
+                        }
+                        doc.addImage(sourceDataUrl, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+                        doc.save(`scheme-${selectedFormat}.pdf`);
+                    }
                 }
             }
             statusLabel.textContent = 'Готово!';
@@ -3959,6 +4015,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
