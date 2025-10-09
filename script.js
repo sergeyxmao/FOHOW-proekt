@@ -1767,7 +1767,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cssText = await response.text();
             buildAndDownload(cssText);
           } catch (err) {
-            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
+            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#eaf2ff;border:1px solid #99c2ff;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,.1);overflow:visible}.card-header{background:#357ebd;color:#fff;min-height:48px;padding:10px 16px;padding-right:44px;position:relative;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center;text-align:center;gap:8px}.card-title{font-size:15px;line-height:1.15;font-weight:700;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:10px 14px 12px;text-align:left;background:#eaf2ff;border-radius:0 0 6px 6px;display:flex;flex-direction:column;gap:6px}.card-row{display:flex;justify-content:flex-start;align-items:flex-start;gap:8px}.card-row:first-child{align-items:center}.label{color:#555555;font-weight:600;width:118px;flex-shrink:0;font-size:13px;line-height:1.35}.value{color:#111827;font-weight:700;font-size:13px;line-height:1.35;display:inline-block;padding:1px 3px;border-radius:4px}.value .value-separator{display:inline-block;padding:0 3px}.coin-icon{width:26px;height:26px;}`;
             buildAndDownload(minimalCss);
           }
         } catch (err) {
@@ -3305,13 +3305,16 @@ const getCleanedCardHtml = async (cardData) => {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${contentWidth + PADDING * 2}" height="${contentHeight + PADDING * 2}" style="touch-action:none;cursor:grab;">
             <defs>
                 <style>
-                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: visible; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; }                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
-                    .card-title { grid-column: 2 / 3; text-align: center; font-size: 20px; line-height: 1; font-weight: 800; }
-                    .card-body { padding: 15px; text-align: center; }
-                    .card-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px; }
-                    .label { font-weight: 700; color: #374151; font-size: 16px; }
-                    .value { color: #111827; font-weight: 800; font-size: 20px; }
-                    .coin-icon { width: 28px; height: 28px; }
+                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #eaf2ff; border: 1px solid #99c2ff; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,.1); overflow: visible; font-family: Inter, system-ui, sans-serif; }
+                    .card-header { background: #357ebd; color: #fff; min-height: 48px; padding: 10px 16px; padding-right: 44px; box-sizing: border-box; border-radius: 6px 6px 0 0; position: relative; display: flex; align-items: center; justify-content: center; text-align: center; gap: 8px; }
+                    .card-title { font-size: 15px; line-height: 1.15; font-weight: 700; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                    .card-body { padding: 10px 14px 12px; text-align: left; background: #eaf2ff; border-radius: 0 0 6px 6px; display: flex; flex-direction: column; gap: 6px; }
+                    .card-row { display: flex; justify-content: flex-start; align-items: flex-start; gap: 8px; }
+                    .card-row:first-child { align-items: center; }
+                    .label { font-weight: 600; color: #555555; font-size: 13px; width: 118px; flex-shrink: 0; line-height: 1.35; }
+                    .value { color: #111827; font-weight: 700; font-size: 13px; line-height: 1.35; display: inline-block; padding: 1px 3px; border-radius: 4px; }
+                    .value .value-separator { display: inline-block; padding: 0 3px; }
+                    .coin-icon { width: 26px; height: 26px; }
                     .slf-badge, .fendou-badge, .rank-badge { position: absolute; display: none; user-select: none; pointer-events: none; }
                     .slf-badge.visible, .fendou-badge.visible, .rank-badge.visible { display: block; }
                     .slf-badge { top: 15px; left: 15px; color: #ffc700; font-weight: 900; font-size: 24px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
@@ -4015,6 +4018,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
