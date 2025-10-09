@@ -8,10 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const gradientSelector = document.getElementById('gradient-selector');
   const undoBtn = document.getElementById('undo-btn');
   const redoBtn = document.getElementById('redo-btn');
-  const leftPanel = document.querySelector('.ui-panel-left');
-  const rightPanel = document.querySelector('.ui-panel-right');
+  
+  // --- ИЗМЕНЕНО: Обновлены селекторы для новых боковых панелей ---
+  const leftPanel = document.querySelector('.left-sidebar');
+  const rightPanel = document.querySelector('.right-sidebar');
   const leftPanelToggle = document.getElementById('left-panel-toggle');
   const rightPanelToggle = document.getElementById('right-panel-toggle');
+  
   const loadProjectBtn = document.getElementById('load-project-btn');
   const loadProjectInput = document.getElementById('load-project-input');
   const selectionModeBtn = document.getElementById('selection-mode-btn');
@@ -35,16 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const HISTORY_LIMIT = 50;
   const SNAP_TOLERANCE = 5;
   const ACTIVE_PV_BASE = 330;
-  const DEFAULT_LINE_COLOR = '#0f62fe';
+  const DEFAULT_LINE_COLOR = '#4f46e5'; // Обновлен цвет по умолчанию
   const DEFAULT_ANIMATION_DURATION = 2000;
   const MIN_ANIMATION_DURATION = 2000;
   const MAX_ANIMATION_DURATION = 999000;
-  const MAX_ANIMATION_LOOP_DURATION = 3000; // ограничиваем длительность одного цикла анимации для плавности
-  const BASE_CARD_WIDTH = 380;
-  const BASE_CARD_HEIGHT = 280;
-  const LARGE_CARD_SCALE = 1.3;
-  const LARGE_CARD_WIDTH = Math.round(BASE_CARD_WIDTH * LARGE_CARD_SCALE);
-  const LARGE_CARD_HEIGHT = Math.round(BASE_CARD_HEIGHT * LARGE_CARD_SCALE);
+  const MAX_ANIMATION_LOOP_DURATION = 3000; 
   let canvasState = {
     x: 0,
     y: 0,
@@ -58,7 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let activeState = {
     currentThickness: 5,
-    currentColor: DEFAULT_LINE_COLOR,    selectedLine: null,
+    currentColor: DEFAULT_LINE_COLOR,
+    selectedLine: null,
     selectedCards: new Set(),
     isDrawingLine: false,
     isSelecting: false,
@@ -169,9 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function setupGlobalEventListeners() {
+    // --- ИЗМЕНЕНО: Обновлены селекторы для игнорирования кликов на панелях ---
     const shouldIgnorePointer = (target) => (
-      target.closest('.ui-panel-left') ||
-      target.closest('.ui-panel-right') ||
+      target.closest('.left-sidebar') ||
+      target.closest('.right-sidebar') ||
       target.closest('.note-window') ||
       target.closest('.card-context-menu')
     );
@@ -363,8 +363,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('pointerup', handlePointerEnd);
     window.addEventListener('pointercancel', handlePointerEnd);
 
+    // --- ИЗМЕНЕНО: Обновлены селекторы для wheel event ---
     window.addEventListener('wheel', (e) => {
-      if (e.target.closest('.ui-panel-left') || e.target.closest('.ui-panel-right')) return;
+      if (e.target.closest('.left-sidebar') || e.target.closest('.right-sidebar')) return;
       e.preventDefault();
       const scaleAmount = -e.deltaY * 0.001;
       const newScale = Math.max(0.1, Math.min(3, canvasState.scale + scaleAmount));
@@ -423,22 +424,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // --- ИЗМЕНЕНО: Логика для управления новыми выезжающими панелями ---
   function setupPanelToggles() {
     if (leftPanel && leftPanelToggle) {
       leftPanelToggle.addEventListener('click', () => {
-        const collapsed = leftPanel.classList.toggle('collapsed');
-        leftPanelToggle.textContent = collapsed ? '❯' : '❮';
-        leftPanelToggle.setAttribute('aria-expanded', String(!collapsed));
-        leftPanelToggle.setAttribute('title', collapsed ? 'Развернуть панель' : 'Свернуть панель');
+        leftPanel.classList.toggle('collapsed');
       });
     }
 
     if (rightPanel && rightPanelToggle) {
       rightPanelToggle.addEventListener('click', () => {
-        const collapsed = rightPanel.classList.toggle('collapsed');
-        rightPanelToggle.textContent = collapsed ? '❮' : '❯';
-        rightPanelToggle.setAttribute('aria-expanded', String(!collapsed));
-        rightPanelToggle.setAttribute('title', collapsed ? 'Развернуть настройки' : 'Свернуть настройки');
+        rightPanel.classList.toggle('collapsed');
       });
     }
   }
@@ -475,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.style.cursor = activeState.isSelectionMode ? 'crosshair' : 'default';
   }
 
+  // --- ИЗМЕНЕНО: Удалена логика обновления фона слайдера, т.к. дизайн изменился ---
   function setupLineControls() {
     if (!thicknessSlider || !lineColorTrigger || !hiddenLineColorPicker || !applyAllToggle) return;
 
@@ -489,15 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
     hiddenLineColorPicker.value = initialColor;
     thicknessValue.textContent = activeState.currentThickness;
     thicknessSlider.value = activeState.currentThickness;
-
-    const updateSliderTrack = (val) => {
-        const currentColor = ensureCurrentColor();
-        const min = Number(thicknessSlider.min), max = Number(thicknessSlider.max);
-        const percent = Math.round(((val - min) / (max - min)) * 100);
-        thicknessSlider.style.background = `linear-gradient(90deg, ${currentColor} 0%, ${currentColor} ${percent}%, #e5e7eb ${percent}%)`;
-        thicknessSlider.style.setProperty('--brand', currentColor);
-    };
-    updateSliderTrack(activeState.currentThickness);
 
     const updateAnimationControls = () => {
       if (animationDurationInput) {
@@ -544,7 +532,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const newColor = e.target.value || DEFAULT_LINE_COLOR;
       activeState.currentColor = newColor;
       lineColorTrigger.style.backgroundColor = newColor;
-      updateSliderTrack(thicknessSlider.value);
 
       if (activeState.isGlobalLineMode) {
         lines.forEach(line => {
@@ -564,8 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const newThickness = Number(e.target.value);
       activeState.currentThickness = newThickness;
       thicknessValue.textContent = newThickness;
-      updateSliderTrack(newThickness);
-
+      
       if (activeState.isGlobalLineMode) {
         lines.forEach(line => {
           line.thickness = newThickness;
@@ -589,19 +575,14 @@ document.addEventListener('DOMContentLoaded', () => {
     card.className = 'card'; card.id = cardId;
     if (opts.isDarkMode) card.classList.add('dark-mode');
 
-    const defaultWidth = opts.isLarge ? LARGE_CARD_WIDTH : BASE_CARD_WIDTH;
     if (opts.isLarge) {
-        card.classList.add('card--large');
-        card.style.width = `${defaultWidth}px`;
-        card.style.minHeight = `${LARGE_CARD_HEIGHT}px`;
+        card.style.width = '494px';
     } else if (opts.width) {
         card.style.width = opts.width;
     }
 
-    const widthFallback = opts.width ? parseInt(opts.width, 10) : defaultWidth;
-    const CARD_WIDTH = card.offsetWidth || widthFallback;
-    const CARD_HEIGHT = opts.isLarge ? LARGE_CARD_HEIGHT : BASE_CARD_HEIGHT;
-    const PADDING = 50;
+    const CARD_WIDTH = card.offsetWidth || (opts.isLarge ? 494 : 380);
+    const CARD_HEIGHT = 280, PADDING = 50;
     let initialX, initialY;
 
     if (opts.x != null) { initialX = opts.x; initialY = opts.y; }
@@ -1070,8 +1051,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupGradientSelector() {
     if (!gradientSelector) return;
     gradientSelector.querySelectorAll('.grad-btn[data-gradient]').forEach(btn => {
-      if (btn.dataset.gradient && btn.dataset.gradient !== '#ffffff') btn.style.background = btn.dataset.gradient;
-      else { btn.style.background = '#f5f7fb'; btn.style.border = '1px solid #ddd'; }
       btn.addEventListener('click', () => { document.body.style.background = btn.dataset.gradient; });
     });
 
@@ -1255,12 +1234,12 @@ document.addEventListener('DOMContentLoaded', () => {
         { startKey: 'lena', startSide: 'right', endKey: 'b', endSide: 'top', thickness: 4 },
     ];
 
-    const CARD_WIDTH = BASE_CARD_WIDTH, CARD_HEIGHT = BASE_CARD_HEIGHT, PADDING = 50;
+    const CARD_WIDTH = 380, LARGE_CARD_WIDTH = 494, CARD_HEIGHT = 280, PADDING = 50;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     templateCards.forEach(c => {
         const width = c.isLarge ? LARGE_CARD_WIDTH : CARD_WIDTH;
-        const height = c.isLarge ? LARGE_CARD_HEIGHT : CARD_HEIGHT;
-        minX = Math.min(minX, c.x); minY = Math.min(minY, c.y); maxX = Math.max(maxX, c.x + width); maxY = Math.max(maxY, c.y + height);    });
+        minX = Math.min(minX, c.x); minY = Math.min(minY, c.y); maxX = Math.max(maxX, c.x + width); maxY = Math.max(maxY, c.y + CARD_HEIGHT);
+    });
     const templateWidth = maxX - minX, templateHeight = maxY - minY;
 
     const canvasViewLeft = -canvasState.x / canvasState.scale;
@@ -1777,7 +1756,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cssText = await response.text();
             buildAndDownload(cssText);
           } catch (err) {
-            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#eaf2ff;border:1px solid #99c2ff;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,.1);overflow:visible}.card-header{background:#357ebd;color:#fff;min-height:48px;padding:10px 16px;padding-right:44px;position:relative;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center;text-align:center;gap:8px}.card-title{font-size:15px;line-height:1.15;font-weight:700;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:10px 14px 12px;text-align:left;background:#eaf2ff;border-radius:0 0 6px 6px;display:flex;flex-direction:column;gap:6px}.card-row{display:flex;justify-content:flex-start;align-items:flex-start;gap:8px}.card-row:first-child{align-items:center}.label{color:#555555;font-weight:600;width:118px;flex-shrink:0;font-size:13px;line-height:1.35}.value{color:#111827;font-weight:700;font-size:13px;line-height:1.35;display:inline-block;padding:1px 3px;border-radius:4px}.value .value-separator{display:inline-block;padding:0 3px}.coin-icon{width:26px;height:26px;}`;
+            const minimalCss = `html,body{margin:0;height:100%}body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;}#canvas{position:relative;width:100%;height:100%;transform-origin:0 0}#svg-layer{position:absolute;inset:0;pointer-events:none;overflow:visible}.line{fill:none;stroke:currentColor;stroke-linecap:round}.card{position:absolute;width:var(--card-width, 380px);background:#fff;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.15);overflow:hidden}.card-header{background:#4facfe;color:#fff;height:52px;padding:10px 12px;display:grid;grid-template-columns:28px 28px 1fr 28px 28px;align-items:center;gap:6px;border-radius:16px 16px 0 0}.card-title{grid-column:3/4;text-align:center;font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card-body{padding:14px 16px;}.card-row{display:flex;align-items:center;gap:10px;margin:8px 0}.label{color:#6b7280;font-weight:600;}.value{color:#111827;}.coin-icon{width:28px;height:28px;}`;
             buildAndDownload(minimalCss);
           }
         } catch (err) {
@@ -1845,9 +1824,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyLineHighlight(lineEl, type) {
     if (!lineEl) return;
-
-    // Перед запуском новой анимации обязательно сбрасываем предыдущую,
-    // чтобы не оставалось одновременно двух классов подсветки.
     clearLineHighlightState(lineEl);
 
     const { cssDuration, autoRemoveDuration } = getHighlightTimingConfig();
@@ -2392,7 +2368,6 @@ document.addEventListener('DOMContentLoaded', () => {
       let storedUnits = hidden ? parseInt(hidden.dataset[localKey] || '0', 10) : 0;
       if (!Number.isFinite(storedUnits)) storedUnits = 0;
       if (storedUnits < 0) storedUnits = 0;
-
 
       const beforeRem = prev;
       const beforeUnits = storedUnits;
@@ -3259,16 +3234,14 @@ const getCleanedCardHtml = async (cardData) => {
         return rawHtml.replace(/(<img[^>]+)>/g, '$1 />');
     };
 
- // Определяем дополнительное пространство вокруг карточки для предотвращения обрезки
-    const EXTRA_PADDING_TOP = 60;  // Запас высоты сверху для надписи "FENDOU"
-    const EXTRA_PADDING_SIDE = 50; // Запас ширины сбоку для значка ранга
+    const EXTRA_PADDING_TOP = 60;
+    const EXTRA_PADDING_SIDE = 50;
 
     const cardHtmlPromises = state.cards.map(card => getCleanedCardHtml(card));
     const resolvedCardHtmls = await Promise.all(cardHtmlPromises);
 
     const cardObjects = state.cards.map((card, index) => {
         const cardWidth = parseInt(card.width, 10) || 380;
-        // Увеличиваем общую ширину и высоту контейнера
         const totalWidth = cardWidth + (EXTRA_PADDING_SIDE * 2);
         const totalHeight = 280 + EXTRA_PADDING_TOP;
 
@@ -3315,16 +3288,13 @@ const getCleanedCardHtml = async (cardData) => {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${contentWidth + PADDING * 2}" height="${contentHeight + PADDING * 2}" style="touch-action:none;cursor:grab;">
             <defs>
                 <style>
-                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #eaf2ff; border: 1px solid #99c2ff; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,.1); overflow: visible; font-family: Inter, system-ui, sans-serif; }
-                    .card-header { background: #357ebd; color: #fff; min-height: 48px; padding: 10px 16px; padding-right: 44px; box-sizing: border-box; border-radius: 6px 6px 0 0; position: relative; display: flex; align-items: center; justify-content: center; text-align: center; gap: 8px; }
-                    .card-title { font-size: 15px; line-height: 1.15; font-weight: 700; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                    .card-body { padding: 10px 14px 12px; text-align: left; background: #eaf2ff; border-radius: 0 0 6px 6px; display: flex; flex-direction: column; gap: 6px; }
-                    .card-row { display: flex; justify-content: flex-start; align-items: flex-start; gap: 8px; }
-                    .card-row:first-child { align-items: center; }
-                    .label { font-weight: 600; color: #555555; font-size: 13px; width: 118px; flex-shrink: 0; line-height: 1.35; }
-                    .value { color: #111827; font-weight: 700; font-size: 13px; line-height: 1.35; display: inline-block; padding: 1px 3px; border-radius: 4px; }
-                    .value .value-separator { display: inline-block; padding: 0 3px; }
-                    .coin-icon { width: 26px; height: 26px; }
+                    .card { position: relative; display:inline-block; box-sizing: border-box; width: var(--card-width, 380px); background: #ffffff; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,.1); overflow: visible; font-family: Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; }                    .card-header { background: #0f62fe; color: #fff; padding: 10px; height: 52px; box-sizing: border-box; border-radius: 16px 16px 0 0; position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; }
+                    .card-title { grid-column: 2 / 3; text-align: center; font-size: 20px; line-height: 1; font-weight: 800; }
+                    .card-body { padding: 15px; text-align: center; }
+                    .card-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 12px; }
+                    .label { font-weight: 700; color: #374151; font-size: 16px; }
+                    .value { color: #111827; font-weight: 800; font-size: 20px; }
+                    .coin-icon { width: 28px; height: 28px; }
                     .slf-badge, .fendou-badge, .rank-badge { position: absolute; display: none; user-select: none; pointer-events: none; }
                     .slf-badge.visible, .fendou-badge.visible, .rank-badge.visible { display: block; }
                     .slf-badge { top: 15px; left: 15px; color: #ffc700; font-weight: 900; font-size: 24px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
@@ -3358,694 +3328,116 @@ const getCleanedCardHtml = async (cardData) => {
     URL.revokeObjectURL(url);
 }
 
-// ============== НАЧАЛО НОВОГО БЛОКА ДЛЯ ПЕЧАТИ (ФИНАЛЬНАЯ ВЕРСИЯ 4.0) ==============
-
-// Константы с размерами бумаги в миллиметрах
 const PAPER_SIZES = {
-    a4: { width: 210, height: 297 },
-    a3: { width: 297, height: 420 },
-    a2: { width: 420, height: 594 },
-    a1: { width: 594, height: 841 },
+    a4: { width: 210, height: 297 }, a3: { width: 297, height: 420 }, a2: { width: 420, height: 594 }, a1: { width: 594, height: 841 },
 };
 const ORIGINAL_FORMAT_KEY = 'original';
 const DEFAULT_DPI = 96;
-const MAX_CANVAS_DIMENSION = 16384;
-const MAX_EXPORT_DIMENSION = 16384;
+const MAX_CANVAS_DIMENSION = 16384; const MAX_EXPORT_DIMENSION = 16384;
+const PNG_PPM_FACTOR = 39.37007874015748; const PNG_SIGNATURE_LENGTH = 8;
+const PNG_CRC_TABLE = (() => { const table = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) { c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1); } table[n] = c >>> 0; } return table; })();
+function crc32(bytes) { let crc = 0xffffffff; for (let i = 0; i < bytes.length; i++) { crc = PNG_CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8); } return (crc ^ 0xffffffff) >>> 0; }
+function createPngChunk(type, data) { const chunk = new Uint8Array(8 + data.length + 4); const view = new DataView(chunk.buffer); view.setUint32(0, data.length, false); for (let i = 0; i < 4; i++) { chunk[4 + i] = type.charCodeAt(i); } chunk.set(data, 8); const crc = crc32(chunk.subarray(4, 8 + data.length)); view.setUint32(8 + data.length, crc, false); return chunk; }
+function readUint32BE(bytes, offset) { return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0, false); }
+function injectDpiIntoPngBytes(bytes, dpi) { if (!bytes || bytes.length < PNG_SIGNATURE_LENGTH) return bytes; const signature = bytes.subarray(0, PNG_SIGNATURE_LENGTH); const pxPerMeter = Math.max(1, Math.round(dpi * PNG_PPM_FACTOR)); const physData = new Uint8Array(9); const physView = new DataView(physData.buffer); physView.setUint32(0, pxPerMeter, false); physView.setUint32(4, pxPerMeter, false); physData[8] = 1; const physChunk = createPngChunk('pHYs', physData); const chunks = [signature]; let offset = PNG_SIGNATURE_LENGTH; let physInserted = false; while (offset < bytes.length) { const length = readUint32BE(bytes, offset); const typeStart = offset + 4; const dataStart = offset + 8; const dataEnd = dataStart + length; const chunkEnd = dataEnd + 4; const type = String.fromCharCode(bytes[typeStart], bytes[typeStart + 1], bytes[typeStart + 2], bytes[typeStart + 3]); if (type === 'pHYs') { chunks.push(physChunk); physInserted = true; } else { chunks.push(bytes.subarray(offset, chunkEnd)); if (type === 'IHDR' && !physInserted) { chunks.push(physChunk); physInserted = true; } } offset = chunkEnd; } if (!physInserted) { chunks.splice(1, 0, physChunk); } const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0); const result = new Uint8Array(totalLength); let position = 0; for (const chunk of chunks) { result.set(chunk, position); position += chunk.length; } return result; }
+async function canvasToPngWithDpi(canvas, dpi) { const safeDpi = Number.isFinite(dpi) && dpi > 0 ? dpi : DEFAULT_DPI; const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png')); if (!blob) return null; const arrayBuffer = await blob.arrayBuffer(); const updatedBytes = injectDpiIntoPngBytes(new Uint8Array(arrayBuffer), safeDpi); return new Blob([updatedBytes], { type: 'image/png' }); }
 
-const PNG_PPM_FACTOR = 39.37007874015748; // Inches in a meter
-const PNG_SIGNATURE_LENGTH = 8;
-
-const PNG_CRC_TABLE = (() => {
-    const table = new Uint32Array(256);
-    for (let n = 0; n < 256; n++) {
-        let c = n;
-        for (let k = 0; k < 8; k++) {
-            c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
-        }
-        table[n] = c >>> 0;
-    }
-    return table;
-})();
-
-function crc32(bytes) {
-    let crc = 0xffffffff;
-    for (let i = 0; i < bytes.length; i++) {
-        crc = PNG_CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
-    }
-    return (crc ^ 0xffffffff) >>> 0;
-}
-
-function createPngChunk(type, data) {
-    const chunk = new Uint8Array(8 + data.length + 4);
-    const view = new DataView(chunk.buffer);
-    view.setUint32(0, data.length, false);
-    for (let i = 0; i < 4; i++) {
-        chunk[4 + i] = type.charCodeAt(i);
-    }
-    chunk.set(data, 8);
-    const crc = crc32(chunk.subarray(4, 8 + data.length));
-    view.setUint32(8 + data.length, crc, false);
-    return chunk;
-}
-
-function readUint32BE(bytes, offset) {
-    return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0, false);
-}
-
-function injectDpiIntoPngBytes(bytes, dpi) {
-    if (!bytes || bytes.length < PNG_SIGNATURE_LENGTH) return bytes;
-    const signature = bytes.subarray(0, PNG_SIGNATURE_LENGTH);
-    const pxPerMeter = Math.max(1, Math.round(dpi * PNG_PPM_FACTOR));
-    const physData = new Uint8Array(9);
-    const physView = new DataView(physData.buffer);
-    physView.setUint32(0, pxPerMeter, false);
-    physView.setUint32(4, pxPerMeter, false);
-    physData[8] = 1; // unit specifier: meters
-
-    const physChunk = createPngChunk('pHYs', physData);
-    const chunks = [signature];
-    let offset = PNG_SIGNATURE_LENGTH;
-    let physInserted = false;
-
-    while (offset < bytes.length) {
-        const length = readUint32BE(bytes, offset);
-        const typeStart = offset + 4;
-        const dataStart = offset + 8;
-        const dataEnd = dataStart + length;
-        const chunkEnd = dataEnd + 4;
-        const type = String.fromCharCode(
-            bytes[typeStart],
-            bytes[typeStart + 1],
-            bytes[typeStart + 2],
-            bytes[typeStart + 3]
-        );
-
-        if (type === 'pHYs') {
-            chunks.push(physChunk);
-            physInserted = true;
-        } else {
-            chunks.push(bytes.subarray(offset, chunkEnd));
-            if (type === 'IHDR' && !physInserted) {
-                chunks.push(physChunk);
-                physInserted = true;
-            }
-        }
-
-        offset = chunkEnd;
-    }
-
-    if (!physInserted) {
-        chunks.splice(1, 0, physChunk);
-    }
-
-    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const result = new Uint8Array(totalLength);
-    let position = 0;
-    for (const chunk of chunks) {
-        result.set(chunk, position);
-        position += chunk.length;
-    }
-    return result;
-}
-
-async function canvasToPngWithDpi(canvas, dpi) {
-    const safeDpi = Number.isFinite(dpi) && dpi > 0 ? dpi : DEFAULT_DPI;
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) return null;
-    const arrayBuffer = await blob.arrayBuffer();
-    const updatedBytes = injectDpiIntoPngBytes(new Uint8Array(arrayBuffer), safeDpi);
-    return new Blob([updatedBytes], { type: 'image/png' });
-}
-
-// Главная функция, которая будет вызываться кнопкой "Печать"
 async function prepareForPrint() {
     if (cards.length === 0) {
         alert("На доске нет элементов для печати.");
         return;
     }
-    // Создаем и показываем модальное окно с настройками
     createPrintModal();
 }
 
-// Функция для создания модального окна, его элементов и логики
 function createPrintModal() {
     if (document.getElementById('print-modal-overlay')) return;
 
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'print-modal-overlay';
     modalOverlay.className = 'print-modal-overlay';
-
-    modalOverlay.innerHTML = `
-        <div class="print-modal-content">
-            <div class="print-modal-header">
-                <h2>Настройки печати</h2>
-                <button id="print-modal-close" class="print-modal-close-btn">&times;</button>
-            </div>
-            <div class="print-modal-body">
-                <div class="print-controls">
-                    <div class="print-control-group">
-                        <label for="print-format">Формат:</label>
-                        <select id="print-format">
-                            <option value="a4" selected>A4</option>
-                            <option value="a3">A3</option>
-                            <option value="a2">A2</option>
-                            <option value="a1">A1</option>
-                            <option value="original">Оригинальный размер</option>
-                        </select>
-                    </div>
-                    <div class="print-control-group">
-                        <label>Ориентация:</label>
-                        <div class="orientation-buttons">
-                           <button data-orientation="portrait" class="orientation-btn" title="Книжная">
-                                <svg width="24" height="24" viewBox="0 0 16 16"><path fill="currentColor" d="M3.5 2a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-9zM4 3h8v10H4V3z"/></svg>
-                           </button>
-                           <button data-orientation="landscape" class="orientation-btn" title="Альбомная">
-                                <svg width="24" height="24" viewBox="0 0 16 16"><path fill="currentColor" d="M14 4.5a.5.5 0 0 0-.5-.5h-11a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-7zM3 5h10v6H3V5z"/></svg>
-                           </button>
-                        </div>
-                    </div>
-                    <div class="print-control-group">
-                        <label for="print-dpi">Разрешение (DPI):</label>
-                        <select id="print-dpi">
-                            <option value="96">96</option>
-                            <option value="150">150</option>
-                            <option value="300" selected>300</option>
-                            <option value="600">600</option>
-                        </select>
-                    </div>
-                    <div class="print-control-group">
-                        <label class="checkbox-label"><input type="checkbox" id="print-tile-a4" disabled>Разбить на страницы A4</label>
-                    </div>
-                     <div class="print-control-group">
-                        <label class="checkbox-label"><input type="checkbox" id="print-toggle-content">Скрыть содержимое</label>
-                    </div>
-                     <div class="print-control-group">
-                        <label class="checkbox-label"><input type="checkbox" id="print-toggle-color">Ч/Б (контур)</label>
-                    </div>
-                    <div class="print-actions">
-                        <button id="print-export-pdf" class="print-action-btn">Сохранить PDF</button>
-                        <button id="print-export-png" class="print-action-btn">Сохранить PNG</button>
-                    </div>
-                </div>
-                <div class="print-preview-container">
-                    <div id="print-preview-area"></div>
-                    <div id="print-status-label"></div>
-                </div>
-            </div>
-        </div>
-    `;
-
+    modalOverlay.innerHTML = `<div class="print-modal-content"><div class="print-modal-header"><h2>Настройки печати</h2><button id="print-modal-close" class="print-modal-close-btn">&times;</button></div><div class="print-modal-body"><div class="print-controls"><div class="print-control-group"><label for="print-format">Формат:</label><select id="print-format"><option value="a4" selected>A4</option><option value="a3">A3</option><option value="a2">A2</option><option value="a1">A1</option><option value="original">Оригинальный размер</option></select></div><div class="print-control-group"><label>Ориентация:</label><div class="orientation-buttons"><button data-orientation="portrait" class="orientation-btn" title="Книжная"><svg width="24" height="24" viewBox="0 0 16 16"><path fill="currentColor" d="M3.5 2a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-9zM4 3h8v10H4V3z"/></svg></button><button data-orientation="landscape" class="orientation-btn" title="Альбомная"><svg width="24" height="24" viewBox="0 0 16 16"><path fill="currentColor" d="M14 4.5a.5.5 0 0 0-.5-.5h-11a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-7zM3 5h10v6H3V5z"/></svg></button></div></div><div class="print-control-group"><label for="print-dpi">Разрешение (DPI):</label><select id="print-dpi"><option value="96">96</option><option value="150">150</option><option value="300" selected>300</option><option value="600">600</option></select></div><div class="print-control-group"><label class="checkbox-label"><input type="checkbox" id="print-tile-a4" disabled>Разбить на страницы A4</label></div><div class="print-control-group"><label class="checkbox-label"><input type="checkbox" id="print-toggle-content">Скрыть содержимое</label></div><div class="print-control-group"><label class="checkbox-label"><input type="checkbox" id="print-toggle-color">Ч/Б (контур)</label></div><div class="print-actions"><button id="print-export-pdf" class="print-action-btn">Сохранить PDF</button><button id="print-export-png" class="print-action-btn">Сохранить PNG</button></div></div><div class="print-preview-container"><div id="print-preview-area"></div><div id="print-status-label"></div></div></div></div>`;
     document.body.appendChild(modalOverlay);
 
-    const closeBtn = document.getElementById('print-modal-close');
-    const formatSelect = document.getElementById('print-format');
-    const tileCheckbox = document.getElementById('print-tile-a4');
-    const contentCheckbox = document.getElementById('print-toggle-content');
-    const colorCheckbox = document.getElementById('print-toggle-color');
-    const orientationBtns = document.querySelectorAll('.orientation-btn');
-    const pdfBtn = document.getElementById('print-export-pdf');
-    const pngBtn = document.getElementById('print-export-png');
-    const dpiSelect = document.getElementById('print-dpi');
-    const previewArea = document.getElementById('print-preview-area');
-    const statusLabel = document.getElementById('print-status-label');
-
-    tileCheckbox.checked = false;
-    tileCheckbox.disabled = true;
-
-    pdfBtn.disabled = true;
-    pdfBtn.title = 'Функция временно недоступна';
-    pdfBtn.setAttribute('aria-disabled', 'true');
-
-    let currentOrientation;
-    let selectedDpi = parseInt(dpiSelect.value, 10) || DEFAULT_DPI;
-
+    const closeBtn = document.getElementById('print-modal-close'), formatSelect = document.getElementById('print-format'), tileCheckbox = document.getElementById('print-tile-a4'), contentCheckbox = document.getElementById('print-toggle-content'), colorCheckbox = document.getElementById('print-toggle-color'), orientationBtns = document.querySelectorAll('.orientation-btn'), pdfBtn = document.getElementById('print-export-pdf'), pngBtn = document.getElementById('print-export-png'), dpiSelect = document.getElementById('print-dpi'), previewArea = document.getElementById('print-preview-area'), statusLabel = document.getElementById('print-status-label');
+    tileCheckbox.checked = false; tileCheckbox.disabled = true; pdfBtn.disabled = true; pdfBtn.title = 'Функция временно недоступна'; pdfBtn.setAttribute('aria-disabled', 'true');
+    let currentOrientation, selectedDpi = parseInt(dpiSelect.value, 10) || DEFAULT_DPI;
     closeBtn.addEventListener('click', () => modalOverlay.remove());
-    modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) modalOverlay.remove();
-    });
-
-    orientationBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            orientationBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentOrientation = btn.dataset.orientation;
-            updatePreview();
-        });
-    });
-
-    dpiSelect.addEventListener('change', () => {
-        const parsed = parseInt(dpiSelect.value, 10);
-        if (!Number.isNaN(parsed) && parsed > 0) {
-            selectedDpi = parsed;
-        } else {
-            selectedDpi = DEFAULT_DPI;
-        }
-    });
-
+    modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) modalOverlay.remove(); });
+    orientationBtns.forEach(btn => { btn.addEventListener('click', () => { orientationBtns.forEach(b => b.classList.remove('active')); btn.classList.add('active'); currentOrientation = btn.dataset.orientation; updatePreview(); }); });
+    dpiSelect.addEventListener('change', () => { const parsed = parseInt(dpiSelect.value, 10); if (!Number.isNaN(parsed) && parsed > 0) { selectedDpi = parsed; } else { selectedDpi = DEFAULT_DPI; } });
     [formatSelect, tileCheckbox, contentCheckbox, colorCheckbox].forEach(el => el.addEventListener('change', updatePreview));
-
-    pdfBtn.addEventListener('click', () => processPrint('pdf'));
-    pngBtn.addEventListener('click', () => processPrint('png'));
+    pdfBtn.addEventListener('click', () => processPrint('pdf')); pngBtn.addEventListener('click', () => processPrint('png'));
     
-    function getSchemeBounds() {
-        if (cards.length === 0) return { minX: 0, minY: 0, width: 0, height: 0 };
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        cards.forEach(cardData => {
-            const card = cardData.element;
-            const x = parseFloat(card.style.left);
-            const y = parseFloat(card.style.top);
-            const cardWidth = card.offsetWidth;
-            const cardHeight = card.offsetHeight;
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            maxX = Math.max(maxX, x + cardWidth);
-            maxY = Math.max(maxY, y + cardHeight);
-        });
-        return { minX, minY, width: maxX - minX, height: maxY - minY };
-    }
-
-    function autoSelectOrientation() {
-        const bounds = getSchemeBounds();
-        if (bounds.width === 0 || bounds.height === 0) {
-            currentOrientation = 'portrait';
-        } else {
-            const schemaAspectRatio = bounds.width / bounds.height;
-            currentOrientation = schemaAspectRatio > 1 ? 'landscape' : 'portrait';
-        }
-        orientationBtns.forEach(b => b.classList.toggle('active', b.dataset.orientation === currentOrientation));
-    }
+    function getSchemeBounds() { if (cards.length === 0) return { minX: 0, minY: 0, width: 0, height: 0 }; let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; cards.forEach(cardData => { const card = cardData.element; const x = parseFloat(card.style.left); const y = parseFloat(card.style.top); const cardWidth = card.offsetWidth; const cardHeight = card.offsetHeight; minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x + cardWidth); maxY = Math.max(maxY, y + cardHeight); }); return { minX, minY, width: maxX - minX, height: maxY - minY }; }
+    function autoSelectOrientation() { const bounds = getSchemeBounds(); if (bounds.width === 0 || bounds.height === 0) { currentOrientation = 'portrait'; } else { const schemaAspectRatio = bounds.width / bounds.height; currentOrientation = schemaAspectRatio > 1 ? 'landscape' : 'portrait'; } orientationBtns.forEach(b => b.classList.toggle('active', b.dataset.orientation === currentOrientation)); }
 
     async function updatePreview() {
-        const selectedFormat = formatSelect.value;
-        tileCheckbox.checked = false;
-        tileCheckbox.disabled = true;
-
-        const bounds = getSchemeBounds();
-        if (bounds.width === 0 || bounds.height === 0) return;
-
-        const PADDING = 100;
-        const contentTotalWidth = bounds.width + PADDING * 2;
-        const contentTotalHeight = bounds.height + PADDING * 2;
-
-        let previewWidthMm;
-        let previewHeightMm;
-
-        if (selectedFormat === ORIGINAL_FORMAT_KEY) {
-            previewWidthMm = contentTotalWidth;
-            previewHeightMm = contentTotalHeight;
-        } else {
-            const paperSize = PAPER_SIZES[selectedFormat];
-            if (!paperSize) return;
-            const isLandscape = currentOrientation === 'landscape';
-            previewWidthMm = isLandscape ? paperSize.height : paperSize.width;
-            previewHeightMm = isLandscape ? paperSize.width : paperSize.height;
-        }
-
-        const previewAspectRatio = previewHeightMm === 0 ? 1 : previewWidthMm / previewHeightMm;
-        const previewContainer = document.querySelector('.print-preview-container');
-        const containerWidth = previewContainer.clientWidth - 30;
-        const containerHeight = previewContainer.clientHeight - 60;
-
-        let previewWidth = containerWidth;
-        let previewHeight = containerWidth / previewAspectRatio;
-
-        if (previewHeight > containerHeight) {
-            previewHeight = containerHeight;
-            previewWidth = containerHeight * previewAspectRatio;
-        }
-
-        previewArea.style.width = `${previewWidth}px`;
-        previewArea.style.height = `${previewHeight}px`;
-
-        previewArea.innerHTML = '';
-        const { printCanvas } = await createPrintableHtml(serializeState(), bounds, PADDING);
-        
-        if (contentCheckbox.checked) printCanvas.classList.add('content-hidden');
-        if (colorCheckbox.checked) printCanvas.classList.add('outline-mode');
-        
+        const selectedFormat = formatSelect.value; tileCheckbox.checked = false; tileCheckbox.disabled = true;
+        const bounds = getSchemeBounds(); if (bounds.width === 0 || bounds.height === 0) return;
+        const PADDING = 100; const contentTotalWidth = bounds.width + PADDING * 2; const contentTotalHeight = bounds.height + PADDING * 2;
+        let previewWidthMm, previewHeightMm;
+        if (selectedFormat === ORIGINAL_FORMAT_KEY) { previewWidthMm = contentTotalWidth; previewHeightMm = contentTotalHeight; }
+        else { const paperSize = PAPER_SIZES[selectedFormat]; if (!paperSize) return; const isLandscape = currentOrientation === 'landscape'; previewWidthMm = isLandscape ? paperSize.height : paperSize.width; previewHeightMm = isLandscape ? paperSize.width : paperSize.height; }
+        const previewAspectRatio = previewHeightMm === 0 ? 1 : previewWidthMm / previewHeightMm; const previewContainer = document.querySelector('.print-preview-container'); const containerWidth = previewContainer.clientWidth - 30; const containerHeight = previewContainer.clientHeight - 60;
+        let previewWidth = containerWidth; let previewHeight = containerWidth / previewAspectRatio;
+        if (previewHeight > containerHeight) { previewHeight = containerHeight; previewWidth = containerHeight * previewAspectRatio; }
+        previewArea.style.width = `${previewWidth}px`; previewArea.style.height = `${previewHeight}px`;
+        previewArea.innerHTML = ''; const { printCanvas } = await createPrintableHtml(serializeState(), bounds, PADDING);
+        if (contentCheckbox.checked) printCanvas.classList.add('content-hidden'); if (colorCheckbox.checked) printCanvas.classList.add('outline-mode');
         printCanvas.id = 'canvas-clone-preview';
-        
-        const scale = Math.min(previewWidth / contentTotalWidth, previewHeight / contentTotalHeight);
-        const scaledWidth = contentTotalWidth * scale;
-        const scaledHeight = contentTotalHeight * scale;
-        const translateX = (previewWidth - scaledWidth) / 2;
-        const translateY = (previewHeight - scaledHeight) / 2;
-        
+        const scale = Math.min(previewWidth / contentTotalWidth, previewHeight / contentTotalHeight); const scaledWidth = contentTotalWidth * scale; const scaledHeight = contentTotalHeight * scale; const translateX = (previewWidth - scaledWidth) / 2; const translateY = (previewHeight - scaledHeight) / 2;
         printCanvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-        
         previewArea.appendChild(printCanvas);
     }
     
 async function processPrint(exportType) {
-        statusLabel.textContent = 'Подготовка рендера...';
-        pngBtn.disabled = true;
-        pdfBtn.disabled = true;
+    statusLabel.textContent = 'Подготовка рендера...'; pngBtn.disabled = true; pdfBtn.disabled = true;
+    const state = serializeState(); const PADDING = 100; const bounds = getSchemeBounds(); const contentWidth = bounds.width + PADDING * 2; const contentHeight = bounds.height + PADDING * 2;
+    const renderContainer = document.createElement('div'); renderContainer.style.position = 'fixed'; renderContainer.style.left = '-9999px'; renderContainer.style.top = '-9999px'; renderContainer.style.width = `${contentWidth}px`; renderContainer.style.height = `${contentHeight}px`; renderContainer.style.background = getComputedStyle(document.body).background;
+    const { printCanvas } = await createPrintableHtml(state, bounds, PADDING); renderContainer.appendChild(printCanvas); document.body.appendChild(renderContainer);
+    if (exportType === 'png') { renderContainer.querySelectorAll('.card').forEach((cardEl) => { cardEl.style.boxSizing = 'border-box'; cardEl.style.backgroundClip = 'padding-box'; cardEl.style.border = '2px solid rgba(17, 24, 39, 0.2)'; cardEl.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.18)'; }); }
+    if (contentCheckbox.checked) renderContainer.classList.add('content-hidden'); if (colorCheckbox.checked) { renderContainer.classList.add('outline-mode'); renderContainer.style.background = '#fff'; }
+    const jsPDFLib = window.jspdf?.jsPDF || window.jsPDF;
+    if (exportType === 'pdf' && !jsPDFLib) { console.error('jsPDF library is not available on the page.'); statusLabel.textContent = 'Не удалось загрузить модуль PDF.'; pngBtn.disabled = false; pdfBtn.disabled = true; return; }
 
-        const state = serializeState();
-        const PADDING = 100;
+    try {
+        statusLabel.textContent = 'Создание изображения...'; await new Promise(resolve => setTimeout(resolve, 100));
+        const dpiScale = selectedDpi / DEFAULT_DPI; const originalScale = Math.max(dpiScale, 2); let finalScale = originalScale;
+        const requiredWidth = renderContainer.offsetWidth * originalScale; const requiredHeight = renderContainer.offsetHeight * originalScale;
+        if (requiredWidth > MAX_CANVAS_DIMENSION || requiredHeight > MAX_CANVAS_DIMENSION) { const downscaleFactor = Math.min(MAX_CANVAS_DIMENSION / requiredWidth, MAX_CANVAS_DIMENSION / requiredHeight); finalScale = originalScale * downscaleFactor; console.warn(`Схема очень велика. Разрешение рендера снижено с ${originalScale}x до ${finalScale.toFixed(2)}x, чтобы избежать ошибки браузера.`); statusLabel.textContent = 'Схема очень большая, разрешение снижено...'; }
+        const canvas = await html2canvas(renderContainer, { scale: finalScale, useCORS: true, logging: false });
+        const selectedFormat = formatSelect.value; const isOriginalFormat = selectedFormat === ORIGINAL_FORMAT_KEY; const isLandscape = currentOrientation === 'landscape'; const pxPerMm = selectedDpi / 25.4;
+        let targetWidthPx, targetHeightPx;
+        if (isOriginalFormat) { targetWidthPx = canvas.width; targetHeightPx = canvas.height; }
+        else { const paper = PAPER_SIZES[selectedFormat]; const targetWidthMm = isLandscape ? paper.height : paper.width; const targetHeightMm = isLandscape ? paper.width : paper.height; targetWidthPx = Math.round(targetWidthMm * pxPerMm); targetHeightPx = Math.round(targetHeightMm * pxPerMm); }
+        let exportWidth = Math.max(1, Math.round(targetWidthPx)); let exportHeight = Math.max(1, Math.round(targetHeightPx));
+        const exportLimitRatio = Math.min(exportWidth > 0 ? MAX_EXPORT_DIMENSION / exportWidth : 1, exportHeight > 0 ? MAX_EXPORT_DIMENSION / exportHeight : 1, 1);
+        if (exportLimitRatio < 1) { exportWidth = Math.max(1, Math.floor(exportWidth * exportLimitRatio)); exportHeight = Math.max(1, Math.floor(exportHeight * exportLimitRatio)); if (statusLabel.textContent === 'Создание изображения...') statusLabel.textContent = 'Схема очень большая, разрешение снижено...'; }
+        const exportCanvas = document.createElement('canvas'); exportCanvas.width = exportWidth; exportCanvas.height = exportHeight; const exportCtx = exportCanvas.getContext('2d'); const backgroundColor = getComputedStyle(renderContainer).backgroundColor || '#ffffff'; exportCtx.fillStyle = backgroundColor; exportCtx.fillRect(0, 0, exportWidth, exportHeight); exportCtx.imageSmoothingEnabled = true; exportCtx.imageSmoothingQuality = 'high';
+        const fitScale = Math.min(exportWidth / canvas.width, exportHeight / canvas.height); const drawWidth = canvas.width * fitScale; const drawHeight = canvas.height * fitScale; const offsetX = (exportWidth - drawWidth) / 2; const offsetY = (exportHeight - drawHeight) / 2; exportCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
+        const sourceCanvas = exportCanvas; const sourceDataUrl = sourceCanvas.toDataURL('image/png');
+        const effectiveDpiX = targetWidthPx > 0 ? selectedDpi * (exportWidth / targetWidthPx) : selectedDpi; const effectiveDpiY = targetHeightPx > 0 ? selectedDpi * (exportHeight / targetHeightPx) : selectedDpi; const effectiveDpi = Math.max(1, Math.round(Math.min(effectiveDpiX, effectiveDpiY)));
 
-        const bounds = getSchemeBounds();
-        const contentWidth = bounds.width + PADDING * 2;
-        const contentHeight = bounds.height + PADDING * 2;
-        
-        const renderContainer = document.createElement('div');
-        renderContainer.style.position = 'fixed';
-        renderContainer.style.left = '-9999px';
-        renderContainer.style.top = '-9999px';
-        renderContainer.style.width = `${contentWidth}px`;
-        renderContainer.style.height = `${contentHeight}px`;
-        renderContainer.style.background = getComputedStyle(document.body).background;
-
-        const { printCanvas } = await createPrintableHtml(state, bounds, PADDING);
-        renderContainer.appendChild(printCanvas);
-        document.body.appendChild(renderContainer);
-
-        if (exportType === 'png') {
-            renderContainer.querySelectorAll('.card').forEach((cardEl) => {
-                cardEl.style.boxSizing = 'border-box';
-                cardEl.style.backgroundClip = 'padding-box';
-                cardEl.style.border = '2px solid rgba(17, 24, 39, 0.2)';
-                cardEl.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.18)';
-            });
-        }
-
-        if (contentCheckbox.checked) renderContainer.classList.add('content-hidden');
-        if (colorCheckbox.checked) {
-            renderContainer.classList.add('outline-mode');
-            renderContainer.style.background = '#fff';
-        }
-
-        const jsPDFLib = window.jspdf?.jsPDF || window.jsPDF;
-        if (exportType === 'pdf' && !jsPDFLib) {
-            console.error('jsPDF library is not available on the page.');
-            statusLabel.textContent = 'Не удалось загрузить модуль PDF.';
-            pngBtn.disabled = false;
-            pdfBtn.disabled = true;
-            return;
-        }
-
-        try {
-            statusLabel.textContent = 'Создание изображения...';
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // --- НОВАЯ ЛОГИКА МАСШТАБИРОВАНИЯ ---
-            const dpiScale = selectedDpi / DEFAULT_DPI;
-            const originalScale = Math.max(dpiScale, 2);
-            let finalScale = originalScale;
-
-            const requiredWidth = renderContainer.offsetWidth * originalScale;
-            const requiredHeight = renderContainer.offsetHeight * originalScale;
-
-            if (requiredWidth > MAX_CANVAS_DIMENSION || requiredHeight > MAX_CANVAS_DIMENSION) {
-                const downscaleFactor = Math.min(MAX_CANVAS_DIMENSION / requiredWidth, MAX_CANVAS_DIMENSION / requiredHeight);
-                finalScale = originalScale * downscaleFactor;
-                console.warn(`Схема слишком велика. Разрешение рендера снижено с ${originalScale}x до ${finalScale.toFixed(2)}x, чтобы избежать ошибки браузера.`);
-                statusLabel.textContent = 'Схема очень большая, разрешение снижено...';
-            }
-            // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-
-            const canvas = await html2canvas(renderContainer, { scale: finalScale, useCORS: true, logging: false });
-
-            const selectedFormat = formatSelect.value;
-            const isOriginalFormat = selectedFormat === ORIGINAL_FORMAT_KEY;
-            const isLandscape = currentOrientation === 'landscape';
-            const pxPerMm = selectedDpi / 25.4;
-
-            let targetWidthPx;
-            let targetHeightPx;
-
-            if (isOriginalFormat) {
-                targetWidthPx = canvas.width;
-                targetHeightPx = canvas.height;
-            } else {
-                const paper = PAPER_SIZES[selectedFormat];
-                const targetWidthMm = isLandscape ? paper.height : paper.width;
-                const targetHeightMm = isLandscape ? paper.width : paper.height;
-                targetWidthPx = Math.round(targetWidthMm * pxPerMm);
-                targetHeightPx = Math.round(targetHeightMm * pxPerMm);
-            }
-
-            let exportWidth = Math.max(1, Math.round(targetWidthPx));
-            let exportHeight = Math.max(1, Math.round(targetHeightPx));
-
-            const exportLimitRatio = Math.min(
-                exportWidth > 0 ? MAX_EXPORT_DIMENSION / exportWidth : 1,
-                exportHeight > 0 ? MAX_EXPORT_DIMENSION / exportHeight : 1,
-                1
-            );
-
-            if (exportLimitRatio < 1) {
-                exportWidth = Math.max(1, Math.floor(exportWidth * exportLimitRatio));
-                exportHeight = Math.max(1, Math.floor(exportHeight * exportLimitRatio));
-                if (statusLabel.textContent === 'Создание изображения...') {
-                    statusLabel.textContent = 'Схема очень большая, разрешение снижено...';
-                }
-            }
-
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = exportWidth;
-            exportCanvas.height = exportHeight;
-            const exportCtx = exportCanvas.getContext('2d');
-            const backgroundColor = getComputedStyle(renderContainer).backgroundColor || '#ffffff';
-            exportCtx.fillStyle = backgroundColor;
-            exportCtx.fillRect(0, 0, exportWidth, exportHeight);
-            exportCtx.imageSmoothingEnabled = true;
-            exportCtx.imageSmoothingQuality = 'high';
-
-            const fitScale = Math.min(exportWidth / canvas.width, exportHeight / canvas.height);
-            const drawWidth = canvas.width * fitScale;
-            const drawHeight = canvas.height * fitScale;
-            const offsetX = (exportWidth - drawWidth) / 2;
-            const offsetY = (exportHeight - drawHeight) / 2;
-            exportCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
-
-            const sourceCanvas = exportCanvas;
-            const sourceDataUrl = sourceCanvas.toDataURL('image/png');
-
-            const effectiveDpiX = targetWidthPx > 0 ? selectedDpi * (exportWidth / targetWidthPx) : selectedDpi;
-            const effectiveDpiY = targetHeightPx > 0 ? selectedDpi * (exportHeight / targetHeightPx) : selectedDpi;
-            const effectiveDpi = Math.max(1, Math.round(Math.min(effectiveDpiX, effectiveDpiY)));
-
-            if (exportType === 'png') {
-                statusLabel.textContent = 'Сохранение PNG...';
-                const pngBlob = await canvasToPngWithDpi(sourceCanvas, effectiveDpi);
-                if (pngBlob) {
-                    const link = document.createElement('a');
-                    const objectUrl = URL.createObjectURL(pngBlob);
-                    link.download = `scheme-${selectedFormat}.png`;
-                    link.href = objectUrl;
-                    link.click();
-                    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-                } else {
-                    const linkFallback = document.createElement('a');
-                    linkFallback.download = `scheme-${selectedFormat}.png`;
-                    linkFallback.href = sourceDataUrl;
-                    linkFallback.click();
-                }
-            } else if (exportType === 'pdf') {
-                statusLabel.textContent = 'Создание PDF...';
-
-                if (isOriginalFormat) {
-                    const pxPerMmEffective = effectiveDpi / 25.4;
-                    const paperWidth = exportWidth / pxPerMmEffective;
-                    const paperHeight = exportHeight / pxPerMmEffective;
-                    const doc = new jsPDFLib({
-                        orientation: paperWidth >= paperHeight ? 'landscape' : 'portrait',
-                        unit: 'mm',
-                        format: [paperWidth, paperHeight]
-                    });
-                    doc.addImage(sourceDataUrl, 'PNG', 0, 0, paperWidth, paperHeight, undefined, 'FAST');
-                    doc.save(`scheme-${selectedFormat}.pdf`);
-                } else {
-                    const paper = PAPER_SIZES[selectedFormat];
-                    const paperWidth = isLandscape ? paper.height : paper.width;
-                    const paperHeight = isLandscape ? paper.width : paper.height;
-
-                    if (tileCheckbox.checked && selectedFormat !== 'a4') {
-                        const a4 = PAPER_SIZES['a4'];
-                        const tiledDoc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4'});
-                        const cols = Math.ceil(paperWidth / a4.width);
-                        const rows = Math.ceil(paperHeight / a4.height);
-
-                        const sliceWidthPx = sourceCanvas.width / cols;
-                        const sliceHeightPx = sourceCanvas.height / rows;
-
-                        for (let r = 0; r < rows; r++) {
-                            for (let c = 0; c < cols; c++) {
-                                 if (r > 0 || c > 0) tiledDoc.addPage();
-                                const tempCanvas = document.createElement('canvas');
-                                tempCanvas.width = sliceWidthPx;
-                                tempCanvas.height = sliceHeightPx;
-                                const tempCtx = tempCanvas.getContext('2d');
-                                tempCtx.drawImage(canvas, c * sliceWidthPx, r * sliceHeightPx, sliceWidthPx, sliceHeightPx, 0, 0, sliceWidthPx, sliceHeightPx);
-                                tiledDoc.addImage(tempCanvas.toDataURL('image/png'), 'PNG', 0, 0, a4.width, a4.height, undefined, 'FAST');
-                            }
-                        }
-                        tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`);
-                    } else {
-                        const doc = new jsPDFLib({
-                            orientation: isLandscape ? 'landscape' : 'portrait',
-                            unit: 'mm',
-                            format: selectedFormat
-                        });
-                        const canvasAspectRatio = sourceCanvas.width / sourceCanvas.height;
-                        const paperAspectRatio = paperWidth / paperHeight;
-                        let imgWidth, imgHeight;
-                        if (canvasAspectRatio > paperAspectRatio) {
-                            imgWidth = paperWidth;
-                            imgHeight = paperWidth / canvasAspectRatio;
-                        } else {
-                            imgHeight = paperHeight;
-                            imgWidth = paperHeight * canvasAspectRatio;
-                        }
-                        doc.addImage(sourceDataUrl, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
-                        doc.save(`scheme-${selectedFormat}.pdf`);
-                    }
-                }
-            }
-            statusLabel.textContent = 'Готово!';
-        } catch (err) {
-            console.error("Ошибка при создании файла:", err);
-            statusLabel.textContent = 'Произошла ошибка!';
-        } finally {
-            document.body.removeChild(renderContainer);
-            setTimeout(() => {
-                statusLabel.textContent = '';
-                pngBtn.disabled = false;
-                pdfBtn.disabled = true;
-            }, 3000);
-        }
-    }
+        if (exportType === 'png') { statusLabel.textContent = 'Сохранение PNG...'; const pngBlob = await canvasToPngWithDpi(sourceCanvas, effectiveDpi); if (pngBlob) { const link = document.createElement('a'); const objectUrl = URL.createObjectURL(pngBlob); link.download = `scheme-${selectedFormat}.png`; link.href = objectUrl; link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000); } else { const linkFallback = document.createElement('a'); linkFallback.download = `scheme-${selectedFormat}.png`; linkFallback.href = sourceDataUrl; linkFallback.click(); } }
+        else if (exportType === 'pdf') { statusLabel.textContent = 'Создание PDF...'; if (isOriginalFormat) { const pxPerMmEffective = effectiveDpi / 25.4; const paperWidth = exportWidth / pxPerMmEffective; const paperHeight = exportHeight / pxPerMmEffective; const doc = new jsPDFLib({ orientation: paperWidth >= paperHeight ? 'landscape' : 'portrait', unit: 'mm', format: [paperWidth, paperHeight] }); doc.addImage(sourceDataUrl, 'PNG', 0, 0, paperWidth, paperHeight, undefined, 'FAST'); doc.save(`scheme-${selectedFormat}.pdf`); } else { const paper = PAPER_SIZES[selectedFormat]; const paperWidth = isLandscape ? paper.height : paper.width; const paperHeight = isLandscape ? paper.width : paper.height; if (tileCheckbox.checked && selectedFormat !== 'a4') { const a4 = PAPER_SIZES['a4']; const tiledDoc = new jsPDFLib({ orientation: 'portrait', unit: 'mm', format: 'a4'}); const cols = Math.ceil(paperWidth / a4.width); const rows = Math.ceil(paperHeight / a4.height); const sliceWidthPx = sourceCanvas.width / cols; const sliceHeightPx = sourceCanvas.height / rows; for (let r = 0; r < rows; r++) { for (let c = 0; c < cols; c++) { if (r > 0 || c > 0) tiledDoc.addPage(); const tempCanvas = document.createElement('canvas'); tempCanvas.width = sliceWidthPx; tempCanvas.height = sliceHeightPx; const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(canvas, c * sliceWidthPx, r * sliceHeightPx, sliceWidthPx, sliceHeightPx, 0, 0, sliceWidthPx, sliceHeightPx); tiledDoc.addImage(tempCanvas.toDataURL('image/png'), 'PNG', 0, 0, a4.width, a4.height, undefined, 'FAST'); } } tiledDoc.save(`scheme-${selectedFormat}-tiled.pdf`); } else { const doc = new jsPDFLib({ orientation: isLandscape ? 'landscape' : 'portrait', unit: 'mm', format: selectedFormat }); const canvasAspectRatio = sourceCanvas.width / sourceCanvas.height; const paperAspectRatio = paperWidth / paperHeight; let imgWidth, imgHeight; if (canvasAspectRatio > paperAspectRatio) { imgWidth = paperWidth; imgHeight = paperWidth / canvasAspectRatio; } else { imgHeight = paperHeight; imgWidth = paperHeight * canvasAspectRatio; } doc.addImage(sourceDataUrl, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST'); doc.save(`scheme-${selectedFormat}.pdf`); } } }
+        statusLabel.textContent = 'Готово!';
+    } catch (err) { console.error("Ошибка при создании файла:", err); statusLabel.textContent = 'Произошла ошибка!';
+    } finally { document.body.removeChild(renderContainer); setTimeout(() => { statusLabel.textContent = ''; pngBtn.disabled = false; pdfBtn.disabled = true; }, 3000); }
+}
     
     async function createPrintableHtml(state, bounds, PADDING) {
-        const printCanvas = document.createElement('div');
-        printCanvas.id = 'canvas-render';
-        printCanvas.style.position = 'relative';
-        printCanvas.style.width = `${bounds.width + PADDING * 2}px`;
-        printCanvas.style.height = `${bounds.height + PADDING * 2}px`;
-
-        const printSvgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        printSvgLayer.id = 'svg-layer-render';
-        printSvgLayer.style.position = 'absolute';
-        printSvgLayer.style.top = '0';
-        printSvgLayer.style.left = '0';
-        printSvgLayer.style.width = '100%';
-        printSvgLayer.style.height = '100%';
-        printSvgLayer.innerHTML = `<defs><marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6"><circle cx="5" cy="5" r="4" fill="currentColor"/></marker></defs>`;
-        printCanvas.appendChild(printSvgLayer);
-
-        const cardElements = new Map();
-        const EXTRA_PADDING_TOP = 60;
-        const EXTRA_PADDING_SIDE = 50;
-
-        for (const cardData of state.cards) {
-             const tempBody = document.createElement('div');
-             tempBody.innerHTML = cardData.bodyHTML;
-             tempBody.querySelector('.active-pv-controls')?.remove();
-             const cleanedBodyHTML = tempBody.innerHTML;
-
-             const cardWidth = parseInt(cardData.width, 10) || 380;
-             const cardHeight = 280;
-
-             const wrapper = document.createElement('div');
-             wrapper.className = 'print-card-wrapper';
-             wrapper.style.position = 'absolute';
-             wrapper.style.left = `${cardData.x - bounds.minX + PADDING - EXTRA_PADDING_SIDE}px`;
-             wrapper.style.top  = `${cardData.y - bounds.minY + PADDING - EXTRA_PADDING_TOP}px`;
-             wrapper.style.width = `${cardWidth + EXTRA_PADDING_SIDE * 2}px`;
-             wrapper.style.height = `${cardHeight + EXTRA_PADDING_TOP}px`;
-
-             const cardEl = document.createElement('div');
-             cardEl.className = 'card';
-             if (cardData.isDarkMode) cardEl.classList.add('dark-mode');
-             cardEl.style.width = `${cardWidth}px`;
-             cardEl.style.left = `${EXTRA_PADDING_SIDE}px`;
-             cardEl.style.top = `${EXTRA_PADDING_TOP}px`;
-             cardEl.style.borderColor = cardData.headerBg;
-
-             let rankSrc = '';
-             if (cardData.badges?.rank) {
-                const dataUri = await imageToDataUri(`rank-${cardData.badges.rank}.png`);
-                if(dataUri) rankSrc = dataUri;
-             }
-
-             cardEl.innerHTML = `
-                 <div class="card-header" style="background:${cardData.headerBg};">
-                     <div class="slf-badge ${cardData.badges?.slf ? 'visible' : ''}">SLF</div>
-                     <span class="card-title">${cardData.title}</span>
-                     <div class="fendou-badge ${cardData.badges?.fendou ? 'visible' : ''}">FENDOU</div>
-                     <img class="rank-badge ${cardData.badges?.rank ? 'visible' : ''}" src="${rankSrc}" alt="Rank">
-                 </div>
-                 <div class="card-body ${cardData.bodyClass || ''}">${cleanedBodyHTML}</div>
-             `;
-             wrapper.appendChild(cardEl);
-             printCanvas.appendChild(wrapper);
-             cardElements.set(cardData.id, { wrapper, width: cardWidth, height: cardHeight });
-        }
-
+        const printCanvas = document.createElement('div'); printCanvas.id = 'canvas-render'; printCanvas.style.position = 'relative'; printCanvas.style.width = `${bounds.width + PADDING * 2}px`; printCanvas.style.height = `${bounds.height + PADDING * 2}px`;
+        const printSvgLayer = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); printSvgLayer.id = 'svg-layer-render'; printSvgLayer.style.position = 'absolute'; printSvgLayer.style.top = '0'; printSvgLayer.style.left = '0'; printSvgLayer.style.width = '100%'; printSvgLayer.style.height = '100%'; printSvgLayer.innerHTML = `<defs><marker id="marker-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6"><circle cx="5" cy="5" r="4" fill="currentColor"/></marker></defs>`; printCanvas.appendChild(printSvgLayer);
+        const cardElements = new Map(); const EXTRA_PADDING_TOP = 60; const EXTRA_PADDING_SIDE = 50;
+        for (const cardData of state.cards) { const tempBody = document.createElement('div'); tempBody.innerHTML = cardData.bodyHTML; tempBody.querySelector('.active-pv-controls')?.remove(); const cleanedBodyHTML = tempBody.innerHTML; const cardWidth = parseInt(cardData.width, 10) || 380; const cardHeight = 280; const wrapper = document.createElement('div'); wrapper.className = 'print-card-wrapper'; wrapper.style.position = 'absolute'; wrapper.style.left = `${cardData.x - bounds.minX + PADDING - EXTRA_PADDING_SIDE}px`; wrapper.style.top  = `${cardData.y - bounds.minY + PADDING - EXTRA_PADDING_TOP}px`; wrapper.style.width = `${cardWidth + EXTRA_PADDING_SIDE * 2}px`; wrapper.style.height = `${cardHeight + EXTRA_PADDING_TOP}px`; const cardEl = document.createElement('div'); cardEl.className = 'card'; if (cardData.isDarkMode) cardEl.classList.add('dark-mode'); cardEl.style.width = `${cardWidth}px`; cardEl.style.left = `${EXTRA_PADDING_SIDE}px`; cardEl.style.top = `${EXTRA_PADDING_TOP}px`; cardEl.style.borderColor = cardData.headerBg; let rankSrc = ''; if (cardData.badges?.rank) { const dataUri = await imageToDataUri(`rank-${cardData.badges.rank}.png`); if(dataUri) rankSrc = dataUri; } cardEl.innerHTML = `<div class="card-header" style="background:${cardData.headerBg};"><div class="slf-badge ${cardData.badges?.slf ? 'visible' : ''}">SLF</div><span class="card-title">${cardData.title}</span><div class="fendou-badge ${cardData.badges?.fendou ? 'visible' : ''}">FENDOU</div><img class="rank-badge ${cardData.badges?.rank ? 'visible' : ''}" src="${rankSrc}" alt="Rank"></div><div class="card-body ${cardData.bodyClass || ''}">${cleanedBodyHTML}</div>`; wrapper.appendChild(cardEl); printCanvas.appendChild(wrapper); cardElements.set(cardData.id, { wrapper, width: cardWidth, height: cardHeight }); }
         await new Promise(resolve => setTimeout(resolve, 50));
-
-        state.lines.forEach(lineData => {
-            const startEl = cardElements.get(lineData.startId);
-            const endEl = cardElements.get(lineData.endId);
-            if (!startEl || !endEl) return;
-
-            const getPrintCoords = (info, side) => {
-              const x = parseFloat(info.wrapper.style.left) + EXTRA_PADDING_SIDE;
-              const y = parseFloat(info.wrapper.style.top) + EXTRA_PADDING_TOP;
-              const w = info.width;
-              const h = info.height;
-              switch (side) {
-                case 'top': return { x: x + w / 2, y: y };
-                case 'bottom': return { x: x + w / 2, y: y + h };
-                case 'left': return { x: x, y: y + h / 2 };
-                case 'right': return { x: x + w, y: y + h / 2 };
-              }
-            };
-            const p1 = getPrintCoords(startEl, lineData.startSide);
-            const p2 = getPrintCoords(endEl, lineData.endSide);
-            if(!p1 || !p2) return;
-
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('class', 'line');
-            const color = lineData.color || DEFAULT_LINE_COLOR;
-            path.setAttribute('stroke', color);
-            path.setAttribute('stroke-width', lineData.thickness);
-            path.style.setProperty('--line-color', color);
-            path.setAttribute('marker-start', 'url(#marker-dot)');
-            path.setAttribute('marker-end', 'url(#marker-dot)');
-            let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y };
-            path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`);
-            printSvgLayer.appendChild(path);
-        });
-
+        state.lines.forEach(lineData => { const startEl = cardElements.get(lineData.startId); const endEl = cardElements.get(lineData.endId); if (!startEl || !endEl) return; const getPrintCoords = (info, side) => { const x = parseFloat(info.wrapper.style.left) + EXTRA_PADDING_SIDE; const y = parseFloat(info.wrapper.style.top) + EXTRA_PADDING_TOP; const w = info.width; const h = info.height; switch (side) { case 'top': return { x: x + w / 2, y: y }; case 'bottom': return { x: x + w / 2, y: y + h }; case 'left': return { x: x, y: y + h / 2 }; case 'right': return { x: x + w, y: y + h / 2 }; } }; const p1 = getPrintCoords(startEl, lineData.startSide); const p2 = getPrintCoords(endEl, lineData.endSide); if(!p1 || !p2) return; const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('class', 'line'); const color = lineData.color || DEFAULT_LINE_COLOR; path.setAttribute('stroke', color); path.setAttribute('stroke-width', lineData.thickness); path.style.setProperty('--line-color', color); path.setAttribute('marker-start', 'url(#marker-dot)'); path.setAttribute('marker-end', 'url(#marker-dot)'); let midP1 = (lineData.startSide === 'left' || lineData.startSide === 'right') ? { x: p2.x, y: p1.y } : { x: p1.x, y: p2.y }; path.setAttribute('d', `M ${p1.x} ${p1.y} L ${midP1.x} ${midP1.y} L ${p2.x} ${p2.y}`); printSvgLayer.appendChild(path); });
         return {printCanvas, printSvgLayer};
     }
     
     autoSelectOrientation();
     updatePreview();
 }
-// ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
