@@ -36,37 +36,31 @@ html,body{
   position:fixed; top:20px; right:20px; z-index:2000;
   display:flex; flex-direction:column; align-items:flex-end; gap:14px;
 }
-.ui-panel-right.collapsed{
-  gap:10px;
+.ui-panel-right__container{
+  display:flex; align-items:stretch; gap:12px;
 }
-.ui-panel-right.collapsed .line-controls-panel,
-.ui-panel-right.collapsed .gradient-selector,
-.ui-panel-right.collapsed .row{
-  align-self:flex-end;
-}
-.ui-panel-right.collapsed .line-controls-panel{
-  max-width:220px;
-}
-.ui-panel-right.collapsed .thickness-row{
-  justify-content:center;
-}
-.ui-panel-right.collapsed .animation-controls{
-  align-items:stretch;
-}
-.ui-panel-right.collapsed .row{
-  flex-direction:column;
-  gap:8px;
-}
-.ui-panel-right.collapsed .gradient-selector{
+.ui-panel-right__body{
   display:flex;
   flex-direction:column;
-  gap:8px;
-  padding:8px;
-  width:auto;
+  gap:18px;
+  background:#fff;
+  padding:20px 22px;
+  border-radius:22px;
+  box-shadow: 10px 12px 24px rgba(15,35,95,.16), -6px -6px 18px rgba(255,255,255,.85);
+  min-width:240px;
 }
-.ui-panel-right.collapsed .grad-btn{
-  width:32px;
-  height:32px;
+.ui-panel-right__actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.ui-panel-right.collapsed .ui-panel-right__body{
+  display:none;
+}
+.ui-panel-right.collapsed .ui-panel-right__container{
+  gap:0;
 }
 .ui-panel-right .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
 
@@ -105,19 +99,15 @@ html,body{
 .ui-panel-left.collapsed .ui-panel-toggle{
   right:-18px;
 }
-.panel-collapse-btn,
-.ui-panel-toggle{
-  font-size:16px;
-  width:32px;
-  height:32px;
-  padding:0;
-  border-radius:8px;
-}
 .panel-collapse-btn{
-  margin-left:auto;
+  font-size:18px;
+  width:40px;
+  height:40px;
+  padding:0;
+  border-radius:12px;
+  box-shadow:0 6px 14px rgba(0,0,0,.1);
 }
 .ui-panel-right.collapsed .panel-collapse-btn{
-  margin-left:0;
   align-self:flex-end;
 }
 .line-controls-panel{
@@ -125,11 +115,6 @@ html,body{
   flex-direction:column;
   gap:16px;
   align-items:stretch;
-  background:#fff;
-  padding:16px 18px;
-  border-radius:18px;
-  box-shadow: 10px 12px 24px rgba(15,35,95,.16), -6px -6px 18px rgba(255,255,255,.85);
-  min-width:160px;
 }
 .line-color-group{
   display:flex;
@@ -467,19 +452,60 @@ html,body{
   outline:2px solid #fff;
   outline-offset:2px;
 }
-/* Кнопка цвета шапки */
-.header-color-picker-btn{
-  position:absolute; top:80px; left:10px; z-index:10; width:22px; height:22px; border-radius:6px;
-  border:2px solid #444; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,.1);
+/* Настройки заголовка */
+.card-header-panel{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:14px;
+  border-radius:18px;
+  background:rgba(15,98,254,.05);
+  border:1px solid rgba(15,98,254,.12);
 }
-.header-color-picker-btn:hover{ transform:scale(1.05); }
-
-.color-changer {
-  border: 2px solid #444;
-  position: absolute;
-  top: 110px;
-  left: 10px;
-  z-index: 10;
+.card-header-panel__label{
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:#5d6b8a;
+}
+.card-header-panel__controls{
+  display:flex;
+  gap:12px;
+  align-items:center;
+}
+.card-header-color-btn{
+  width:46px;
+  height:46px;
+  border-radius:14px;
+  border:none;
+  cursor:pointer;
+  box-shadow: inset 0 0 0 4px rgba(255,255,255,.65), 0 8px 16px rgba(93,139,244,.28);
+  transition: transform .15s, box-shadow .15s;
+}
+.card-header-color-btn:hover{
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: inset 0 0 0 4px rgba(255,255,255,.75), 0 10px 20px rgba(93,139,244,.32);
+}
+.card-header-cycle-btn{
+  width:46px;
+  height:46px;
+  border-radius:14px;
+  border:1px solid #d1d5db;
+  background:#fff;
+  color:#4b5563;
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  font-size:22px;
+  line-height:1;
+  box-shadow: inset 0 -2px 0 rgba(255,255,255,.55), 0 8px 16px rgba(88,112,160,.18);
+  transition: .2s;
+}
+.card-header-cycle-btn:hover{
+  border-color:#0f62fe;
+  color:#0f62fe;
+  box-shadow: inset 0 -2px 0 rgba(255,255,255,.75), 0 10px 20px rgba(15,98,254,.25);
 }
 
 /* Тело карточки */
@@ -691,13 +717,8 @@ html,body{
 .card.dark-mode .value{ color:#f9fafb; }
 .card.dark-mode .card-header{ background:#1f2937 !important; }
 .card.dark-mode .card-title{ color:#f3f4f6; }
-.card.dark-mode .note-btn,
-.card.dark-mode .color-changer{ background:#374151 !important; border-color:#4b5563; color:#e5e7eb; }
+.card.dark-mode .note-btn{ background:#374151 !important; border-color:#4b5563; color:#e5e7eb; }
 
-.card.dark-mode .header-color-picker-btn,
-.card.dark-mode .color-changer {
-  visibility: hidden;
-}
 .card.dark-mode .coin-icon {
   visibility: hidden;
 }
@@ -1132,6 +1153,7 @@ html,body{
     border-radius: 18px;
   }
 }
+
 
 
 
