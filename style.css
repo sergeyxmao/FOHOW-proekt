@@ -626,21 +626,21 @@ html,body{
   display: block;
 }
 .slf-badge {
-  top: 15px;
-  left: 15px;
-  color: #ffc700;
-  font-weight: 900;
-  font-size: 24px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  top: 15px;           /* Расположение сверху */
+  left: 15px;          /* Расположение слева */
+  color: #ffc700;      /* Золотисто-желтый цвет */
+  font-weight: 900;    /* Очень жирный шрифт */
+  font-size: 24px;     /* Размер шрифта 24px */
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Тень текста */
 }
 .fendou-badge {
-  top: -25px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: red;
-  font-weight: 900;
-  font-size: 36px;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  top: -25px;          /* Расположение выше контейнера */
+  left: 50%;           /* По центру по горизонтали */
+  transform: translateX(-50%); /* Сдвиг для точного центрирования */
+  color: red;          /* Красный цвет */
+  font-weight: 900;    /* Очень жирный шрифт */
+  font-size: 56px;     /* Больший размер шрифта (36px) */
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3); /* Более выраженная тень */
 }
 .rank-badge {
   top: -15px;
@@ -1132,6 +1132,7 @@ html,body{
     border-radius: 18px;
   }
 }
+
 
 
 
