@@ -1152,3 +1152,111 @@ html,body{
     border-radius: 18px;
   }
 }
+/* СТИЛЬНЫЙ ВЕРТИКАЛЬНЫЙ БЛОК КНОПОК */
+.ui-panel-right__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-end;
+  padding: 20px 0;
+}
+
+/* НЕОМОРФНЫЙ СТИЛЬ ДЛЯ КНОПОК */
+.ui-panel-right__actions .add-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(145deg, #ffffff, #e6e6e6);
+  box-shadow: 8px 8px 16px #d1d1d1, 
+              -8px -8px 16px #ffffff;
+  color: #5D8BF4;
+  font-size: 24px;
+  font-weight: 300;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ЭФФЕКТ ПРИ НАВЕДЕНИИ */
+.ui-panel-right__actions .add-btn:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 12px 12px 24px #c9c9c9, 
+              -12px -12px 24px #ffffff;
+  color: #2E5BFF;
+}
+
+/* АКТИВНОЕ СОСТОЯНИЕ */
+.ui-panel-right__actions .add-btn:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: inset 4px 4px 8px #d1d1d1, 
+              inset -4px -4px 8px #ffffff;
+}
+
+/* ГРАДИЕНТНЫЙ ЭФФЕКТ ПРИ НАВЕДЕНИИ */
+.ui-panel-right__actions .add-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+              transparent, 
+              rgba(93, 139, 244, 0.1), 
+              transparent);
+  transition: left 0.5s ease;
+}
+
+.ui-panel-right__actions .add-btn:hover::before {
+  left: 100%;
+}
+
+/* ИКОНКИ ВМЕСТО СИМВОЛОВ (опционально) */
+#add-card-btn::after {
+  content: "🞖";
+  font-size: 20px;
+}
+
+#add-large-card-btn::after {
+  content: "⬚";
+  font-size: 22px;
+  font-weight: 400;
+}
+
+#add-template-btn::after {
+  content: "⧉";
+  font-size: 18px;
+}
+
+/* ПОДСВЕТКА ПРИ НАВЕДЕНИИ НА ВСЮ ПАНЕЛЬ */
+.ui-panel-right__actions:hover .add-btn:not(:hover) {
+  opacity: 0.7;
+  transform: scale(0.95);
+}
+
+/* АНИМАЦИЯ ПОЯВЛЕНИЯ */
+.ui-panel-right__actions .add-btn {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ДОПОЛНИТЕЛЬНО: СТИЛЬ ДЛЯ ПРАВОЙ ПАНЕЛИ */
+.ui-panel-right {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
+  padding: 15px;
+  margin: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
