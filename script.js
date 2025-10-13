@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const hiddenLineColorPicker = document.getElementById('hidden-line-color-picker');
   const animationDurationInput = document.getElementById('animation-duration-input');
   const applyAllToggle = document.getElementById('apply-all-toggle');
+  const headerColorTrigger = document.getElementById('card-header-color-trigger');
+  const headerColorCycleBtn = document.getElementById('card-header-cycle-btn');
+  const headerColorInput = document.getElementById('card-header-color-input');
 
   const GRID_SIZE = 70;
   const MARKER_OFFSET = 12;
@@ -55,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentThickness: 5,
     currentColor: DEFAULT_LINE_COLOR,    selectedLine: null,
     selectedCards: new Set(),
-    isDrawingLine: false,
+    lastFocusedCard: null,
     isSelecting: false,
     isSelectionMode: false,
     isHierarchicalDragMode: false,
@@ -107,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (exportSvgBtn) exportSvgBtn.addEventListener('click', exportToSvg);
 
   setupLineControls();
+  setupHeaderControls();
   setupGlobalEventListeners();
   setupGradientSelector();
   setupHistoryButtons();
@@ -420,22 +424,152 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setupPanelToggles() {
     if (leftPanel && leftPanelToggle) {
-      leftPanelToggle.addEventListener('click', () => {
-        const collapsed = leftPanel.classList.toggle('collapsed');
+      const updateLeftToggle = () => {
+        const collapsed = leftPanel.classList.contains('collapsed');
         leftPanelToggle.textContent = collapsed ? '❯' : '❮';
         leftPanelToggle.setAttribute('aria-expanded', String(!collapsed));
         leftPanelToggle.setAttribute('title', collapsed ? 'Развернуть панель' : 'Свернуть панель');
+      };
+      leftPanelToggle.addEventListener('click', () => {
+        leftPanel.classList.toggle('collapsed');
+        updateLeftToggle();
       });
+      updateLeftToggle();
     }
 
     if (rightPanel && rightPanelToggle) {
-      rightPanelToggle.addEventListener('click', () => {
-        const collapsed = rightPanel.classList.toggle('collapsed');
+      const updateRightToggle = () => {
+        const collapsed = rightPanel.classList.contains('collapsed');
         rightPanelToggle.textContent = collapsed ? '❮' : '❯';
         rightPanelToggle.setAttribute('aria-expanded', String(!collapsed));
         rightPanelToggle.setAttribute('title', collapsed ? 'Развернуть настройки' : 'Свернуть настройки');
+      };
+      rightPanelToggle.addEventListener('click', () => {
+        rightPanel.classList.toggle('collapsed');
+        updateRightToggle();
       });
+      updateRightToggle();
     }
+  }
+
+  function normalizeColorToHex(color) {
+    if (typeof color !== 'string') return null;
+    const hexMatch = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hexMatch) {
+      const value = hexMatch[0].toUpperCase();
+      if (value.length === 4) {
+        return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
+      }
+      return value;
+    }
+    const rgbMatch = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!rgbMatch) return null;
+    const toHex = (component) => {
+      const num = Math.max(0, Math.min(255, Number(component)));
+      return num.toString(16).padStart(2, '0');
+    };
+    return `#${toHex(rgbMatch[1])}${toHex(rgbMatch[2])}${toHex(rgbMatch[3])}`.toUpperCase();
+  }
+
+  function getHeaderBackground(cardData) {
+    if (!cardData || !cardData.element) return '';
+    const storedValue = cardData.element.dataset.headerColorValue;
+    if (storedValue) {
+      return storedValue;
+    }
+    const header = cardData.element.querySelector('.card-header');
+    if (!header) return '';
+    const rawColor = header.style.background || window.getComputedStyle(header).backgroundColor;
+    if (!rawColor) return '';
+    const normalized = normalizeColorToHex(rawColor) || rawColor;
+    cardData.element.dataset.headerColorValue = normalized;
+    return normalized;
+  }
+
+  function updateHeaderPreview(color) {
+    if (!color) return;
+    const hexColor = normalizeColorToHex(color) || color;
+    if (headerColorTrigger) headerColorTrigger.style.background = hexColor;
+    if (headerColorInput) {
+      const normalized = normalizeColorToHex(color);
+      if (normalized) headerColorInput.value = normalized;
+    }
+  }
+
+  function setCardHeaderColor(cardRef, color, colorIndexValue) {
+    if (!cardRef) return;
+    const element = cardRef.element ? cardRef.element : cardRef;
+    if (!element) return;
+    const header = element.querySelector('.card-header');
+    if (!header) return;
+    const normalized = normalizeColorToHex(color) || color;
+    header.style.background = normalized;
+    element.dataset.colorIndex = String(colorIndexValue);
+    element.dataset.headerColorValue = normalized;
+  }
+
+  function setLastFocusedCard(cardData) {
+    if (cardData && cardData.element && document.body.contains(cardData.element)) {
+      activeState.lastFocusedCard = cardData;
+      updateHeaderPreview(getHeaderBackground(cardData));
+    } else {
+      activeState.lastFocusedCard = null;
+    }
+  }
+
+  function getHeaderTargetCards() {
+    if (activeState.selectedCards.size > 0) {
+      return Array.from(activeState.selectedCards);
+    }
+    return activeState.lastFocusedCard ? [activeState.lastFocusedCard] : [];
+  }
+
+  function applyPresetHeaderColorToCards(index, targetCards) {
+    if (!Array.isArray(targetCards) || targetCards.length === 0) return;
+    const normalizedIndex = ((index % cardColors.length) + cardColors.length) % cardColors.length;
+    const color = cardColors[normalizedIndex];
+    targetCards.forEach(cardData => setCardHeaderColor(cardData, color, normalizedIndex));
+    updateHeaderPreview(color);
+  }
+
+  function applyCustomHeaderColorToCards(color, targetCards) {
+    if (!Array.isArray(targetCards) || targetCards.length === 0) return;
+    targetCards.forEach(cardData => setCardHeaderColor(cardData, color, '-1'));
+    updateHeaderPreview(color);
+  }
+
+  function setupHeaderControls() {
+    if (!headerColorTrigger || !headerColorCycleBtn || !headerColorInput) return;
+
+    const initialColor = headerColorInput.value || cardColors[0];
+    updateHeaderPreview(initialColor);
+
+    headerColorTrigger.addEventListener('click', () => {
+      headerColorInput.click();
+    });
+
+    headerColorInput.addEventListener('input', (e) => {
+      const color = e.target.value;
+      updateHeaderPreview(color);
+      const targets = getHeaderTargetCards();
+      if (targets.length === 0) return;
+      applyCustomHeaderColorToCards(color, targets);
+      setLastFocusedCard(targets[targets.length - 1]);
+      saveState();
+    });
+
+    headerColorCycleBtn.addEventListener('click', () => {
+      const targets = getHeaderTargetCards();
+      if (targets.length === 0) return;
+      const first = targets[0];
+      const currentIndex = Number.parseInt(first.element.dataset.colorIndex ?? '0', 10);
+      const nextIndex = Number.isFinite(currentIndex) && currentIndex >= 0
+        ? (currentIndex + 1) % cardColors.length
+        : 0;
+      applyPresetHeaderColorToCards(nextIndex, targets);
+      setLastFocusedCard(targets[targets.length - 1] ?? first);
+      saveState();
+    });
   }
 
   function setupDragModes() {
@@ -628,8 +762,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <img class="rank-badge" src="" alt="Rank">
         <button class="card-close-btn" type="button" title="Удалить карточку">×</button>
       </div>
-      <button class="header-color-picker-btn" title="Выбрать цвет заголовка"></button>
-      <div class="card-control-btn color-changer" data-color-index="${opts.colorIndex ?? 0}"></div>
       <div class="card-body ${opts.bodyClass || ''}">${bodyHTML}</div>
       <div class="connection-point top" data-side="top"></div>
       <div class="connection-point right" data-side="right"></div>
@@ -660,6 +792,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.ctrlKey) {
             e.stopPropagation();
             toggleCardSelection(cardData);
+            if (activeState.selectedCards.size > 0) {
+                let last = null;
+                activeState.selectedCards.forEach(cd => { last = cd; });
+                if (last) setLastFocusedCard(last);
+            } else {
+                setLastFocusedCard(cardData);
+            }
+        } else {
+            setLastFocusedCard(cardData);
         }
     });
     const titleEl = card.querySelector('.card-title');
@@ -702,50 +843,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     makeDraggable(card, cardData);
 
-    const headerColorBtn = card.querySelector('.header-color-picker-btn');
     const header = card.querySelector('.card-header');
-    const colorChanger = card.querySelector('.color-changer');
-
-    if (opts.headerBg) {
-        headerColorBtn.style.background = opts.headerBg;
-    } else {
-        headerColorBtn.style.background = getComputedStyle(header).background;
+    const savedColorIndex = Number.parseInt(opts.colorIndex ?? '0', 10);
+    if (Number.isFinite(savedColorIndex) && savedColorIndex > -1) {
+        setCardHeaderColor(cardData, cardColors[savedColorIndex % cardColors.length], String(savedColorIndex));
+    } else if (opts.headerBg) {
+        setCardHeaderColor(cardData, opts.headerBg, '-1');
+    } else if (header) {
+        setCardHeaderColor(cardData, cardColors[0], '0');
     }
 
-    const hiddenColorInput = document.createElement('input');
-    hiddenColorInput.type = 'color'; hiddenColorInput.style.display = 'none';
-    card.appendChild(hiddenColorInput);
-    headerColorBtn.addEventListener('click', (e) => { e.stopPropagation(); hiddenColorInput.click(); });
-
-    hiddenColorInput.addEventListener('input', (e) => {
-        const c = e.target.value;
-        header.style.background = c;
-        headerColorBtn.style.background = c;
-        colorChanger.dataset.colorIndex = '-1';
-        saveState();
-    });
+    setLastFocusedCard(cardData);
 
     const coin = card.querySelector('.coin-icon circle');
     if (coin) coin.addEventListener('click', () => { coin.setAttribute('fill', coin.getAttribute('fill') === '#ffd700' ? '#3d85c6' : '#ffd700'); saveState(); });
-
-    const setHeaderColorByIndex = (idx) => {
-        const c = cardColors[idx % cardColors.length];
-        colorChanger.style.backgroundColor = c;
-        header.style.background = c;
-    };
-
-    const savedColorIndex = parseInt(opts.colorIndex ?? '0', 10);
-    if (savedColorIndex > -1) {
-        setHeaderColorByIndex(savedColorIndex);
-    }
-
-    colorChanger.addEventListener('click', () => {
-        let i = parseInt(colorChanger.dataset.colorIndex || '0', 10);
-        i = (i < 0) ? 0 : (i + 1) % cardColors.length;
-        colorChanger.dataset.colorIndex = String(i);
-        setHeaderColorByIndex(i);
-        saveState();
-    });
 
     const closeBtn = card.querySelector('.card-close-btn');
     if (closeBtn) {
@@ -847,8 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function makeDraggable(element, cardData) {
-    const interactiveDragBlockSelector = '.card-control-btn, .note-btn, .active-btn, .header-color-picker-btn, .color-changer, .card-title, [contenteditable="true"], button, input, textarea, select, label, a[href]';    element.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
+    const interactiveDragBlockSelector = '.card-control-btn, .note-btn, .active-btn, .card-title, [contenteditable="true"], button, input, textarea, select, label, a[href]';    element.addEventListener('pointerdown', (e) => {      if (e.button !== 0 || e.ctrlKey || activeState.isSelectionMode) return;
       if (pinchState && e.pointerType === 'touch') return;
       if (e.target.closest(interactiveDragBlockSelector)) return;
 
@@ -1089,6 +1199,13 @@ document.addEventListener('DOMContentLoaded', () => {
     cardData.element.remove();
     cards = cards.filter(c => c.id !== cardData.id);
     activeState.selectedCards.delete(cardData);
+    if (activeState.lastFocusedCard && activeState.lastFocusedCard.id === cardData.id) {
+      setLastFocusedCard(null);
+      if (activeState.selectedCards.size > 0) {
+        const next = activeState.selectedCards.values().next().value;
+        if (next) setLastFocusedCard(next);
+      }
+    }
     updateNotesButtonState();
   }
 
@@ -1156,7 +1273,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function setSelectionSet(newSet) {
     activeState.selectedCards.forEach(card => card.element.classList.remove('selected'));
     activeState.selectedCards.clear();
-    newSet.forEach(cd => { activeState.selectedCards.add(cd); cd.element.classList.add('selected'); });
+    let lastCard = null;
+    newSet.forEach(cd => {
+      activeState.selectedCards.add(cd);
+      cd.element.classList.add('selected');
+      lastCard = cd;
+    });
+    if (lastCard) {
+      setLastFocusedCard(lastCard);
+    }
   }
 
   function clearSelection() { activeState.selectedCards.forEach(card => card.element.classList.remove('selected')); activeState.selectedCards.clear(); }
@@ -1686,9 +1811,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '.note-close-btn',
             '.card-controls',
             '.close-btn',
-            '.header-color-picker-btn',
             '.connection-point',
-            '.color-changer',
             '.active-pv-controls'
           ];
 
@@ -4015,6 +4138,7 @@ async function processPrint(exportType) {
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
 });
+
 
 
 
