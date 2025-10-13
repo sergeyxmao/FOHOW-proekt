@@ -51,10 +51,9 @@ html,body{
 }
 .ui-panel-right__actions{
   display:flex;
-  gap:10px;
-  align-items:center;
-  flex-wrap:wrap;
-  justify-content:flex-end;
+  flex-direction: column; /* Вертикальное расположение */
+  gap: 12px; /* Расстояние между кнопками */
+  align-items: flex-end; /* Выравнивание по правому краю */
 }
 .ui-panel-right.collapsed .ui-panel-right__body{
   display:none;
@@ -1153,23 +1152,3 @@ html,body{
     border-radius: 18px;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
