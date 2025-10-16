@@ -471,6 +471,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return `#${toHex(rgbMatch[1])}${toHex(rgbMatch[2])}${toHex(rgbMatch[3])}`.toUpperCase();
   }
 
+  function escapeHtml(text) {
+    if (typeof text !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   function getHeaderBackground(cardData) {
     if (!cardData || !cardData.element) return '';
     const storedValue = cardData.element.dataset.headerColorValue;
@@ -2096,8 +2103,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderSplitValue(valueEl, leftValue, rightValue) {
     if (!valueEl) return;
-    const leftText = String(leftValue ?? '0');
-    const rightText = String(rightValue ?? '0');
+    const leftText = escapeHtml(String(leftValue ?? '0'));
+    const rightText = escapeHtml(String(rightValue ?? '0'));
     valueEl.innerHTML = `<span class="value-part value-left">${leftText}</span> <span class="value-separator">/</span> <span class="value-part value-right">${rightText}</span>`;
   }
 

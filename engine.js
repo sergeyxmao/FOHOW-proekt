@@ -21,7 +21,7 @@
   }
 
   function pickParent(byId, line) {
-    // Родителем считаем карточку С ВЫШЕЙ координатой (меньше y)
+    // Родителем считаем карточку С ВЫСШЕЙ координатой (меньше y)
     const s = byId.get(line.startId);
     const e = byId.get(line.endId);
     if (!s || !e) return null;
@@ -43,17 +43,22 @@
     let within = totalBalls % 72;
 
     let stage = 0, toNext = 6;
+    let accumulated = 0;
+
     for (let i = 0; i < thresholds.length; i++) {
-      if (within >= thresholds[i]) {
-        within -= thresholds[i];
+      if (within >= accumulated + thresholds[i]) {
+        accumulated += thresholds[i];
         stage = i + 1;
-        toNext = thresholds[i + 1] ? thresholds[i + 1] - within : 72 - (totalBalls % 72);
       } else {
-        toNext = thresholds[i] - within;
+        toNext = accumulated + thresholds[i] - within;
         break;
       }
     }
-    if (stage === 4) toNext = 72 - (totalBalls % 72); // до нового цикла
+
+    // Если прошли все этапы, считаем до нового цикла
+    if (stage === 4) {
+      toNext = 72 - within;
+    }
 
     return { cycles, stage, toNext };
   }

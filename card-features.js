@@ -2,8 +2,10 @@
 
 // Глобальная функция для применения значков к карточке
 function applyCardBadges(cardData) {
+    if (!cardData || !cardData.element) return;
+
     const cardElement = cardData.element;
-    const badges = cardData.badges;
+    const badges = cardData.badges || {};
 
     const fendouBadge = cardElement.querySelector('.fendou-badge');
     const slfBadge = cardElement.querySelector('.slf-badge');
@@ -38,9 +40,11 @@ function initializeCardFeatures(getCards, saveState) {
 
     function showContextMenu(e, cardData) {
         e.preventDefault();
+        if (!cardData) return;
+
         currentCardData = cardData;
 
-        const badges = cardData.badges;
+        const badges = cardData.badges || {};
 
         let rankHtml = '';
         for (const key in ranks) {
@@ -104,6 +108,11 @@ function initializeCardFeatures(getCards, saveState) {
     contextMenu.addEventListener('click', (e) => {
         const item = e.target.closest('.context-menu-item');
         if (!item || !currentCardData) return;
+
+        // Инициализация badges, если не существует
+        if (!currentCardData.badges) {
+            currentCardData.badges = {};
+        }
 
         const { type, value } = item.dataset;
 
