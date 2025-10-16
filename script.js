@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const distance = Math.hypot(second.x - first.x, second.y - first.y);
       if (distance > 0) {
         const prevScale = canvasState.scale;
-        const newScale = Math.max(0.05, Math.min(5, pinchState.initialScale * (distance / pinchState.initialDistance)));
+        const newScale = Math.max(0.1, Math.min(3, pinchState.initialScale * (distance / pinchState.initialDistance)));
         const ratio = newScale / prevScale;
         canvasState.x = midX - (midX - canvasState.x) * ratio;
         canvasState.y = midY - (midY - canvasState.y) * ratio;
@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target.closest('.ui-panel-left') || e.target.closest('.ui-panel-right')) return;
       e.preventDefault();
       const scaleAmount = -e.deltaY * 0.001;
-      const newScale = Math.max(0.05, Math.min(5, canvasState.scale + scaleAmount));
+      const newScale = Math.max(0.1, Math.min(3, canvasState.scale + scaleAmount));
       const mouseX = e.clientX, mouseY = e.clientY;
       canvasState.x = mouseX - (mouseX - canvasState.x) * (newScale / canvasState.scale);
       canvasState.y = mouseY - (mouseY - canvasState.y) * (newScale / canvasState.scale);
@@ -1026,22 +1026,14 @@ document.addEventListener('DOMContentLoaded', () => {
         try { element.setPointerCapture(pointerId); } catch (_) { /* noop */ }
       }
 
-      let rafIdDrag = null;
       const onPointerMove = (e2) => {
         if (e2.pointerId !== pointerId) return;
+        let dx_canvas = (e2.clientX - startPointerX) / canvasState.scale;
+        let dy_canvas = (e2.clientY - startPointerY) / canvasState.scale;
+        const dx_viewport = e2.clientX - startPointerX;
+        const dy_viewport = e2.clientY - startPointerY;
 
-        // Оптимизация через RAF для плавности
-        if (rafIdDrag) return;
-
-        rafIdDrag = requestAnimationFrame(() => {
-          rafIdDrag = null;
-
-          let dx_canvas = (e2.clientX - startPointerX) / canvasState.scale;
-          let dy_canvas = (e2.clientY - startPointerY) / canvasState.scale;
-          const dx_viewport = e2.clientX - startPointerX;
-          const dy_viewport = e2.clientY - startPointerY;
-
-          if (activeState.guidesEnabled) {
+        if (activeState.guidesEnabled) {
           let snapX = null, snapY = null;
           const draggedBounds = {
             left:   Math.min(...draggedCards.map(d => d.startX + dx_canvas)),
@@ -1084,7 +1076,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dragged.card.note.window.style.top  = `${dragged.noteStartY + dy_viewport}px`;
           }
         });
-        }); // Закрытие requestAnimationFrame
       };
 
       const finishDrag = (e2) => {
@@ -4152,166 +4143,6 @@ async function processPrint(exportType) {
     updatePreview();
 }
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
-
-// ============== МОБИЛЬНЫЕ УЛУЧШЕНИЯ ==============
-
-  // Определение мобильного устройства
-  function isMobileDevice() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-           (window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
-  }
-
-  // Автоматическое сворачивание панелей на маленьких экранах
-  function autoCollapsePanelsOnMobile() {
-    if (window.innerWidth <= 768) {
-      if (rightPanel && !rightPanel.classList.contains('collapsed')) {
-        rightPanel.classList.add('collapsed');
-        if (rightPanelToggle) {
-          rightPanelToggle.textContent = '❮';
-          rightPanelToggle.setAttribute('aria-expanded', 'false');
-        }
-      }
-    }
-  }
-
-  // Автосворачивание панелей на мобильных
-  if (isMobileDevice()) {
-    autoCollapsePanelsOnMobile();
-  }
-
-  // Обработка изменения ориентации
-  window.addEventListener('orientationchange', () => {
-    setTimeout(() => {
-      if (isMobileDevice()) {
-        autoCollapsePanelsOnMobile();
-      }
-      updateCanvasTransform();
-    }, 100);
-  });
-
-  // Обработка изменения размера окна
-  let resizeTimeout;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      if (isMobileDevice()) {
-        autoCollapsePanelsOnMobile();
-      }
-    }, 250);
-  });
-
-  // Улучшенная обработка долгого нажатия для мобильных
-  let longPressTimer = null;
-  let longPressTriggered = false;
-  let longPressStartPos = { x: 0, y: 0 };
-
-  canvas.addEventListener('pointerdown', (e) => {
-    if (e.pointerType !== 'touch') return;
-
-    const target = e.target.closest('.card-header');
-    if (!target) return;
-
-    longPressTriggered = false;
-    longPressStartPos = { x: e.clientX, y: e.clientY };
-
-    longPressTimer = setTimeout(() => {
-      longPressTriggered = true;
-      // Вибрация при долгом нажатии (если поддерживается)
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-      // Создаем искусственное событие contextmenu
-      const contextEvent = new MouseEvent('contextmenu', {
-        bubbles: true,
-        cancelable: true,
-        clientX: e.clientX,
-        clientY: e.clientY
-      });
-      target.dispatchEvent(contextEvent);
-    }, 600); // 600ms для долгого нажатия
-  }, { passive: true });
-
-  canvas.addEventListener('pointermove', (e) => {
-    if (longPressTimer) {
-      // Отменить долгое нажатие если палец сдвинулся более чем на 10px
-      const dx = Math.abs(e.clientX - longPressStartPos.x);
-      const dy = Math.abs(e.clientY - longPressStartPos.y);
-      if (dx > 10 || dy > 10) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-    }
-  }, { passive: true });
-
-  canvas.addEventListener('pointerup', (e) => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-  }, { passive: true });
-
-  canvas.addEventListener('pointercancel', (e) => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-  }, { passive: true });
-
-  // Оптимизация scroll на мобильных
-  if (isMobileDevice()) {
-    document.body.style.overscrollBehavior = 'none';
-    document.body.style.touchAction = 'pan-x pan-y';
-  }
-
-  // Debug информация для тестирования
-  const debugInfo = {
-    userAgent: navigator.userAgent,
-    isMobile: isMobileDevice(),
-    screenWidth: window.innerWidth,
-    screenHeight: window.innerHeight,
-    devicePixelRatio: window.devicePixelRatio,
-    touchSupport: 'ontouchstart' in window,
-    pointerSupport: 'PointerEvent' in window,
-    orientation: screen.orientation?.type || 'unknown'
-  };
-
-  console.log('📱 Мобильная адаптация активирована:', debugInfo);
-
-  // Добавить индикатор для отладки (показывается только на мобильных)
-  if (isMobileDevice() && window.location.search.includes('debug')) {
-    const debugPanel = document.createElement('div');
-    debugPanel.style.cssText = `
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.8);
-      color: #0f0;
-      padding: 10px;
-      font-size: 10px;
-      font-family: monospace;
-      z-index: 10000;
-      border-radius: 8px;
-      max-width: 200px;
-      pointer-events: none;
-    `;
-    debugPanel.innerHTML = `
-      <div>Device: ${/iPhone|iPad|iPod/.test(navigator.userAgent) ? 'iOS' : 'Android'}</div>
-      <div>Screen: ${window.innerWidth}x${window.innerHeight}</div>
-      <div>DPR: ${window.devicePixelRatio}</div>
-      <div id="touch-info">Touches: 0</div>
-    `;
-    document.body.appendChild(debugPanel);
-
-    // Отслеживание касаний
-    let touchCount = 0;
-    document.addEventListener('pointerdown', () => {
-      touchCount++;
-      const info = document.getElementById('touch-info');
-      if (info) info.textContent = `Touches: ${touchCount}`;
-    });
-  }
-
-// ============== КОНЕЦ МОБИЛЬНЫХ УЛУЧШЕНИЙ ==============
 
 });
 
