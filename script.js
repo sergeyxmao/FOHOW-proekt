@@ -4144,6 +4144,130 @@ async function processPrint(exportType) {
 }
 // ============== КОНЕЦ НОВОГО БЛОКА ДЛЯ ПЕЧАТИ ==============
 
+// ============== МОБИЛЬНЫЕ УЛУЧШЕНИЯ ==============
+
+  // Определение мобильного устройства
+  function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
+  }
+
+  // Автоматическое сворачивание панелей на маленьких экранах
+  function autoCollapsePanelsOnMobile() {
+    if (window.innerWidth <= 768) {
+      if (rightPanel && !rightPanel.classList.contains('collapsed')) {
+        rightPanel.classList.add('collapsed');
+        if (rightPanelToggle) {
+          rightPanelToggle.textContent = '❮';
+          rightPanelToggle.setAttribute('aria-expanded', 'false');
+        }
+      }
+    }
+  }
+
+  // Улучшение производительности на мобильных устройствах
+  if (isMobileDevice()) {
+    // Уменьшение частоты обновления при перемещении
+    let rafId = null;
+    const originalUpdateCanvasTransform = updateCanvasTransform;
+    updateCanvasTransform = function() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        originalUpdateCanvasTransform();
+        rafId = null;
+      });
+    };
+
+    // Автосворачивание панелей при загрузке
+    autoCollapsePanelsOnMobile();
+  }
+
+  // Обработка изменения ориентации
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      if (isMobileDevice()) {
+        autoCollapsePanelsOnMobile();
+      }
+      updateCanvasTransform();
+    }, 100);
+  });
+
+  // Обработка изменения размера окна
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      if (isMobileDevice()) {
+        autoCollapsePanelsOnMobile();
+      }
+    }, 250);
+  });
+
+  // Улучшенная обработка долгого нажатия для мобильных
+  let longPressTimer = null;
+  let longPressTriggered = false;
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+
+    longPressTriggered = false;
+    const target = e.target.closest('.card');
+
+    if (target) {
+      longPressTimer = setTimeout(() => {
+        longPressTriggered = true;
+        // Создаем искусственное событие contextmenu
+        const contextEvent = new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: e.clientX,
+          clientY: e.clientY
+        });
+        target.dispatchEvent(contextEvent);
+      }, 500); // 500ms для долгого нажатия
+    }
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  });
+
+  canvas.addEventListener('pointerup', (e) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  });
+
+  canvas.addEventListener('pointercancel', (e) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  });
+
+  // Предотвращение случайных zooms на iOS при двойном тапе
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+      e.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+
+  // Оптимизация scroll на мобильных
+  if (isMobileDevice()) {
+    document.body.style.overscrollBehavior = 'none';
+  }
+
+  console.log('Мобильная адаптация активирована:', isMobileDevice());
+
+// ============== КОНЕЦ МОБИЛЬНЫХ УЛУЧШЕНИЙ ==============
+
 });
 
 
