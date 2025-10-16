@@ -1169,6 +1169,30 @@ button {
   min-height: 44px;
 }
 
+/* Исправление для Android браузеров */
+#canvas {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.card {
+  touch-action: none;
+}
+
+.card-header {
+  touch-action: none;
+}
+
+/* Улучшение производительности на Android */
+.card,
+.ui-btn,
+.add-btn {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+}
+
 /* Адаптация для планшетов */
 @media (max-width: 1024px) {
   :root {
@@ -1202,6 +1226,15 @@ button {
 
   body {
     font-size: 14px;
+    /* Улучшение для Android Chrome */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Запрет pull-to-refresh на Android */
+  html,
+  body {
+    overscroll-behavior-y: contain;
   }
 
   /* Панели управления */

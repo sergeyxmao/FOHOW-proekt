@@ -4206,65 +4206,113 @@ async function processPrint(exportType) {
   // Улучшенная обработка долгого нажатия для мобильных
   let longPressTimer = null;
   let longPressTriggered = false;
+  let longPressStartPos = { x: 0, y: 0 };
 
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;
 
-    longPressTriggered = false;
-    const target = e.target.closest('.card');
+    const target = e.target.closest('.card-header');
+    if (!target) return;
 
-    if (target) {
-      longPressTimer = setTimeout(() => {
-        longPressTriggered = true;
-        // Создаем искусственное событие contextmenu
-        const contextEvent = new MouseEvent('contextmenu', {
-          bubbles: true,
-          cancelable: true,
-          clientX: e.clientX,
-          clientY: e.clientY
-        });
-        target.dispatchEvent(contextEvent);
-      }, 500); // 500ms для долгого нажатия
-    }
-  });
+    longPressTriggered = false;
+    longPressStartPos = { x: e.clientX, y: e.clientY };
+
+    longPressTimer = setTimeout(() => {
+      longPressTriggered = true;
+      // Вибрация при долгом нажатии (если поддерживается)
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      // Создаем искусственное событие contextmenu
+      const contextEvent = new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: e.clientX,
+        clientY: e.clientY
+      });
+      target.dispatchEvent(contextEvent);
+    }, 600); // 600ms для долгого нажатия
+  }, { passive: true });
 
   canvas.addEventListener('pointermove', (e) => {
     if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
+      // Отменить долгое нажатие если палец сдвинулся более чем на 10px
+      const dx = Math.abs(e.clientX - longPressStartPos.x);
+      const dy = Math.abs(e.clientY - longPressStartPos.y);
+      if (dx > 10 || dy > 10) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
     }
-  });
+  }, { passive: true });
 
   canvas.addEventListener('pointerup', (e) => {
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       longPressTimer = null;
     }
-  });
+  }, { passive: true });
 
   canvas.addEventListener('pointercancel', (e) => {
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       longPressTimer = null;
     }
-  });
-
-  // Предотвращение случайных zooms на iOS при двойном тапе
-  let lastTouchEnd = 0;
-  document.addEventListener('touchend', (e) => {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 300) {
-      e.preventDefault();
-    }
-    lastTouchEnd = now;
-  }, { passive: false });
+  }, { passive: true });
 
   // Оптимизация scroll на мобильных
   if (isMobileDevice()) {
     document.body.style.overscrollBehavior = 'none';
+    document.body.style.touchAction = 'pan-x pan-y';
   }
 
-  console.log('Мобильная адаптация активирована:', isMobileDevice());
+  // Debug информация для тестирования
+  const debugInfo = {
+    userAgent: navigator.userAgent,
+    isMobile: isMobileDevice(),
+    screenWidth: window.innerWidth,
+    screenHeight: window.innerHeight,
+    devicePixelRatio: window.devicePixelRatio,
+    touchSupport: 'ontouchstart' in window,
+    pointerSupport: 'PointerEvent' in window,
+    orientation: screen.orientation?.type || 'unknown'
+  };
+
+  console.log('📱 Мобильная адаптация активирована:', debugInfo);
+
+  // Добавить индикатор для отладки (показывается только на мобильных)
+  if (isMobileDevice() && window.location.search.includes('debug')) {
+    const debugPanel = document.createElement('div');
+    debugPanel.style.cssText = `
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.8);
+      color: #0f0;
+      padding: 10px;
+      font-size: 10px;
+      font-family: monospace;
+      z-index: 10000;
+      border-radius: 8px;
+      max-width: 200px;
+      pointer-events: none;
+    `;
+    debugPanel.innerHTML = `
+      <div>Device: ${/iPhone|iPad|iPod/.test(navigator.userAgent) ? 'iOS' : 'Android'}</div>
+      <div>Screen: ${window.innerWidth}x${window.innerHeight}</div>
+      <div>DPR: ${window.devicePixelRatio}</div>
+      <div id="touch-info">Touches: 0</div>
+    `;
+    document.body.appendChild(debugPanel);
+
+    // Отслеживание касаний
+    let touchCount = 0;
+    document.addEventListener('pointerdown', () => {
+      touchCount++;
+      const info = document.getElementById('touch-info');
+      if (info) info.textContent = `Touches: ${touchCount}`;
+    });
+  }
 
 // ============== КОНЕЦ МОБИЛЬНЫХ УЛУЧШЕНИЙ ==============
 
