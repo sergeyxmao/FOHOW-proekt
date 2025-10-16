@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const distance = Math.hypot(second.x - first.x, second.y - first.y);
       if (distance > 0) {
         const prevScale = canvasState.scale;
-        const newScale = Math.max(0.1, Math.min(3, pinchState.initialScale * (distance / pinchState.initialDistance)));
+        const newScale = Math.max(0.05, Math.min(5, pinchState.initialScale * (distance / pinchState.initialDistance)));
         const ratio = newScale / prevScale;
         canvasState.x = midX - (midX - canvasState.x) * ratio;
         canvasState.y = midY - (midY - canvasState.y) * ratio;
@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target.closest('.ui-panel-left') || e.target.closest('.ui-panel-right')) return;
       e.preventDefault();
       const scaleAmount = -e.deltaY * 0.001;
-      const newScale = Math.max(0.1, Math.min(3, canvasState.scale + scaleAmount));
+      const newScale = Math.max(0.05, Math.min(5, canvasState.scale + scaleAmount));
       const mouseX = e.clientX, mouseY = e.clientY;
       canvasState.x = mouseX - (mouseX - canvasState.x) * (newScale / canvasState.scale);
       canvasState.y = mouseY - (mouseY - canvasState.y) * (newScale / canvasState.scale);
@@ -1026,14 +1026,22 @@ document.addEventListener('DOMContentLoaded', () => {
         try { element.setPointerCapture(pointerId); } catch (_) { /* noop */ }
       }
 
+      let rafIdDrag = null;
       const onPointerMove = (e2) => {
         if (e2.pointerId !== pointerId) return;
-        let dx_canvas = (e2.clientX - startPointerX) / canvasState.scale;
-        let dy_canvas = (e2.clientY - startPointerY) / canvasState.scale;
-        const dx_viewport = e2.clientX - startPointerX;
-        const dy_viewport = e2.clientY - startPointerY;
 
-        if (activeState.guidesEnabled) {
+        // Оптимизация через RAF для плавности
+        if (rafIdDrag) return;
+
+        rafIdDrag = requestAnimationFrame(() => {
+          rafIdDrag = null;
+
+          let dx_canvas = (e2.clientX - startPointerX) / canvasState.scale;
+          let dy_canvas = (e2.clientY - startPointerY) / canvasState.scale;
+          const dx_viewport = e2.clientX - startPointerX;
+          const dy_viewport = e2.clientY - startPointerY;
+
+          if (activeState.guidesEnabled) {
           let snapX = null, snapY = null;
           const draggedBounds = {
             left:   Math.min(...draggedCards.map(d => d.startX + dx_canvas)),
@@ -1076,6 +1084,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dragged.card.note.window.style.top  = `${dragged.noteStartY + dy_viewport}px`;
           }
         });
+        }); // Закрытие requestAnimationFrame
       };
 
       const finishDrag = (e2) => {
@@ -4165,20 +4174,8 @@ async function processPrint(exportType) {
     }
   }
 
-  // Улучшение производительности на мобильных устройствах
+  // Автосворачивание панелей на мобильных
   if (isMobileDevice()) {
-    // Уменьшение частоты обновления при перемещении
-    let rafId = null;
-    const originalUpdateCanvasTransform = updateCanvasTransform;
-    updateCanvasTransform = function() {
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        originalUpdateCanvasTransform();
-        rafId = null;
-      });
-    };
-
-    // Автосворачивание панелей при загрузке
     autoCollapsePanelsOnMobile();
   }
 

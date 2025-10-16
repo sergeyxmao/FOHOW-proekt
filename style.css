@@ -1220,7 +1220,7 @@ button {
 /* Адаптация для мобильных устройств */
 @media (max-width: 768px) {
   :root {
-    --card-width: 280px;
+    --card-width: 340px;
     --radius: 12px;
   }
 
@@ -1271,19 +1271,46 @@ button {
     font-size: 16px;
   }
 
-  /* Карточки */
+  /* Карточки - увеличены размеры */
   .card {
-    font-size: 13px;
-    min-width: 240px;
+    font-size: 14px;
+    min-width: 300px;
   }
 
   .card-header {
-    padding: 10px 12px;
-    font-size: 13px;
+    padding: 12px 14px;
+    padding-right: 48px; /* Место для кнопки закрытия */
+    font-size: 14px;
+    height: auto;
+    min-height: 52px;
+  }
+
+  .card-title {
+    font-size: 18px;
   }
 
   .card-body {
-    padding: 10px 12px;
+    padding: 14px;
+  }
+
+  .card-close-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 20px;
+  }
+
+  /* Увеличить кнопки управления в карточке */
+  .card-control-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
+
+  /* Маркеры линий увеличены */
+  .connection-point {
+    width: 20px;
+    height: 20px;
+    border-width: 4px;
   }
 
   /* Контекстное меню */
@@ -1344,7 +1371,7 @@ button {
 /* Адаптация для очень маленьких экранов */
 @media (max-width: 480px) {
   :root {
-    --card-width: 260px;
+    --card-width: 300px;
   }
 
   .ui-panel-left {
@@ -1359,7 +1386,7 @@ button {
   }
 
   .card {
-    min-width: 220px;
+    min-width: 280px;
   }
 
   /* Автоматически сворачивать правую панель */
