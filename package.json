@@ -3,16 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@9",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=20.19.0"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/*.spec.js",
-    "deploy": "npm run build && cd dist && git init && git branch -M gh-pages && git add . && git commit -m \"Deploy to GitHub Pages\" && git remote add origin https://github.com/sergeyxmao/FOHOW-proekt-v3.git && git push -f origin gh-pages",
-    "deploy:windows": "deploy.bat"
+    "test": "node --test tests/*.spec.js"
   },
   "dependencies": {
     "@vueuse/core": "^13.9.0",
